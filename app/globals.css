@@ -1,26 +1,267 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+
+/* PP NeueBit - Walrus Brand Font for Headers */
+/* Note: PP NeueBit is a commercial font. Font files should be placed in /public/fonts/ */
+/* For now using system fallback. License from: https://pangrampangram.com/products/neue-bit */
+@font-face {
+  font-family: 'PP NeueBit';
+  src: url('/fonts/PPNeueBit-Bold.woff2') format('woff2'),
+       url('/fonts/PPNeueBit-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Walrus Primary Colors */
+  --walrus-mint: #97F0E5;
+  --walrus-grape: #C584F6;
+  --walrus-black: #000000;
+  --walrus-white: #F7F7F7;
+
+  /* Walrus Mint Tints */
+  --mint-900: #089280;
+  --mint-800: #37C5B3;
+  --mint-700: #97F0E5;
+  --mint-600: #CBFAF4;
+  --mint-500: #EAFCFA;
+
+  /* Walrus Grape Tints */
+  --grape-900: #420892;
+  --grape-800: #A56FF1;
+  --grape-700: #C584F6;
+  --grape-600: #D8ADFA;
+  --grape-500: #E9CCFF;
+
+  /* Walrus Secondary Colors */
+  --lime: #8CF28A;
+  --guava: #F946AC;
+  --blueberry: #613DFF;
+  --banana: #F9D546;
+  --pears: #F6CE9E;
+  --mandarin: #F97946;
+  --almond: #4A3B2B;
+
+  /* UI Colors - Dark Theme */
+  --background: #000000;
+  --foreground: #F7F7F7;
+  --background-elevated: #0F0F0F;
+  --background-hover: #1A1A1A;
+  --border: #2A2A2A;
+  --border-light: #1A1A1A;
+  --grid-dark: #2A2A2A;
+  --text-muted: #9CA3AF;
 }
 
 @theme inline {
+  /* Primary Colors */
+  --color-walrus-mint: var(--walrus-mint);
+  --color-walrus-grape: var(--walrus-grape);
+  --color-walrus-black: var(--walrus-black);
+  --color-walrus-white: var(--walrus-white);
+
+  /* Mint Shades */
+  --color-mint-900: var(--mint-900);
+  --color-mint-800: var(--mint-800);
+  --color-mint-700: var(--mint-700);
+  --color-mint-600: var(--mint-600);
+  --color-mint-500: var(--mint-500);
+
+  /* Grape Shades */
+  --color-grape-900: var(--grape-900);
+  --color-grape-800: var(--grape-800);
+  --color-grape-700: var(--grape-700);
+  --color-grape-600: var(--grape-600);
+  --color-grape-500: var(--grape-500);
+
+  /* Secondary Colors */
+  --color-lime: var(--lime);
+  --color-guava: var(--guava);
+  --color-blueberry: var(--blueberry);
+  --color-banana: var(--banana);
+  --color-pears: var(--pears);
+  --color-mandarin: var(--mandarin);
+  --color-almond: var(--almond);
+
+  /* Base Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-background-elevated: var(--background-elevated);
+  --color-background-hover: var(--background-hover);
+  --color-border: var(--border);
+  --color-border-light: var(--border-light);
+  --color-grid-dark: var(--grid-dark);
+  --color-text-muted: var(--text-muted);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Fonts - Per Walrus Brand Guidelines */
+  --font-sans: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-display: 'PP NeueBit', 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-heading: 'PP NeueBit', 'Inter Tight', system-ui, -apple-system, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography - Walrus Brand Guidelines */
+.heading-walrus {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.65;
+  letter-spacing: -0.02em;
+}
+
+.heading-walrus-large {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.60;
+  letter-spacing: -0.02em;
+  font-size: 3.5rem; /* 56px */
+}
+
+.heading-walrus-medium {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.65;
+  letter-spacing: -0.02em;
+  font-size: 2.5rem; /* 40px */
+}
+
+.heading-walrus-small {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 0.65;
+  letter-spacing: -0.02em;
+  font-size: 1.5rem; /* 24px */
+}
+
+/* Utility Classes */
+.text-walrus-mint { color: var(--walrus-mint); }
+.text-walrus-grape { color: var(--walrus-grape); }
+.bg-walrus-mint { background-color: var(--walrus-mint); }
+.bg-walrus-grape { background-color: var(--walrus-grape); }
+.bg-walrus-black { background-color: var(--walrus-black); }
+.bg-walrus-white { background-color: var(--walrus-white); }
+
+/* Hover State Utilities - Using Official Tint Scales */
+.hover-mint-light:hover { background-color: var(--mint-600); }
+.hover-mint:hover { background-color: var(--mint-700); }
+.hover-mint-dark:hover { background-color: var(--mint-800); }
+
+.hover-grape-light:hover { background-color: var(--grape-600); }
+.hover-grape:hover { background-color: var(--grape-700); }
+.hover-grape-dark:hover { background-color: var(--grape-800); }
+
+/* Text hover utilities */
+.hover-text-mint:hover { color: var(--mint-700); }
+.hover-text-grape:hover { color: var(--grape-700); }
+
+/* Border hover utilities */
+.hover-border-mint:hover { border-color: var(--mint-700); }
+.hover-border-grape:hover { border-color: var(--grape-700); }
+
+/* Border radius for pixelated look */
+.rounded-walrus { border-radius: 4px; }
+
+/* Animations - Custom Hero Effects */
+@keyframes gradient-x {
+  0%, 100% {
+    background-size: 200% 200%;
+    background-position: left center;
+  }
+  50% {
+    background-size: 200% 200%;
+    background-position: right center;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-gradient-x {
+  animation: gradient-x 8s ease infinite;
+  background-size: 200% 200%;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 1s ease-out;
+}
+
+/* Grid Pattern Backgrounds - Walrus Brand Guidelines */
+
+/* Grid on dark background - Stroke: #3B3D48 / 100% */
+.bg-grid-dark {
+  background-image:
+    linear-gradient(to right, #3B3D48 1px, transparent 1px),
+    linear-gradient(to bottom, #3B3D48 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Grid on light background - Stroke: #DDDEE4 / 100% */
+.bg-grid-light {
+  background-image:
+    linear-gradient(to right, #DDDEE4 1px, transparent 1px),
+    linear-gradient(to bottom, #DDDEE4 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Grid on color backgrounds - Stroke: #0C0F1D / 20% */
+.bg-grid-on-color {
+  background-image:
+    linear-gradient(to right, rgba(12, 15, 29, 0.2) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(12, 15, 29, 0.2) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Subtle grid for sections - matches existing */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, #3B3D48 1px, transparent 1px),
+    linear-gradient(to bottom, #3B3D48 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Finer grid for detailed sections */
+.bg-grid-fine {
+  background-image:
+    linear-gradient(to right, rgba(59, 61, 72, 0.3) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 61, 72, 0.3) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Dimensional grid effect - adds depth */
+.bg-grid-3d {
+  background-image:
+    linear-gradient(135deg, #3B3D48 1px, transparent 1px),
+    linear-gradient(45deg, rgba(59, 61, 72, 0.5) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px;
+  background-position: 0 0, 20px 20px;
+}
+
+/* Card styles for dark theme */
+.card-elevated {
+  background: var(--background-elevated);
+  border: 1px solid var(--border-light);
+}
+
+.card-elevated:hover {
+  background: var(--background-hover);
+  border-color: var(--border);
 }

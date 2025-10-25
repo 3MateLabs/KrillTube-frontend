@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Asset {
+  id        String          @id @default(cuid())
+  creatorId String          @map("creator_id")
+  title     String
+  status    String          @default("uploading")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  revisions AssetRevision[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("assets")
+}
+
+model AssetRevision {
+  id            String   @id @default(cuid())
+  assetId       String   @map("asset_id")
+  manifestJson  Json     @map("manifest_json")
+  walrusRootUri String   @map("walrus_root_uri")
+  createdAt     DateTime @default(now()) @map("created_at")
+  asset         Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@map("asset_revisions")
+}
+
+// ============================================================================
+// V2 Encrypted Video Models
+// ============================================================================
+
+model Video {
+  id              String   @id @default(cuid())
+  creatorId       String   @map("creator_id")
+  title           String
+  walrusMasterUri String   @map("walrus_master_uri")
+  posterWalrusUri String?  @map("poster_walrus_uri")
+  rootSecretEnc   Bytes    @map("root_secret_enc") // KMS-encrypted root secret
+  duration        Float?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  renditions VideoRendition[]
+  sessions   PlaybackSession[]
+
+  @@index([creatorId])
+  @@map("videos")
+}
+
+model VideoRendition {
+  id                String   @id @default(cuid())
+  videoId           String   @map("video_id")
+  name              String   // "720p", "480p", "360p"
+  walrusPlaylistUri String   @map("walrus_playlist_uri")
+  resolution        String   // "1280x720"
+  bitrate           Int
+
+  video    Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  segments VideoSegment[]
+
+  @@unique([videoId, name])
+  @@map("video_renditions")
+}
+
+model VideoSegment {
+  id          String   @id @default(cuid())
+  renditionId String   @map("rendition_id")
+  segIdx      Int      @map("seg_idx")
+  walrusUri   String   @map("walrus_uri") // Encrypted segment blob
+  iv          Bytes    // 12-byte IV for AES-GCM
+  duration    Float
+  size        Int
+
+  rendition VideoRendition @relation(fields: [renditionId], references: [id], onDelete: Cascade)
+
+  @@unique([renditionId, segIdx])
+  @@index([renditionId])
+  @@map("video_segments")
+}
+
+model PlaybackSession {
+  id            String   @id @default(cuid())
+  cookieValue   String   @unique @map("cookie_value") // Opaque token
+  videoId       String   @map("video_id")
+  clientPubKey  Bytes    @map("client_pub_key")   // X25519 public
+  serverPubKey  Bytes    @map("server_pub_key")   // X25519 public
+  serverPrivJwk String   @map("server_priv_jwk")  // X25519 private key as JWK (JSON string)
+  serverNonce   Bytes    @map("server_nonce")     // 12 bytes
+  deviceHash    String?  @map("device_hash")
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  lastActivity  DateTime @default(now()) @map("last_activity")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([cookieValue])
+  @@index([videoId])
+  @@index([expiresAt])
+  @@map("playback_sessions")
+}
+
+model PlaybackLog {
+  id         String   @id @default(cuid())
+  sessionId  String   @map("session_id")
+  videoId    String   @map("video_id")
+  segIdx     Int      @map("seg_idx")
+  rendition  String
+  timestamp  DateTime @default(now())
+  ip         String?
+  userAgent  String?  @map("user_agent")
+
+  @@index([sessionId])
+  @@index([videoId])
+  @@index([timestamp])
+  @@map("playback_logs")
+}

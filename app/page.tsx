@@ -1,65 +1,97 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { VideoCard } from '@/components/VideoCard';
+import { WalrusBadgeAnimated } from '@/components/WalrusBadge';
+
+interface Asset {
+  id: string;
+  title: string;
+  creatorId: string;
+  status: string;
+  createdAt: string;
+  posterUrl?: string;
+  latestRevision?: any;
+}
 
 export default function Home() {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const response = await fetch('/api/v1/assets?limit=12');
+        if (response.ok) {
+          const data = await response.json();
+          setAssets(data.assets || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch assets:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssets();
+  }, []);
+
+  // Featured videos (first 2)
+  const featuredVideos = assets.slice(0, 2);
+  const recentVideos = assets.slice(2);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-background">
+      {/* Video Grid */}
+      {assets.length > 0 ? (
+        <div className="max-w-[1400px] mx-auto px-6 py-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-10">
+            {assets.map((asset) => (
+              <VideoCard
+                key={asset.id}
+                id={asset.id}
+                title={asset.title}
+                thumbnail={asset.posterUrl}
+                creator={`${asset.creatorId.slice(0, 6)}...${asset.creatorId.slice(-4)}`}
+                uploadedAt={asset.createdAt}
+                variant="default"
+              />
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      ) : null}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="max-w-7xl mx-auto px-6 py-24 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-foreground border-t-transparent"></div>
+          <p className="text-text-muted mt-4">Loading videos...</p>
         </div>
-      </main>
+      )}
+
+      {/* Empty State */}
+      {!loading && assets.length === 0 && (
+        <div className="flex items-center justify-center min-h-[70vh]">
+          <div className="text-center max-w-md mx-auto px-6">
+            <svg className="w-24 h-24 text-text-muted/40 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <h3 className="text-xl font-semibold text-foreground mb-2">
+              No videos yet
+            </h3>
+            <p className="text-text-muted mb-6 text-sm">
+              Be the first to upload a video to Walrus
+            </p>
+            <Link
+              href="/upload"
+              className="inline-block px-6 py-3 bg-walrus-mint text-walrus-black rounded-lg text-sm font-medium hover:bg-mint-800 transition-colors"
+            >
+              Upload Video
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
