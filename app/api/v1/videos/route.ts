@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { walrusClient } from '@/lib/walrus';
-import type { EncryptedTranscodeResult } from '@/lib/server/encryptor';
+import { getEncryptedResult, clearEncryptedResult } from '@/lib/server/encryptedResultCache';
 import { readFile } from 'fs/promises';
 
 /**
@@ -25,24 +25,32 @@ export async function POST(request: NextRequest) {
     const {
       videoId,
       title,
-      encryptedResult,
       creatorId,
     }: {
       videoId: string;
       title: string;
-      encryptedResult: EncryptedTranscodeResult;
       creatorId: string;
     } = body;
 
-    if (!videoId || !title || !encryptedResult || !creatorId) {
+    if (!videoId || !title || !creatorId) {
       return NextResponse.json(
-        { error: 'Missing required fields: videoId, title, encryptedResult, creatorId' },
+        { error: 'Missing required fields: videoId, title, creatorId' },
         { status: 400 }
       );
     }
 
     console.log(`[API Videos] Registering encrypted video: ${videoId}`);
     console.log(`[API Videos] Title: ${title}`);
+
+    // Retrieve full encrypted result from cache
+    const encryptedResult = getEncryptedResult(videoId);
+    if (!encryptedResult) {
+      return NextResponse.json(
+        { error: 'Encrypted result not found. Please transcode the video first.' },
+        { status: 404 }
+      );
+    }
+
     console.log(`[API Videos] Renditions: ${encryptedResult.renditions.length}`);
 
     // Step 1: Upload encrypted segments to Walrus using quilts
@@ -110,6 +118,7 @@ export async function POST(request: NextRequest) {
 
     // Upload all files as a quilt to Walrus
     console.log(`[API Videos] Uploading ${fileMap.size} encrypted files to Walrus...`);
+    console.log(`[API Videos] File identifiers:`, Array.from(fileMap.keys()));
     const publisherUrl = walrusClient['publisherUrl'];
     const aggregatorUrl = walrusClient['aggregatorUrl'];
 
@@ -134,6 +143,7 @@ export async function POST(request: NextRequest) {
     console.log(
       `[API Videos] ✓ Uploaded ${quiltResult.storedQuiltBlobs.length} files to Walrus`
     );
+    console.log(`[API Videos] Returned identifiers:`, quiltResult.storedQuiltBlobs.map(b => b.identifier));
 
     // Step 2: Map quilt patch IDs to files
     const patchIdMap = new Map<string, string>();
@@ -163,10 +173,13 @@ export async function POST(request: NextRequest) {
       // Add init segment if present
       if (rendition.initSegment) {
         const initPatchId = patchIdMap.get(`${rendition.quality}_init`);
-        if (initPatchId) {
-          const initUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${initPatchId}`;
-          playlistContent += `#EXT-X-MAP:URI="${initUri}"\n`;
+        if (!initPatchId) {
+          console.error(`[API Videos] Missing init patch ID for ${rendition.quality} in playlist`);
+          console.error(`[API Videos] Available patch IDs:`, Array.from(patchIdMap.keys()));
+          throw new Error(`Missing Walrus patch ID for init segment: ${rendition.quality}_init`);
         }
+        const initUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${initPatchId}`;
+        playlistContent += `#EXT-X-MAP:URI="${initUri}"\n`;
       }
 
       // Add media segments
@@ -286,26 +299,49 @@ export async function POST(request: NextRequest) {
             const playlistPatchId = playlistPatchIdMap.get(`${rendition.quality}_playlist`);
             const playlistUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${playlistPatchId}`;
 
+            // Build segments array with init segment (-1) and media segments
+            const segmentsToCreate = [];
+
+            // Add init segment if present
+            if (rendition.initSegment) {
+              const initPatchId = patchIdMap.get(`${rendition.quality}_init`);
+              if (!initPatchId) {
+                console.error(`[API Videos] Missing init patch ID for ${rendition.quality}`);
+                console.error(`[API Videos] Available patch IDs:`, Array.from(patchIdMap.keys()));
+                throw new Error(`Missing Walrus patch ID for init segment: ${rendition.quality}_init`);
+              }
+              const initUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${initPatchId}`;
+              segmentsToCreate.push({
+                segIdx: -1, // Init segments use -1
+                walrusUri: initUri,
+                iv: rendition.initSegment.iv,
+                duration: 0, // Init segments have no duration
+                size: rendition.initSegment.encryptedSize,
+              });
+            }
+
+            // Add media segments
+            for (const segment of rendition.segments) {
+              const segPatchId = patchIdMap.get(
+                `${rendition.quality}_seg_${segment.segIdx}`
+              );
+              const segUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${segPatchId}`;
+              segmentsToCreate.push({
+                segIdx: segment.segIdx,
+                walrusUri: segUri,
+                iv: segment.iv,
+                duration: 4.0, // TODO: Get actual duration from transcoder
+                size: segment.encryptedSize,
+              });
+            }
+
             return {
               name: rendition.quality,
               resolution: rendition.resolution,
               bitrate: rendition.bitrate,
               walrusPlaylistUri: playlistUri,
               segments: {
-                create: rendition.segments.map((segment) => {
-                  const segPatchId = patchIdMap.get(
-                    `${rendition.quality}_seg_${segment.segIdx}`
-                  );
-                  const segUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${segPatchId}`;
-
-                  return {
-                    segIdx: segment.segIdx,
-                    walrusUri: segUri,
-                    iv: segment.iv,
-                    duration: 4.0, // TODO: Get actual duration from transcoder
-                    size: segment.encryptedSize,
-                  };
-                }),
+                create: segmentsToCreate,
               },
             };
           }),
@@ -321,6 +357,9 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[API Videos] ✓ Video registered: ${video.id}`);
+
+    // Clear the cached encrypted result
+    clearEncryptedResult(videoId);
 
     return NextResponse.json({
       success: true,
@@ -395,6 +434,7 @@ export async function GET(request: NextRequest) {
       videos: videos.map((video) => ({
         id: video.id,
         title: video.title,
+        creatorId: video.creatorId,
         walrusMasterUri: video.walrusMasterUri,
         posterWalrusUri: video.posterWalrusUri,
         duration: video.duration,

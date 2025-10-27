@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# uploads and transcoded videos (large files)
+/public/uploads/
+/public/transcoded/

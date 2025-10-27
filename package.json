@@ -6,7 +6,15 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:crypto": "vitest run tests/crypto",
+    "test:integration": "vitest run tests/integration",
+    "clear-db": "tsx scripts/clear-db.ts",
+    "get-blob-ids": "tsx scripts/get-blob-ids.ts"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -27,12 +35,18 @@
     "@tailwindcss/postcss": "^4",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@types/hls.js": "^0.13.3",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/ui": "^4.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.0.0",
+    "happy-dom": "^20.0.8",
+    "jsdom": "^27.0.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.20.6",
+    "typescript": "^5",
+    "vitest": "^4.0.3"
   }
 }

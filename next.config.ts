@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
         pathname: '/v1/blobs/**',
       },
     ],
+    // Increase timeout for slow Walrus responses
+    minimumCacheTTL: 60,
+    // Allow unoptimized images from Walrus (handled in components)
+    unoptimized: false,
   },
 };
 

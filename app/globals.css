@@ -16,6 +16,7 @@
 :root {
   /* Walrus Primary Colors */
   --walrus-mint: #97F0E5;
+  --walrus-mint-rgb: 151, 240, 229; /* RGB for gradient */
   --walrus-grape: #C584F6;
   --walrus-black: #000000;
   --walrus-white: #F7F7F7;

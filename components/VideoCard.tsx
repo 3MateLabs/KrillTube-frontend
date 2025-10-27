@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 import { WalrusBadgeInline } from './WalrusBadge';
 
 interface VideoCardProps {
@@ -27,6 +28,7 @@ export function VideoCard({
   variant = 'default',
   accentColor,
 }: VideoCardProps) {
+  const [imageError, setImageError] = useState(false);
   const formattedViews = views ? formatViews(views) : '0 views';
   const formattedDate = uploadedAt ? formatDate(uploadedAt) : 'Just now';
 
@@ -38,13 +40,15 @@ export function VideoCard({
         style={accentColor ? { backgroundImage: `linear-gradient(135deg, ${accentColor}, ${accentColor}dd)` } : undefined}
       >
         {/* Thumbnail */}
-        {thumbnail && (
+        {thumbnail && !imageError && (
           <div className="absolute inset-0 opacity-40 group-hover:opacity-50 transition-opacity">
             <Image
               src={thumbnail}
               alt={title}
               fill
               className="object-cover"
+              unoptimized
+              onError={() => setImageError(true)}
             />
           </div>
         )}
@@ -98,12 +102,14 @@ export function VideoCard({
       >
         {/* Thumbnail */}
         <div className="relative flex-shrink-0 w-40 aspect-video bg-background-elevated rounded overflow-hidden">
-          {thumbnail ? (
+          {thumbnail && !imageError ? (
             <Image
               src={thumbnail}
               alt={title}
               fill
               className="object-cover group-hover:scale-105 transition-transform"
+              unoptimized
+              onError={() => setImageError(true)}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-walrus-mint to-walrus-grape">
@@ -145,12 +151,14 @@ export function VideoCard({
     >
       {/* Thumbnail */}
       <div className="relative aspect-video bg-background-elevated rounded-xl overflow-hidden mb-3">
-        {thumbnail ? (
+        {thumbnail && !imageError ? (
           <Image
             src={thumbnail}
             alt={title}
             fill
             className="object-cover"
+            unoptimized
+            onError={() => setImageError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">

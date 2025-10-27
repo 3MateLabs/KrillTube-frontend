@@ -8,6 +8,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { videoTranscoder } from '@/lib/transcoder';
 import { encryptTranscodeResult, calculateEncryptionStats } from '@/lib/server/encryptor';
+import { cacheEncryptedResult } from '@/lib/server/encryptedResultCache';
 import type { RenditionQuality } from '@/lib/types';
 import { generateAssetId } from '@/lib/types';
 
@@ -61,6 +62,9 @@ export async function POST(request: NextRequest) {
     console.log(`[API] Starting encryption for video ${videoId}`);
 
     const encryptedResult = await encryptTranscodeResult(transcodeResult, videoId);
+
+    // Cache the full encrypted result for later upload
+    cacheEncryptedResult(videoId, encryptedResult);
 
     // Calculate encryption statistics
     const stats = calculateEncryptionStats(encryptedResult);

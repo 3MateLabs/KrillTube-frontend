@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
 import { SessionManager } from './sessionManager';
 import { createDecryptingLoaderClass } from './decryptingLoader';
+import { DecryptionWorkerPool } from './workerPool';
 
 export interface UseEncryptedVideoOptions {
   videoId: string;
@@ -22,7 +23,7 @@ export interface UseEncryptedVideoOptions {
 }
 
 export interface UseEncryptedVideoReturn {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   isLoading: boolean;
   isPlaying: boolean;
   error: Error | null;
@@ -32,6 +33,7 @@ export interface UseEncryptedVideoReturn {
   seek: (time: number) => void;
   setVolume: (volume: number) => void;
   destroy: () => void;
+  hlsInstance: Hls | null;
 }
 
 /**
@@ -60,6 +62,7 @@ export function useEncryptedVideo(
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const sessionManagerRef = useRef<SessionManager | null>(null);
+  const workerPoolRef = useRef<DecryptionWorkerPool | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -74,8 +77,10 @@ export function useEncryptedVideo(
 
     const initialize = async () => {
       try {
+        // Wait for video element to be ready
         if (!videoRef.current) {
-          throw new Error('Video element not ready');
+          console.log('[useEncryptedVideo] Waiting for video element...');
+          return; // Will retry on next render
         }
 
         if (!Hls.isSupported()) {
@@ -112,19 +117,52 @@ export function useEncryptedVideo(
 
         if (!mounted) return;
 
-        // Step 3: Create hls.js instance with custom decrypting loader
-        const DecryptingLoaderClass = createDecryptingLoaderClass({
+        // Step 3: Create Web Worker pool for parallel decryption (4 workers = 4 CPU cores)
+        console.log('[useEncryptedVideo] Creating worker pool...');
+        workerPoolRef.current = new DecryptionWorkerPool(4);
+        console.log('[useEncryptedVideo] ✓ Worker pool created');
+
+        // Step 4: Create hls.js instance with custom decrypting loader
+        // We'll set the HLS instance reference after creation
+        const loaderConfig: {
+          sessionManager: SessionManager;
+          workerPool: DecryptionWorkerPool;
+          maxRetries: number;
+          retryDelay: number;
+          hlsInstance?: any;
+        } = {
           sessionManager: sessionManagerRef.current,
+          workerPool: workerPoolRef.current,
           maxRetries: 3,
           retryDelay: 1000,
-        });
+        };
+
+        const DecryptingLoaderClass = createDecryptingLoaderClass(loaderConfig);
 
         hlsRef.current = new Hls({
           loader: DecryptingLoaderClass as any,
           enableWorker: true,
           lowLatencyMode: false,
+
+          // Aggressive buffering for smooth playback with decryption
+          maxBufferLength: 60,        // Buffer 60 seconds ahead
+          maxMaxBufferLength: 120,    // Maximum buffer up to 120 seconds
+          maxBufferSize: 100 * 1000 * 1000, // 100MB buffer size
+          maxBufferHole: 0.5,         // Max gap tolerance
+
+          // Back buffer (keep 90 seconds behind for seeking)
           backBufferLength: 90,
+
+          // Fragment loading optimization
+          maxFragLookUpTolerance: 0.25,
+
+          // Start loading aggressively
+          startLevel: -1,             // Auto quality selection
+          autoStartLoad: true,        // Start loading immediately
         });
+
+        // Set HLS instance reference in loader config so it can access levels
+        loaderConfig.hlsInstance = hlsRef.current;
 
         console.log('[useEncryptedVideo] ✓ Created hls.js instance');
 
@@ -140,6 +178,30 @@ export function useEncryptedVideo(
           console.log('[useEncryptedVideo] ✓ Manifest parsed');
           setIsLoading(false);
 
+          // OPTIMIZED: Aggressive prefetch keys for first 30 segments on all quality levels
+          if (sessionManagerRef.current && hlsRef.current) {
+            const levels = hlsRef.current.levels;
+            if (levels && levels.length > 0) {
+              console.log('[useEncryptedVideo] Starting aggressive key prefetch...');
+
+              // Use aggressive prefetch to load all keys upfront
+              // This eliminates ALL key fetch latency during playback
+              sessionManagerRef.current
+                .prefetchKeysAggressive(levels, 0)
+                .then(() => {
+                  console.log('[useEncryptedVideo] ✓ Aggressive prefetch completed');
+                  const stats = workerPoolRef.current?.getStats();
+                  if (stats) {
+                    console.log('[useEncryptedVideo] Worker pool stats:', stats);
+                  }
+                })
+                .catch((err) => {
+                  console.warn('[useEncryptedVideo] Aggressive prefetch failed:', err);
+                  // Continue playback even if prefetch fails
+                });
+            }
+          }
+
           if (options.onReady) {
             options.onReady();
           }
@@ -151,7 +213,7 @@ export function useEncryptedVideo(
           }
         });
 
-        hlsRef.current.on(Hls.Events.ERROR, (event, data) => {
+        hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
           console.error('[useEncryptedVideo] HLS error:', data);
 
           if (data.fatal) {
@@ -202,6 +264,11 @@ export function useEncryptedVideo(
       if (sessionManagerRef.current) {
         sessionManagerRef.current.terminate();
         sessionManagerRef.current = null;
+      }
+
+      if (workerPoolRef.current) {
+        workerPoolRef.current.destroy();
+        workerPoolRef.current = null;
       }
     };
   }, [options.videoId, options.videoUrl, options.apiBaseUrl]);
@@ -290,5 +357,6 @@ export function useEncryptedVideo(
     seek,
     setVolume,
     destroy,
+    hlsInstance: hlsRef.current,
   };
 }

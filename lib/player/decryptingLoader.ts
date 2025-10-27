@@ -13,11 +13,14 @@
 import type Hls from 'hls.js';
 import { SessionManager } from './sessionManager';
 import { aesGcmDecrypt } from '../crypto/primitives';
+import { DecryptionWorkerPool } from './workerPool';
 
 export interface DecryptingLoaderConfig {
   sessionManager: SessionManager;
+  workerPool?: DecryptionWorkerPool; // Optional worker pool for parallel decryption
   maxRetries?: number;
   retryDelay?: number;
+  hlsInstance?: any; // Reference to HLS instance for level mapping
 }
 
 /**
@@ -29,6 +32,28 @@ export class DecryptingLoader implements Hls.LoaderInterface {
   private callbacks: Hls.LoaderCallbacks<Hls.LoaderContext> | null = null;
   private abortController: AbortController | null = null;
   private retryCount: number = 0;
+  private _stats: Hls.LoaderStats = {
+    aborted: false,
+    loaded: 0,
+    retry: 0,
+    total: 0,
+    chunkCount: 0,
+    bwEstimate: 0,
+    loading: {
+      start: 0,
+      first: 0,
+      end: 0,
+    },
+    parsing: {
+      start: 0,
+      end: 0,
+    },
+    buffering: {
+      start: 0,
+      first: 0,
+      end: 0,
+    },
+  };
 
   constructor(config: DecryptingLoaderConfig) {
     this.config = {
@@ -57,6 +82,30 @@ export class DecryptingLoader implements Hls.LoaderInterface {
     this.callbacks = callbacks;
     this.abortController = new AbortController();
     this.retryCount = 0;
+
+    // Reset stats
+    this._stats = {
+      aborted: false,
+      loaded: 0,
+      retry: 0,
+      total: 0,
+      chunkCount: 0,
+      bwEstimate: 0,
+      loading: {
+        start: performance.now(),
+        first: 0,
+        end: 0,
+      },
+      parsing: {
+        start: 0,
+        end: 0,
+      },
+      buffering: {
+        start: 0,
+        first: 0,
+        end: 0,
+      },
+    };
 
     this.loadWithRetry(context, config);
   }
@@ -116,17 +165,21 @@ export class DecryptingLoader implements Hls.LoaderInterface {
 
     // Determine if this is a segment or playlist
     const isSegment = context.frag && context.frag.relurl;
-    const isEncrypted = isSegment; // Only segments are encrypted, not playlists
+    const isInitSegment = context.frag && context.frag.sn === 'initSegment';
+
+    // Only media segments are encrypted, NOT playlists or init segments
+    const isEncrypted = isSegment && !isInitSegment;
 
     console.log(`[DecryptingLoader] Loading: ${context.url}`);
-    console.log(`[DecryptingLoader] Type: ${isSegment ? 'segment' : 'playlist'}`);
+    console.log(`[DecryptingLoader] Type: ${isInitSegment ? 'init segment' : isSegment ? 'media segment' : 'playlist'}`);
+    console.log(`[DecryptingLoader] Encrypted: ${isEncrypted}`);
 
-    // For playlists, just fetch normally (not encrypted)
+    // For playlists and init segments, just fetch normally (not encrypted)
     if (!isEncrypted) {
       return this.loadPlaintext(context, config, startTime);
     }
 
-    // For segments, fetch and decrypt
+    // For media segments, fetch and decrypt
     return this.loadAndDecrypt(context, config, startTime);
   }
 
@@ -146,8 +199,24 @@ export class DecryptingLoader implements Hls.LoaderInterface {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.arrayBuffer();
+    // Playlists (.m3u8) need to be strings, not ArrayBuffers
+    const isPlaylist = context.url.includes('.m3u8') || context.responseType === 'text';
+    let data: ArrayBuffer | string;
+
+    if (isPlaylist) {
+      data = await response.text();
+    } else {
+      data = await response.arrayBuffer();
+    }
+
     const duration = performance.now() - startTime;
+
+    // Update stats
+    this._stats.loading.first = this._stats.loading.start;
+    this._stats.loading.end = performance.now();
+    this._stats.loaded = typeof data === 'string' ? data.length : data.byteLength;
+    this._stats.total = typeof data === 'string' ? data.length : data.byteLength;
+    this._stats.retry = this.retryCount;
 
     console.log(`[DecryptingLoader] ✓ Loaded plaintext (${duration.toFixed(0)}ms)`);
 
@@ -157,7 +226,7 @@ export class DecryptingLoader implements Hls.LoaderInterface {
           url: context.url,
           data: data as any,
         },
-        {} as any,
+        this._stats,
         context
       );
     }
@@ -165,6 +234,7 @@ export class DecryptingLoader implements Hls.LoaderInterface {
 
   /**
    * Load and decrypt encrypted segment
+   * OPTIMIZED: Uses pipeline architecture and Web Workers
    */
   private async loadAndDecrypt(
     context: Hls.LoaderContext,
@@ -176,94 +246,119 @@ export class DecryptingLoader implements Hls.LoaderInterface {
     }
 
     // Extract segment info from fragment
-    const segIdx = context.frag.sn; // Segment number
-    const rendition = this.extractRendition(context.url);
-
-    console.log(`[DecryptingLoader] Segment: ${rendition} #${segIdx}`);
-
-    // Step 1: Fetch encryption key
-    const keyStartTime = performance.now();
-    const segmentKey = await this.config.sessionManager.getSegmentKey(
-      rendition,
-      segIdx
-    );
-    const keyDuration = performance.now() - keyStartTime;
-    console.log(`[DecryptingLoader] ✓ Got key (${keyDuration.toFixed(0)}ms)`);
-
-    // Step 2: Download encrypted segment
-    const downloadStartTime = performance.now();
-    const response = await fetch(context.url, {
-      signal: this.abortController?.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    // Note: context.frag.sn can be a number (media segment) or "initSegment" (init segment)
+    let segIdx: number;
+    if (context.frag.sn === 'initSegment') {
+      segIdx = -1; // Convention: -1 for init segments
+    } else {
+      segIdx = typeof context.frag.sn === 'number' ? context.frag.sn : parseInt(String(context.frag.sn), 10);
     }
 
-    const encryptedData = new Uint8Array(await response.arrayBuffer());
-    const downloadDuration = performance.now() - downloadStartTime;
+    const rendition = this.extractRendition(context);
+
+    console.log(`[DecryptingLoader] Segment: ${rendition} #${segIdx === -1 ? 'init' : segIdx}`);
+
+    // OPTIMIZATION 1: Pipeline architecture - Start download and key fetch in PARALLEL
+    const pipelineStartTime = performance.now();
+
+    const [encryptedDataBuffer, segmentKey] = await Promise.all([
+      // Download segment (starts immediately, non-blocking)
+      fetch(context.url, { signal: this.abortController?.signal }).then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.arrayBuffer();
+      }),
+
+      // Fetch key (starts immediately, in parallel with download)
+      this.config.sessionManager.getSegmentKey(rendition, segIdx),
+    ]);
+
+    const pipelineDuration = performance.now() - pipelineStartTime;
+    const encryptedData = new Uint8Array(encryptedDataBuffer);
+
     console.log(
-      `[DecryptingLoader] ✓ Downloaded (${encryptedData.length} bytes, ${downloadDuration.toFixed(0)}ms)`
+      `[DecryptingLoader] ✓ Pipeline (download + key): ${pipelineDuration.toFixed(0)}ms, ${encryptedData.length} bytes`
     );
 
-    // Step 3: Decrypt segment
+    // OPTIMIZATION 2: Use Web Worker pool for parallel decryption (non-blocking UI)
     const decryptStartTime = performance.now();
-    const decryptedData = await aesGcmDecrypt(
-      segmentKey.dek,
-      encryptedData,
-      segmentKey.iv
-    );
-    const decryptDuration = performance.now() - decryptStartTime;
+    let decryptedData: Uint8Array;
+
+    if (this.config.workerPool && this.config.workerPool.isAvailable()) {
+      // Use worker pool for parallel, non-blocking decryption
+      decryptedData = await this.config.workerPool.decrypt(
+        segmentKey.dek,
+        encryptedData,
+        segmentKey.iv
+      );
+      console.log(`[DecryptingLoader] ✓ Decrypted via worker (${(performance.now() - decryptStartTime).toFixed(0)}ms)`);
+    } else {
+      // Fallback to main thread if workers not available
+      decryptedData = await aesGcmDecrypt(segmentKey.dek, encryptedData, segmentKey.iv);
+      console.log(`[DecryptingLoader] ✓ Decrypted on main thread (${(performance.now() - decryptStartTime).toFixed(0)}ms)`);
+    }
 
     const totalDuration = performance.now() - startTime;
-    console.log(`[DecryptingLoader] ✓ Decrypted (${decryptDuration.toFixed(0)}ms)`);
-    console.log(
-      `[DecryptingLoader] ✓ Total: ${totalDuration.toFixed(0)}ms (key: ${keyDuration.toFixed(0)}ms, download: ${downloadDuration.toFixed(0)}ms, decrypt: ${decryptDuration.toFixed(0)}ms)`
-    );
+    console.log(`[DecryptingLoader] ✓ Total: ${totalDuration.toFixed(0)}ms`);
 
-    // Step 4: Pass decrypted data to hls.js
+    // Update stats
+    this._stats.loading.first = this._stats.loading.start;
+    this._stats.loading.end = performance.now();
+    this._stats.loaded = decryptedData.byteLength;
+    this._stats.total = decryptedData.byteLength;
+    this._stats.retry = this.retryCount;
+
+    // Pass decrypted data to hls.js
     if (this.callbacks?.onSuccess) {
       this.callbacks.onSuccess(
         {
           url: context.url,
           data: decryptedData.buffer as any,
         },
-        {} as any,
+        this._stats,
         context
       );
     }
 
-    // Optional: Prefetch keys for upcoming segments
-    if (segIdx < 1000) {
-      // Reasonable upper bound
-      const upcomingSegments = [segIdx + 1, segIdx + 2, segIdx + 3];
+    // OPTIMIZATION 3: Aggressive key prefetching (skip for init segments)
+    if (segIdx >= 0 && segIdx < 1000 && this.config.hlsInstance?.levels) {
+      // Prefetch keys for all quality levels (not just current)
+      // This eliminates buffering during ABR quality switches
       this.config.sessionManager
-        .prefetchKeys(rendition, upcomingSegments)
+        .prefetchKeysAggressive(this.config.hlsInstance.levels, segIdx, rendition)
         .catch((error) => {
-          console.warn('[DecryptingLoader] Prefetch failed:', error);
+          console.warn('[DecryptingLoader] Aggressive prefetch failed:', error);
         });
     }
   }
 
   /**
-   * Extract rendition name from URL
-   * Example: https://walrus.../720p_seg_0001.m4s → "720p"
+   * Extract rendition name from fragment context
+   * Uses HLS.js level information to map level index to resolution
    */
-  private extractRendition(url: string): string {
-    const match = url.match(/\/(\d+p)_/);
-    if (match) {
-      return match[1];
+  private extractRendition(context: Hls.LoaderContext): string {
+    // Get rendition from fragment's level property
+    if (context.frag && typeof context.frag.level === 'number' && this.config.hlsInstance) {
+      const levelIndex = context.frag.level;
+      const levels = this.config.hlsInstance.levels;
+
+      if (levels && levels[levelIndex]) {
+        const level = levels[levelIndex];
+        const rendition = `${level.height}p`;
+        console.log(`[DecryptingLoader] Extracted rendition from level ${levelIndex}: ${rendition}`);
+        return rendition;
+      }
     }
 
-    // Fallback: check for rendition in path
-    const pathMatch = url.match(/\/(\d+p)\//);
-    if (pathMatch) {
-      return pathMatch[1];
-    }
+    // This shouldn't happen in normal operation - log error for debugging
+    console.error('[DecryptingLoader] Failed to extract rendition from HLS level!');
+    console.error('[DecryptingLoader] Fragment level:', context.frag?.level);
+    console.error('[DecryptingLoader] HLS instance available:', !!this.config.hlsInstance);
+    console.error('[DecryptingLoader] Levels available:', this.config.hlsInstance?.levels?.length);
 
-    // Default to 720p if can't determine
-    console.warn('[DecryptingLoader] Could not extract rendition from URL, defaulting to 720p');
-    return '720p';
+    // Throw error instead of defaulting - this indicates a real problem
+    throw new Error('Cannot extract rendition from fragment context. HLS levels not available.');
   }
 
   /**
@@ -286,36 +381,8 @@ export class DecryptingLoader implements Hls.LoaderInterface {
     this.callbacks = null;
   }
 
-  /**
-   * Get loader context
-   */
-  get context(): Hls.LoaderContext | null {
-    return this.context;
-  }
-
   get stats(): Hls.LoaderStats {
-    return {
-      aborted: false,
-      loaded: 0,
-      retry: this.retryCount,
-      total: 0,
-      chunkCount: 0,
-      bwEstimate: 0,
-      loading: {
-        start: 0,
-        first: 0,
-        end: 0,
-      },
-      parsing: {
-        start: 0,
-        end: 0,
-      },
-      buffering: {
-        start: 0,
-        first: 0,
-        end: 0,
-      },
-    };
+    return this._stats;
   }
 }
 
@@ -347,10 +414,6 @@ export function createDecryptingLoaderClass(
 
     destroy(): void {
       this.loader.destroy();
-    }
-
-    get context(): Hls.LoaderContext | null {
-      return this.loader.context;
     }
 
     get stats(): Hls.LoaderStats {

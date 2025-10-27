@@ -28,6 +28,12 @@ export async function deriveSessionKek(
   clientPublicKey: Uint8Array,
   serverNonce: Uint8Array
 ): Promise<CryptoKey> {
+  console.log('[Server KEK] Deriving server KEK...');
+  console.log('[Server KEK] Server private JWK has d:', !!serverPrivateKeyJwk.d);
+  console.log('[Server KEK] Server private JWK has x:', !!serverPrivateKeyJwk.x);
+  console.log('[Server KEK] Client public key length:', clientPublicKey.length);
+  console.log('[Server KEK] Server nonce length:', serverNonce.length);
+
   if (clientPublicKey.length !== 32) {
     throw new Error('Client public key must be 32 bytes');
   }
@@ -38,6 +44,10 @@ export async function deriveSessionKek(
   // Step 1: Perform ECDH key exchange
   const sharedSecret = await deriveSharedSecret(clientPublicKey, serverPrivateKeyJwk);
 
+  // Import toBase64 for logging
+  const { toBase64 } = await import('./utils');
+  console.log('[Server KEK] ECDH shared secret (first 8 bytes):', toBase64(sharedSecret.slice(0, 8)));
+
   // Step 2: Derive KEK using HKDF with the nonce as salt
   const kek = await hkdfDeriveKey(
     {
@@ -47,6 +57,8 @@ export async function deriveSessionKek(
     },
     ['wrapKey', 'unwrapKey', 'encrypt', 'decrypt']
   );
+
+  console.log('[Server KEK] ✓ Derived KEK');
 
   return kek;
 }
@@ -86,7 +98,7 @@ export async function deriveSegmentDek(
   const dek = await hkdf({
     ikm: rootSecret,
     salt,
-    info: 'segment-dek-v1', // Domain separation
+    info: 'chunk-dek-v1', // Domain separation
     length: 16, // AES-128
   });
 
@@ -132,7 +144,7 @@ export async function deriveSegmentDekKey(
       name: 'HKDF',
       hash: 'SHA-256',
       salt,
-      info: stringToBytes('segment-dek-v1'),
+      info: stringToBytes('chunk-dek-v1'),
     },
     ikmKey,
     {

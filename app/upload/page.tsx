@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import type { RenditionQuality, TranscodeResult, AssetManifest } from '@/lib/types';
+import type { RenditionQuality } from '@/lib/types';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -52,31 +52,7 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      // Step 1: Create asset placeholder in database
-      setProgress({ stage: 'uploading', percent: 0, message: 'Creating asset...' });
-
-      const createAssetResponse = await fetch('/api/v1/assets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          creatorId: account.address,
-        }),
-      });
-
-      if (!createAssetResponse.ok) {
-        const errorData = await createAssetResponse.json();
-        throw new Error(errorData.error || 'Failed to create asset');
-      }
-
-      const { asset } = await createAssetResponse.json();
-      const assetId = asset.id;
-
-      console.log(`[Upload] Created asset placeholder: ${assetId}`);
-
-      // Step 2: Transcode video
+      // Step 1: Transcode and encrypt video
       setProgress({ stage: 'transcoding', percent: 10, message: 'Uploading to server...' });
 
       const formData = new FormData();
@@ -95,49 +71,49 @@ export default function UploadPage() {
       }
 
       const transcodeData = await transcodeResponse.json();
-      const transcodeResult = transcodeData.transcodeResult as TranscodeResult;
+      const { videoId, transcodeResult } = transcodeData;
 
       setProgress({
         stage: 'transcoding',
         percent: 50,
-        message: `Transcoded ${transcodeResult.totalSegments} segments`,
+        message: `Transcoded and encrypted ${transcodeResult.totalSegments} segments`,
       });
 
-      // Step 3: Upload to Walrus and save to database
+      console.log(`[Upload] Encrypted video ID: ${videoId}`);
+
+      // Step 2: Upload encrypted segments to Walrus and register in database
       setProgress({
         stage: 'storing',
         percent: 60,
-        message: 'Uploading to Walrus storage...',
+        message: 'Uploading encrypted video to Walrus...',
       });
 
-      const walrusResponse = await fetch('/api/upload-walrus', {
+      const videoResponse = await fetch('/api/v1/videos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          assetId,
-          transcodeResult,
+          videoId,
           title,
-          description,
-          uploadedBy: account.address,
+          creatorId: account.address,
         }),
       });
 
-      if (!walrusResponse.ok) {
-        const errorData = await walrusResponse.json();
-        throw new Error(errorData.error || 'Walrus upload failed');
+      if (!videoResponse.ok) {
+        const errorData = await videoResponse.json();
+        throw new Error(errorData.error || 'Video upload failed');
       }
 
-      const { manifest, playbackUrl } = await walrusResponse.json();
+      const { video } = await videoResponse.json();
 
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
 
-      console.log(`[Upload] Asset finalized: ${assetId}`);
+      console.log(`[Upload] Video uploaded: ${video.id}`);
 
       // Redirect to watch page
       setTimeout(() => {
-        router.push(playbackUrl || `/watch/${assetId}`);
+        router.push(`/watch/${video.id}`);
       }, 1000);
     } catch (err) {
       console.error('Upload error:', err);

@@ -5,56 +5,58 @@ import Link from 'next/link';
 import { VideoCard } from '@/components/VideoCard';
 import { WalrusBadgeAnimated } from '@/components/WalrusBadge';
 
-interface Asset {
+interface Video {
   id: string;
   title: string;
   creatorId: string;
-  status: string;
   createdAt: string;
-  posterUrl?: string;
-  latestRevision?: any;
+  posterWalrusUri?: string;
+  walrusMasterUri: string;
+  duration?: number;
+  renditions: Array<{
+    id: string;
+    name: string;
+    resolution: string;
+    bitrate: number;
+  }>;
 }
 
 export default function Home() {
-  const [assets, setAssets] = useState<Asset[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAssets = async () => {
+    const fetchVideos = async () => {
       try {
-        const response = await fetch('/api/v1/assets?limit=12');
+        const response = await fetch('/api/v1/videos?limit=12');
         if (response.ok) {
           const data = await response.json();
-          setAssets(data.assets || []);
+          setVideos(data.videos || []);
         }
       } catch (error) {
-        console.error('Failed to fetch assets:', error);
+        console.error('Failed to fetch videos:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAssets();
+    fetchVideos();
   }, []);
-
-  // Featured videos (first 2)
-  const featuredVideos = assets.slice(0, 2);
-  const recentVideos = assets.slice(2);
 
   return (
     <div className="min-h-screen bg-background">
       {/* Video Grid */}
-      {assets.length > 0 ? (
+      {videos.length > 0 ? (
         <div className="max-w-[1400px] mx-auto px-6 py-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-10">
-            {assets.map((asset) => (
+            {videos.map((video) => (
               <VideoCard
-                key={asset.id}
-                id={asset.id}
-                title={asset.title}
-                thumbnail={asset.posterUrl}
-                creator={`${asset.creatorId.slice(0, 6)}...${asset.creatorId.slice(-4)}`}
-                uploadedAt={asset.createdAt}
+                key={video.id}
+                id={video.id}
+                title={video.title}
+                thumbnail={video.posterWalrusUri}
+                creator={`${video.creatorId.slice(0, 6)}...${video.creatorId.slice(-4)}`}
+                uploadedAt={video.createdAt}
                 variant="default"
               />
             ))}
@@ -71,7 +73,7 @@ export default function Home() {
       )}
 
       {/* Empty State */}
-      {!loading && assets.length === 0 && (
+      {!loading && videos.length === 0 && (
         <div className="flex items-center justify-center min-h-[70vh]">
           <div className="text-center max-w-md mx-auto px-6">
             <svg className="w-24 h-24 text-text-muted/40 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

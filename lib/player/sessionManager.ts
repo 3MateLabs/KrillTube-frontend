@@ -238,6 +238,54 @@ export class SessionManager {
   }
 
   /**
+   * Aggressive prefetch: Prefetch keys for current quality + all other qualities
+   * This eliminates buffering during ABR switching and seeking
+   *
+   * @param hlsLevels - HLS quality levels from hls.js
+   * @param currentSegIdx - Current segment index being played
+   * @param currentRendition - Current quality being played (e.g., "720p")
+   */
+  async prefetchKeysAggressive(
+    hlsLevels: any[],
+    currentSegIdx: number,
+    currentRendition?: string
+  ): Promise<void> {
+    if (!this.session || !this.sessionKek) {
+      throw new Error('Session not initialized');
+    }
+
+    console.log('[SessionManager] Starting aggressive prefetch...');
+    const startTime = performance.now();
+
+    const prefetchPromises: Promise<void>[] = [];
+
+    // Strategy: Prefetch broadly to cover all playback scenarios
+    for (let i = 0; i < hlsLevels.length; i++) {
+      const level = hlsLevels[i];
+      const rendition = `${level.height}p`;
+
+      // Current quality: prefetch next 30 segments (covers ~1-2 minutes ahead)
+      // Other qualities: prefetch next 15 segments (for ABR switching)
+      const segmentCount = rendition === currentRendition ? 30 : 15;
+      const segIndices = Array.from({ length: segmentCount }, (_, idx) => currentSegIdx + idx);
+
+      // Fire all prefetches in parallel
+      prefetchPromises.push(
+        this.prefetchKeys(rendition, segIndices).catch((err) => {
+          console.warn(`[SessionManager] Prefetch failed for ${rendition}:`, err);
+        })
+      );
+    }
+
+    // Wait for all prefetches to complete
+    await Promise.all(prefetchPromises);
+
+    const duration = performance.now() - startTime;
+    console.log(`[SessionManager] ✓ Aggressive prefetch completed in ${duration.toFixed(0)}ms`);
+    console.log(`[SessionManager] Cache size: ${this.keyCache.size} keys`);
+  }
+
+  /**
    * Refresh session to extend expiration
    */
   async refresh(): Promise<void> {

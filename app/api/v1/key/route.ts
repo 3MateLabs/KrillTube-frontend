@@ -116,22 +116,15 @@ export async function GET(request: NextRequest) {
 
     // Verify segment exists
     let segmentIv: Buffer | undefined;
-    if (segIdx >= 0) {
-      // Regular media segment
-      if (!videoRendition.segments || videoRendition.segments.length === 0) {
-        return NextResponse.json(
-          { error: `Segment ${segIdx} not found` },
-          { status: 404 }
-        );
-      }
-      segmentIv = videoRendition.segments[0].iv;
-    } else {
-      // Init segment (segIdx === -1)
-      // For init segments, we don't store them separately in the database
-      // The IV will be derived/stored differently
-      // For now, we'll generate a deterministic IV or retrieve from a separate table
-      // TODO: Store init segment IVs in database
+    if (!videoRendition.segments || videoRendition.segments.length === 0) {
+      return NextResponse.json(
+        { error: `Segment ${segIdx} not found in rendition ${rendition}` },
+        { status: 404 }
+      );
     }
+
+    // Get segment IV (works for both init segments at -1 and media segments at 0+)
+    segmentIv = videoRendition.segments[0].iv;
 
     console.log(`[Key API] Processing key request:`);
     console.log(`  Video: ${videoId}`);
@@ -182,10 +175,14 @@ export async function GET(request: NextRequest) {
     console.log(`  ✓ Request completed in ${duration}ms`);
 
     // Return wrapped DEK and IVs
+    if (!segmentIv) {
+      throw new Error('Segment IV not found');
+    }
+
     return NextResponse.json({
       wrappedDek: toBase64(wrappedKey),
       wrapIv: toBase64(wrapIv),
-      segmentIv: segmentIv ? toBase64(segmentIv) : undefined,
+      segmentIv: toBase64(segmentIv),
       duration: `${duration}ms`,
     });
   } catch (error) {

@@ -155,7 +155,7 @@ export async function hkdf(params: HkdfParams): Promise<Uint8Array> {
  * Derive a CryptoKey using HKDF-SHA256 (for use with Web Crypto operations)
  *
  * @param params - HKDF parameters
- * @param keyUsages - Key usages (e.g., ['encrypt', 'decrypt'])
+ * @param keyUsages - Key usages (e.g., ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey'])
  * @returns Promise resolving to CryptoKey
  */
 export async function hkdfDeriveKey(
@@ -294,12 +294,12 @@ export async function aesGcmDecrypt(
  * This provides authenticated encryption of the DEK, ensuring both confidentiality
  * and integrity of the wrapped key.
  *
- * @param kek - Key Encryption Key (CryptoKey)
+ * @param kek - Key Encryption Key (CryptoKey or raw bytes)
  * @param dek - Data Encryption Key to wrap (raw bytes)
  * @returns Promise resolving to { wrappedKey, iv }
  */
 export async function wrapKey(
-  kek: CryptoKey,
+  kek: CryptoKey | Uint8Array,
   dek: Uint8Array
 ): Promise<{ wrappedKey: Uint8Array; iv: Uint8Array }> {
   if (dek.length !== 16) {
@@ -318,14 +318,14 @@ export async function wrapKey(
 /**
  * Unwrap a Data Encryption Key (DEK) using a Key Encryption Key (KEK)
  *
- * @param kek - Key Encryption Key (CryptoKey)
+ * @param kek - Key Encryption Key (CryptoKey or raw bytes)
  * @param wrappedKey - Wrapped DEK (ciphertext + auth tag)
  * @param iv - Initialization vector used during wrapping
  * @returns Promise resolving to unwrapped DEK (raw bytes)
  * @throws Error if authentication fails
  */
 export async function unwrapKey(
-  kek: CryptoKey,
+  kek: CryptoKey | Uint8Array,
   wrappedKey: Uint8Array,
   iv: Uint8Array
 ): Promise<Uint8Array> {
@@ -346,11 +346,30 @@ export async function unwrapKey(
  * @returns Uint8Array of random bytes
  */
 export function randomBytes(length: number): Uint8Array {
-  if (length <= 0 || length > 65536) {
-    throw new Error('Invalid random bytes length');
+  if (length <= 0) {
+    throw new Error('Invalid random bytes length: must be > 0');
   }
 
-  return crypto.getRandomValues(new Uint8Array(length));
+  // crypto.getRandomValues has a limit of 65536 bytes per call
+  // For larger sizes, we need to chunk the generation
+  if (length <= 65536) {
+    return crypto.getRandomValues(new Uint8Array(length));
+  }
+
+  // Generate large random data in chunks
+  const result = new Uint8Array(length);
+  const chunkSize = 65536;
+  let offset = 0;
+
+  while (offset < length) {
+    const remaining = length - offset;
+    const size = Math.min(remaining, chunkSize);
+    const chunk = crypto.getRandomValues(new Uint8Array(size));
+    result.set(chunk, offset);
+    offset += size;
+  }
+
+  return result;
 }
 
 /**
@@ -368,6 +387,16 @@ export function generateAes128Key(): Uint8Array {
  * @returns 12 random bytes suitable for use as AES-GCM IV
  */
 export function generateIv(): Uint8Array {
+  return randomBytes(12);
+}
+
+/**
+ * Generate a random nonce (12 bytes)
+ * Alias for generateIv() for clarity in HKDF salt context
+ *
+ * @returns 12 random bytes suitable for use as HKDF salt/nonce
+ */
+export function generateNonce(): Uint8Array {
   return randomBytes(12);
 }
 

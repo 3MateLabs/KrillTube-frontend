@@ -78,16 +78,21 @@ export async function encryptTranscodeResult(
 
     const encryptedSegments: EncryptedSegmentMeta[] = [];
 
-    // Encrypt init segment if present
+    // Init segment is NOT encrypted - it must be plaintext for video decoder
     let encryptedInitSegment: EncryptedSegmentMeta | undefined;
     if (rendition.initSegment) {
-      encryptedInitSegment = await encryptSegmentFile(
-        rendition.initSegment.filepath,
-        rootSecret,
-        videoId,
-        rendition.quality,
-        -1 // Init segment uses index -1
-      );
+      const fs = await import('fs');
+      const stat = await fs.promises.stat(rendition.initSegment.filepath);
+
+      encryptedInitSegment = {
+        segIdx: -1,
+        encryptedPath: rendition.initSegment.filepath, // Keep original (plaintext)
+        iv: Buffer.alloc(12), // Dummy IV (not used for plaintext)
+        originalSize: stat.size,
+        encryptedSize: stat.size, // Same size (no encryption)
+      };
+
+      console.log(`[Encryptor] ⚠️  Init segment kept as PLAINTEXT (required for video decoder)`);
     }
 
     // Encrypt media segments

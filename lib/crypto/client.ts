@@ -27,7 +27,7 @@ import { fromBase64, toBase64, stringToBytes } from './utils';
  */
 export interface ClientSession {
   clientPublicKey: Uint8Array;
-  clientPrivateKey: Uint8Array;
+  clientPrivateKeyJwk: JsonWebKey; // Store as JWK for deriveSharedSecret
   kek: CryptoKey | null; // Set after server response
 }
 
@@ -39,11 +39,11 @@ export interface ClientSession {
  * @returns Promise resolving to client session with keypair
  */
 export async function initializeClientSession(): Promise<ClientSession> {
-  const { publicKey, privateKey } = await generateX25519Keypair();
+  const { publicKey, privateKeyJwk } = await generateX25519Keypair();
 
   return {
     clientPublicKey: publicKey,
-    clientPrivateKey: privateKey,
+    clientPrivateKeyJwk: privateKeyJwk,
     kek: null,
   };
 }
@@ -67,6 +67,12 @@ export async function deriveClientKek(
   const serverPublicKey = fromBase64(serverPublicKeyB64);
   const serverNonce = fromBase64(serverNonceB64);
 
+  console.log('[Client KEK] Deriving client KEK...');
+  console.log('[Client KEK] Server public key (base64):', serverPublicKeyB64);
+  console.log('[Client KEK] Server nonce (base64):', serverNonceB64);
+  console.log('[Client KEK] Client private JWK has d:', !!session.clientPrivateKeyJwk.d);
+  console.log('[Client KEK] Client private JWK has x:', !!session.clientPrivateKeyJwk.x);
+
   if (serverPublicKey.length !== 32) {
     throw new Error('Invalid server public key length');
   }
@@ -75,7 +81,8 @@ export async function deriveClientKek(
   }
 
   // Perform ECDH to get shared secret
-  const sharedSecret = await deriveSharedSecret(serverPublicKey, session.clientPrivateKey);
+  const sharedSecret = await deriveSharedSecret(serverPublicKey, session.clientPrivateKeyJwk);
+  console.log('[Client KEK] ECDH shared secret (first 8 bytes):', toBase64(sharedSecret.slice(0, 8)));
 
   // Derive KEK using HKDF (same process as server)
   const kek = await hkdfDeriveKey(
@@ -84,8 +91,10 @@ export async function deriveClientKek(
       salt: serverNonce,
       info: 'session-kek-v1', // Must match server
     },
-    ['unwrapKey', 'decrypt']
+    ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
   );
+
+  console.log('[Client KEK] ✓ Derived KEK');
 
   // Store KEK in session
   session.kek = kek;
