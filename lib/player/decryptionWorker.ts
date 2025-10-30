@@ -40,7 +40,7 @@ self.onmessage = async (e: MessageEvent<DecryptMessage>) => {
     };
 
     // Transfer ownership of buffer back to main thread for zero-copy
-    self.postMessage(result, [decryptedData.buffer]);
+    self.postMessage(result, { transfer: [decryptedData.buffer] });
   } catch (error) {
     console.error(`[DecryptionWorker] Failed to decrypt ${id}:`, error);
 

@@ -26,13 +26,13 @@ export interface DecryptingLoaderConfig {
 /**
  * Custom loader that decrypts segments before passing to hls.js
  */
-export class DecryptingLoader implements Hls.LoaderInterface {
+export class DecryptingLoader {
   private config: DecryptingLoaderConfig;
-  private context: Hls.LoaderContext | null = null;
-  private callbacks: Hls.LoaderCallbacks<Hls.LoaderContext> | null = null;
+  private context: any = null;
+  private callbacks: any = null;
   private abortController: AbortController | null = null;
   private retryCount: number = 0;
-  private _stats: Hls.LoaderStats = {
+  private _stats: any = {
     aborted: false,
     loaded: 0,
     retry: 0,
@@ -74,9 +74,9 @@ export class DecryptingLoader implements Hls.LoaderInterface {
    * Load and decrypt a segment
    */
   load(
-    context: Hls.LoaderContext,
-    config: Hls.LoaderConfiguration,
-    callbacks: Hls.LoaderCallbacks<Hls.LoaderContext>
+    context: any,
+    config: any,
+    callbacks: any
   ): void {
     this.context = context;
     this.callbacks = callbacks;
@@ -114,8 +114,8 @@ export class DecryptingLoader implements Hls.LoaderInterface {
    * Load with automatic retry on failure
    */
   private async loadWithRetry(
-    context: Hls.LoaderContext,
-    config: Hls.LoaderConfiguration
+    context: any,
+    config: any
   ): Promise<void> {
     try {
       await this.loadInternal(context, config);
@@ -158,8 +158,8 @@ export class DecryptingLoader implements Hls.LoaderInterface {
    * Internal load and decrypt logic
    */
   private async loadInternal(
-    context: Hls.LoaderContext,
-    config: Hls.LoaderConfiguration
+    context: any,
+    config: any
   ): Promise<void> {
     const startTime = performance.now();
 
@@ -184,14 +184,48 @@ export class DecryptingLoader implements Hls.LoaderInterface {
   }
 
   /**
+   * Fix legacy/broken Walrus URLs
+   * - Replace non-existent aggregator.walrus.space with working aggregator
+   * - Strip @start:end byte range from patch IDs (not supported, fetch full blob instead)
+   */
+  private fixWalrusUrl(url: string): string {
+    let fixed = url;
+
+    // Fix 1: Replace broken aggregator domain with working one
+    if (fixed.includes('aggregator.walrus.space')) {
+      fixed = fixed.replace('aggregator.walrus.space', 'aggregator.mainnet.walrus.mirai.cloud');
+      console.log(`[DecryptingLoader] Fixed aggregator URL`);
+    }
+
+    // Fix 2: Strip @start:end byte range from patch IDs (not supported by aggregator)
+    // Example: /v1/blobs/by-quilt-patch-id/blobId@0:196 → /v1/blobs/blobId
+    const patchIdMatch = fixed.match(/\/by-quilt-patch-id\/([^@]+)@\d+:\d+/);
+    if (patchIdMatch) {
+      const blobId = patchIdMatch[1];
+      // Remove /by-quilt-patch-id/ and the @start:end, keeping just the blob ID
+      fixed = fixed.replace(/\/by-quilt-patch-id\/[^@]+@\d+:\d+/, `/${blobId}`);
+      console.log(`[DecryptingLoader] Stripped byte range, using full blob: ${blobId}`);
+    }
+
+    if (fixed !== url) {
+      console.log(`[DecryptingLoader] URL rewrite: ${url} → ${fixed}`);
+    }
+
+    return fixed;
+  }
+
+  /**
    * Load plaintext content (playlists, init segments)
    */
   private async loadPlaintext(
-    context: Hls.LoaderContext,
-    config: Hls.LoaderConfiguration,
+    context: any,
+    config: any,
     startTime: number
   ): Promise<void> {
-    const response = await fetch(context.url, {
+    // Fix legacy/broken URLs before fetching
+    const fixedUrl = this.fixWalrusUrl(context.url);
+
+    const response = await fetch(fixedUrl, {
       signal: this.abortController?.signal,
     });
 
@@ -205,6 +239,26 @@ export class DecryptingLoader implements Hls.LoaderInterface {
 
     if (isPlaylist) {
       data = await response.text();
+
+      // Fix URLs inside playlist content (master and variant playlists)
+      // This fixes the embedded URLs that reference other playlists/segments
+      let fixedPlaylist = data;
+
+      // Fix aggregator domain in embedded URLs
+      if (fixedPlaylist.includes('aggregator.walrus.space')) {
+        fixedPlaylist = fixedPlaylist.replace(/aggregator\.walrus\.space/g, 'aggregator.mainnet.walrus.mirai.cloud');
+        console.log('[DecryptingLoader] Fixed aggregator domains in playlist content');
+      }
+
+      // Fix patch ID byte ranges in embedded URLs
+      // Example: /v1/blobs/by-quilt-patch-id/blobId@0:196 → /v1/blobs/blobId
+      const patchIdRegex = /\/by-quilt-patch-id\/([^\s@\n]+)@\d+:\d+/g;
+      if (patchIdRegex.test(fixedPlaylist)) {
+        fixedPlaylist = fixedPlaylist.replace(patchIdRegex, '/$1');
+        console.log('[DecryptingLoader] Fixed patch ID byte ranges in playlist content');
+      }
+
+      data = fixedPlaylist;
     } else {
       data = await response.arrayBuffer();
     }
@@ -237,8 +291,8 @@ export class DecryptingLoader implements Hls.LoaderInterface {
    * OPTIMIZED: Uses pipeline architecture and Web Workers
    */
   private async loadAndDecrypt(
-    context: Hls.LoaderContext,
-    config: Hls.LoaderConfiguration,
+    context: any,
+    config: any,
     startTime: number
   ): Promise<void> {
     if (!context.frag) {
@@ -261,9 +315,12 @@ export class DecryptingLoader implements Hls.LoaderInterface {
     // OPTIMIZATION 1: Pipeline architecture - Start download and key fetch in PARALLEL
     const pipelineStartTime = performance.now();
 
+    // Fix legacy/broken URLs before fetching
+    const fixedUrl = this.fixWalrusUrl(context.url);
+
     const [encryptedDataBuffer, segmentKey] = await Promise.all([
       // Download segment (starts immediately, non-blocking)
-      fetch(context.url, { signal: this.abortController?.signal }).then((response) => {
+      fetch(fixedUrl, { signal: this.abortController?.signal }).then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -337,7 +394,7 @@ export class DecryptingLoader implements Hls.LoaderInterface {
    * Extract rendition name from fragment context
    * Uses HLS.js level information to map level index to resolution
    */
-  private extractRendition(context: Hls.LoaderContext): string {
+  private extractRendition(context: any): string {
     // Get rendition from fragment's level property
     if (context.frag && typeof context.frag.level === 'number' && this.config.hlsInstance) {
       const levelIndex = context.frag.level;
@@ -381,7 +438,7 @@ export class DecryptingLoader implements Hls.LoaderInterface {
     this.callbacks = null;
   }
 
-  get stats(): Hls.LoaderStats {
+  get stats(): any {
     return this._stats;
   }
 }
@@ -392,18 +449,18 @@ export class DecryptingLoader implements Hls.LoaderInterface {
  */
 export function createDecryptingLoaderClass(
   config: DecryptingLoaderConfig
-): new (hlsConfig: Hls.HlsConfig) => Hls.LoaderInterface {
-  return class implements Hls.LoaderInterface {
+): any {
+  return class {
     private loader: DecryptingLoader;
 
-    constructor(hlsConfig: Hls.HlsConfig) {
+    constructor(hlsConfig: any) {
       this.loader = new DecryptingLoader(config);
     }
 
     load(
-      context: Hls.LoaderContext,
-      config: Hls.LoaderConfiguration,
-      callbacks: Hls.LoaderCallbacks<Hls.LoaderContext>
+      context: any,
+      config: any,
+      callbacks: any
     ): void {
       this.loader.load(context, config, callbacks);
     }
@@ -416,7 +473,7 @@ export function createDecryptingLoaderClass(
       this.loader.destroy();
     }
 
-    get stats(): Hls.LoaderStats {
+    get stats(): any {
       return this.loader.stats;
     }
 

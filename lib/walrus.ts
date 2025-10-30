@@ -379,4 +379,15 @@ export class WalrusClient {
 }
 
 // Singleton instance for server-side use
-export const walrusClient = new WalrusClient({ network: 'testnet' });
+// Configure via environment variables or default to mainnet
+const network = (process.env.WALRUS_NETWORK as 'testnet' | 'mainnet') || 'mainnet';
+const aggregatorUrl = process.env.WALRUS_AGGREGATOR_URL;
+const publisherUrl = process.env.WALRUS_PUBLISHER_URL;
+const epochs = process.env.WALRUS_EPOCHS ? parseInt(process.env.WALRUS_EPOCHS, 10) : 200;
+
+export const walrusClient = new WalrusClient({
+  network,
+  aggregatorUrl,
+  publisherUrl,
+  epochs,
+});

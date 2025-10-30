@@ -129,10 +129,10 @@ export async function deriveSegmentDekKey(
   const saltString = `${videoId}|${rendition}|${segmentIndex}`;
   const salt = stringToBytes(saltString);
 
-  // Import root secret as key material
+  // Import root secret as key material (ensure it's a proper Uint8Array)
   const ikmKey = await crypto.subtle.importKey(
     'raw',
-    rootSecret,
+    new Uint8Array(rootSecret),
     { name: 'HKDF' },
     false,
     ['deriveKey']
@@ -143,8 +143,8 @@ export async function deriveSegmentDekKey(
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt,
-      info: stringToBytes('chunk-dek-v1'),
+      salt: new Uint8Array(salt),
+      info: new Uint8Array(stringToBytes('chunk-dek-v1')),
     },
     ikmKey,
     {
@@ -187,7 +187,7 @@ export async function deriveMasterKeyFromPassword(
 ): Promise<Uint8Array> {
   const passwordKey = await crypto.subtle.importKey(
     'raw',
-    stringToBytes(password),
+    new Uint8Array(stringToBytes(password)),
     { name: 'PBKDF2' },
     false,
     ['deriveBits']
@@ -197,7 +197,7 @@ export async function deriveMasterKeyFromPassword(
     {
       name: 'PBKDF2',
       hash: 'SHA-256',
-      salt,
+      salt: new Uint8Array(salt),
       iterations,
     },
     passwordKey,

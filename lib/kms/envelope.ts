@@ -50,10 +50,10 @@ export async function encryptRootSecret(plainSecret: Uint8Array): Promise<Buffer
 /**
  * Decrypt a video root secret using envelope encryption
  *
- * @param encryptedSecret - Buffer containing encrypted secret from database
+ * @param encryptedSecret - Buffer or Uint8Array containing encrypted secret from database
  * @returns Decrypted root secret (32 bytes)
  */
-export async function decryptRootSecret(encryptedSecret: Buffer): Promise<Uint8Array> {
+export async function decryptRootSecret(encryptedSecret: Buffer | Uint8Array): Promise<Uint8Array> {
   const data = new Uint8Array(encryptedSecret);
 
   // Parse the combined blob

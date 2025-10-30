@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     const videoRendition = session.video.renditions[0];
 
     // Verify segment exists
-    let segmentIv: Buffer | undefined;
+    let segmentIv: Uint8Array | undefined;
     if (!videoRendition.segments || videoRendition.segments.length === 0) {
       return NextResponse.json(
         { error: `Segment ${segIdx} not found in rendition ${rendition}` },

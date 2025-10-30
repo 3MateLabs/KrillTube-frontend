@@ -78,7 +78,7 @@ async function testCryptoPrimitives() {
     console.log('5️⃣  Testing key wrapping/unwrapping...');
     const kek = await crypto.subtle.importKey(
       'raw',
-      randomBytes(16),
+      new Uint8Array(randomBytes(16)),
       { name: 'AES-GCM' },
       true,
       ['wrapKey', 'unwrapKey', 'encrypt', 'decrypt']

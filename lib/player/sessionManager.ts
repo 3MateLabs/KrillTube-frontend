@@ -101,6 +101,7 @@ export class SessionManager {
       {
         clientPublicKey: this.clientKeypair.publicKey,
         clientPrivateKeyJwk: this.clientKeypair.privateKeyJwk,
+        kek: null, // Will be set by deriveClientKek
       },
       this.session.serverPubKey,
       this.session.serverNonce

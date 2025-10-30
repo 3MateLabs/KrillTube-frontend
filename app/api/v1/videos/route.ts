@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { walrusClient } from '@/lib/walrus';
 import { getEncryptedResult, clearEncryptedResult } from '@/lib/server/encryptedResultCache';
+import { estimateVideoCost, formatCost, getCostBreakdown } from '@/lib/walrus-cost-simple';
 import { readFile } from 'fs/promises';
 
 /**
@@ -115,6 +116,13 @@ export async function POST(request: NextRequest) {
       formData.append(posterIdentifier, new Blob([posterData]));
       totalSize += posterData.length;
     }
+
+    // Calculate estimated cost before upload
+    console.log(`[API Videos] Calculating storage cost...`);
+    const costEstimate = estimateVideoCost(totalSize);
+    console.log(`[API Videos] Estimated cost: ${formatCost(costEstimate)}`);
+    const costBreakdown = getCostBreakdown(costEstimate);
+    console.log(`[API Videos] Cost breakdown - Storage: ${costBreakdown.storage} SUI, Write: ${costBreakdown.write} SUI`);
 
     // Upload all files as a quilt to Walrus
     console.log(`[API Videos] Uploading ${fileMap.size} encrypted files to Walrus...`);
@@ -291,7 +299,7 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri: masterWalrusUri,
         posterWalrusUri,
-        rootSecretEnc: encryptedResult.rootSecretEnc,
+        rootSecretEnc: new Uint8Array(encryptedResult.rootSecretEnc),
         duration: encryptedResult.duration,
         creatorId,
         renditions: {
@@ -314,7 +322,7 @@ export async function POST(request: NextRequest) {
               segmentsToCreate.push({
                 segIdx: -1, // Init segments use -1
                 walrusUri: initUri,
-                iv: rendition.initSegment.iv,
+                iv: new Uint8Array(rendition.initSegment.iv),
                 duration: 0, // Init segments have no duration
                 size: rendition.initSegment.encryptedSize,
               });
@@ -329,7 +337,7 @@ export async function POST(request: NextRequest) {
               segmentsToCreate.push({
                 segIdx: segment.segIdx,
                 walrusUri: segUri,
-                iv: segment.iv,
+                iv: new Uint8Array(segment.iv),
                 duration: 4.0, // TODO: Get actual duration from transcoder
                 size: segment.encryptedSize,
               });
@@ -381,6 +389,14 @@ export async function POST(request: NextRequest) {
       stats: {
         totalSize,
         totalSegments: video.renditions.reduce((sum, r) => sum + r.segments.length, 0),
+      },
+      cost: {
+        totalSui: costBreakdown.total,
+        storageSui: costBreakdown.storage,
+        writeSui: costBreakdown.write,
+        sizeFormatted: costBreakdown.sizeFormatted,
+        epochs: costBreakdown.epochs,
+        network: costBreakdown.network,
       },
     });
   } catch (error) {

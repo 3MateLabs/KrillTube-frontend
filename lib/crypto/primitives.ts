@@ -70,7 +70,7 @@ export async function deriveSharedSecret(
   // Import public key
   const pubKeyObj = await crypto.subtle.importKey(
     'raw',
-    publicKey,
+    new Uint8Array(publicKey),
     {
       name: 'X25519',
     },
@@ -128,7 +128,7 @@ export async function hkdf(params: HkdfParams): Promise<Uint8Array> {
   // Import IKM as key material
   const ikmKey = await crypto.subtle.importKey(
     'raw',
-    ikm,
+    new Uint8Array(ikm),
     {
       name: 'HKDF',
     },
@@ -141,7 +141,7 @@ export async function hkdf(params: HkdfParams): Promise<Uint8Array> {
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt: salt,
+      salt: new Uint8Array(salt),
       info: new TextEncoder().encode(info),
     },
     ikmKey,
@@ -167,7 +167,7 @@ export async function hkdfDeriveKey(
   // Import IKM as key material
   const ikmKey = await crypto.subtle.importKey(
     'raw',
-    ikm,
+    new Uint8Array(ikm),
     {
       name: 'HKDF',
     },
@@ -180,7 +180,7 @@ export async function hkdfDeriveKey(
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt: salt,
+      salt: new Uint8Array(salt),
       info: new TextEncoder().encode(info),
     },
     ikmKey,
@@ -217,7 +217,7 @@ export async function aesGcmEncrypt(
     key instanceof Uint8Array
       ? await crypto.subtle.importKey(
           'raw',
-          key,
+          new Uint8Array(key),
           {
             name: 'AES-GCM',
             length: 128,
@@ -231,11 +231,11 @@ export async function aesGcmEncrypt(
   const ciphertext = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv: iv,
+      iv: new Uint8Array(iv),
       tagLength: 128, // 128-bit authentication tag
     },
     cryptoKey,
-    plaintext
+    new Uint8Array(plaintext)
   );
 
   return new Uint8Array(ciphertext);
@@ -264,7 +264,7 @@ export async function aesGcmDecrypt(
     key instanceof Uint8Array
       ? await crypto.subtle.importKey(
           'raw',
-          key,
+          new Uint8Array(key),
           {
             name: 'AES-GCM',
             length: 128,
@@ -278,11 +278,11 @@ export async function aesGcmDecrypt(
   const plaintext = await crypto.subtle.decrypt(
     {
       name: 'AES-GCM',
-      iv: iv,
+      iv: new Uint8Array(iv),
       tagLength: 128,
     },
     cryptoKey,
-    ciphertext
+    new Uint8Array(ciphertext)
   );
 
   return new Uint8Array(plaintext);

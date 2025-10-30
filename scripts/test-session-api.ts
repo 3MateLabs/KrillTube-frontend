@@ -106,7 +106,7 @@ async function testSessionAPI() {
     // Test 2: Derive session KEK
     console.log('2️⃣  Testing KEK derivation...');
     const kek = await deriveClientKek(
-      { clientPublicKey: session.keypair.publicKey, clientPrivateKeyJwk: session.keypair.privateKeyJwk },
+      { clientPublicKey: session.keypair.publicKey, clientPrivateKeyJwk: session.keypair.privateKeyJwk, kek: null },
       session.serverPubKey,
       session.serverNonce
     );
