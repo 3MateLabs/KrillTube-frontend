@@ -328,7 +328,7 @@ export async function uploadVideoClientSide(
     videoId: transcoded.videoId,
     walrusMasterUri: masterWalrusUri,
     posterWalrusUri,
-    rootSecretEnc: toBase64(rootSecret), // Will be encrypted by server before storage
+    rootSecretEnc: toBase64(rootSecret), // Plain root secret - server will KMS-encrypt before storage
     duration: transcoded.duration,
     renditions,
     paymentInfo: {

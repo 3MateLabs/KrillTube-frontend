@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
+import { encryptRootSecret } from '@/lib/kms/envelope';
 
 /**
  * POST /v1/register-video
@@ -80,11 +81,19 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API Register Video] Payment: ${paymentInfo.paidWal} WAL (${formatUsd(paidUsd)}) from ${paymentInfo.walletAddress}`);
 
-    // rootSecretEnc is already KMS-encrypted from the transcode phase
-    // Just convert from base64 to bytes for database storage
-    const rootSecretBytes = new Uint8Array(Buffer.from(rootSecretEnc, 'base64'));
+    // Client sends plain root secret (32 bytes) encoded as base64
+    // Server must encrypt it with KMS before storing in database
+    const rootSecretPlain = Buffer.from(rootSecretEnc, 'base64');
 
-    console.log(`[API Register Video] Root secret (KMS-encrypted) size: ${rootSecretBytes.length} bytes`);
+    if (rootSecretPlain.length !== 32) {
+      return NextResponse.json(
+        { error: `Invalid root secret size: ${rootSecretPlain.length} bytes (expected 32)` },
+        { status: 400 }
+      );
+    }
+
+    const rootSecretEncrypted = await encryptRootSecret(new Uint8Array(rootSecretPlain));
+    console.log(`[API Register Video] Root secret encrypted with KMS (${rootSecretEncrypted.length} bytes)`);
 
     // Store video metadata in database
     const video = await prisma.video.create({
@@ -93,7 +102,7 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri,
         posterWalrusUri: posterWalrusUri || null,
-        rootSecretEnc: rootSecretBytes, // Store KMS-encrypted secret as Uint8Array
+        rootSecretEnc: rootSecretEncrypted, // Store KMS-encrypted secret
         duration,
         creatorId,
         renditions: {
