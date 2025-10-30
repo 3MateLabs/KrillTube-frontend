@@ -381,7 +381,7 @@ export function createDecryptingLoaderClass(
   return class {
     private loader: DecryptingLoader;
 
-    constructor(hlsConfig: any) {
+    constructor() {
       this.loader = new DecryptingLoader(config);
     }
 
