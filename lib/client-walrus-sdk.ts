@@ -239,6 +239,7 @@ export async function uploadQuiltWithWallet(
   const cost = await regularClient.storageCost(totalSize, epochs);
 
   try {
+    console.log('[Walrus SDK] Fetching WAL coins...');
     const walCoins = await suiClient.getCoins({
       owner: ownerAddress,
       coinType: WAL_TOKEN_TYPE,
@@ -250,7 +251,9 @@ export async function uploadQuiltWithWallet(
 
     const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
     const primaryCoin = sortedCoins[0];
+    console.log(`[Walrus SDK] Using coin: ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
 
+    console.log('[Walrus SDK] Combining blobs...');
     const combinedBlob = new Uint8Array(totalSize);
     let offset = 0;
     const patchBoundaries: Array<{ identifier: string; start: number; end: number; tags: Record<string, string> }> = [];
@@ -266,8 +269,11 @@ export async function uploadQuiltWithWallet(
       offset += blob.contents.length;
     }
 
+    console.log(`[Walrus SDK] Encoding blob (${(totalSize / 1024 / 1024).toFixed(2)} MB)...`);
     const encoded = await walrusClient.walrus.encodeBlob(combinedBlob);
+    console.log(`[Walrus SDK] ✓ Blob encoded, ID: ${encoded.blobId}`);
 
+    console.log('[Walrus SDK] Creating registration transaction...');
     const registerTxObj = new Transaction();
     const registerTx = await walrusClient.walrus.registerBlobTransaction({
       transaction: registerTxObj,
@@ -280,7 +286,9 @@ export async function uploadQuiltWithWallet(
       walCoin: registerTxObj.object(primaryCoin.coinObjectId),
     });
 
+    console.log('[Walrus SDK] ⏳ Waiting for wallet signature (check your wallet popup)...');
     const registerResult = await signAndExecute({ transaction: registerTx });
+    console.log(`[Walrus SDK] ✓ Registration transaction signed: ${registerResult.digest}`);
 
     const txDetails = await suiClient.waitForTransaction({
       digest: registerResult.digest,
@@ -299,6 +307,7 @@ export async function uploadQuiltWithWallet(
       throw new Error('Blob object not found in transaction result');
     }
 
+    console.log('[Walrus SDK] Uploading to storage nodes...');
     const confirmations = await walrusClient.walrus.writeEncodedBlobToNodes({
       blobId: encoded.blobId,
       metadata: encoded.metadata,
@@ -306,7 +315,9 @@ export async function uploadQuiltWithWallet(
       deletable,
       objectId: blobObjectChange.objectId,
     });
+    console.log(`[Walrus SDK] ✓ Uploaded to ${Object.keys(confirmations).length} nodes`);
 
+    console.log('[Walrus SDK] Creating certification transaction...');
     const certifyTxObj = new Transaction();
     const certifyTx = await walrusClient.walrus.certifyBlobTransaction({
       transaction: certifyTxObj,
@@ -316,7 +327,9 @@ export async function uploadQuiltWithWallet(
       deletable,
     });
 
+    console.log('[Walrus SDK] ⏳ Waiting for certification signature...');
     const certifyResult = await signAndExecute({ transaction: certifyTx });
+    console.log(`[Walrus SDK] ✓ Certification signed: ${certifyResult.digest}`);
 
     const certifyTxDetails = await suiClient.waitForTransaction({
       digest: certifyResult.digest,

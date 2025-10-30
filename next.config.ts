@@ -1,7 +1,27 @@
 import type { NextConfig } from "next";
 
+// WasmChunksFixPlugin - Fixes WASM file paths in Next.js build
+class WasmChunksFixPlugin {
+  apply(compiler: any) {
+    compiler.hooks.thisCompilation.tap("WasmChunksFixPlugin", (compilation: any) => {
+      compilation.hooks.processAssets.tap(
+        { name: "WasmChunksFixPlugin" },
+        (assets: any) =>
+          Object.entries(assets).forEach(([pathname, source]) => {
+            if (!pathname.match(/\.wasm$/)) return;
+            compilation.deleteAsset(pathname);
+
+            const name = pathname.split("/")[1];
+            const info = compilation.assetsInfo.get(pathname);
+            compilation.emitAsset(name, source, info);
+          })
+      );
+    });
+  }
+}
+
 const nextConfig: NextConfig = {
-  // Allow unsafe-eval for WASM (needed by Walrus SDK)
+  // Allow unsafe-eval for WASM (needed by Walrus SDK and ffmpeg.wasm)
   async headers() {
     return [
       {
@@ -9,7 +29,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:;",
+            value: "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; worker-src 'self' blob:; child-src 'self' blob:;",
           },
         ],
       },
@@ -34,7 +54,7 @@ const nextConfig: NextConfig = {
     unoptimized: false,
   },
   // Enable WASM support for Walrus SDK
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     // Add WASM support
     config.experiments = {
       ...config.experiments,
@@ -42,21 +62,18 @@ const nextConfig: NextConfig = {
       layers: true,
     };
 
+    // Configure WASM output path and add fix plugin for production builds
+    if (!dev && isServer) {
+      config.output.webassemblyModuleFilename = "chunks/[id].wasm";
+      config.plugins.push(new WasmChunksFixPlugin());
+    }
+
     // Ignore WASM resolution errors
     config.resolve = config.resolve || {};
     config.resolve.fallback = {
       ...config.resolve.fallback,
       'wbg': false,
     };
-
-    // Handle .wasm files as assets
-    config.module.rules.push({
-      test: /\.wasm$/,
-      type: 'asset/resource',
-      generator: {
-        filename: 'static/wasm/[name].[hash][ext]',
-      },
-    });
 
     return config;
   },

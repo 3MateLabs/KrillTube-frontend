@@ -195,7 +195,14 @@ export class DecryptingLoader {
     const patchIdMatch = fixed.match(PATCH_ID_REGEX);
     if (patchIdMatch) {
       const blobId = patchIdMatch[1];
-      fixed = fixed.replace(PATCH_ID_REGEX, `/${blobId}`);
+      // Check if /v1/blobs/ is already in the URL
+      if (fixed.includes('/v1/blobs/by-quilt-patch-id/')) {
+        // URL already has /v1/blobs/, just remove by-quilt-patch-id and @range
+        fixed = fixed.replace(/\/by-quilt-patch-id\/([^@]+)@\d+:\d+/, '/$1');
+      } else {
+        // URL doesn't have /v1/blobs/, add it
+        fixed = fixed.replace(PATCH_ID_REGEX, `/v1/blobs/${blobId}`);
+      }
     }
 
     return fixed;
@@ -233,7 +240,14 @@ export class DecryptingLoader {
       }
 
       if (PATCH_ID_GLOBAL_REGEX.test(fixedPlaylist)) {
-        fixedPlaylist = fixedPlaylist.replace(PATCH_ID_GLOBAL_REGEX, '/$1');
+        // Check if playlist URLs already have /v1/blobs/ prefix
+        if (fixedPlaylist.includes('/v1/blobs/by-quilt-patch-id/')) {
+          // Already has /v1/blobs/, just remove by-quilt-patch-id and @range
+          fixedPlaylist = fixedPlaylist.replace(/\/by-quilt-patch-id\/([^@\s\n]+)@\d+:\d+/g, '/$1');
+        } else {
+          // Doesn't have /v1/blobs/, add it
+          fixedPlaylist = fixedPlaylist.replace(/\/by-quilt-patch-id\/([^@\s\n]+)@\d+:\d+/g, '/v1/blobs/$1');
+        }
       }
 
       data = fixedPlaylist;

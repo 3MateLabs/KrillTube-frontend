@@ -1,59 +1,51 @@
+
 'use client';
 
 /**
- * Upload page with Walrus SDK integration
- * Users pay for storage with WAL tokens via wallet signature
+ * Upload Page V2: Client-Side Encryption
+ * Transcode → Encrypt → Upload all in browser
+ * Server only stores metadata + encrypted root secret
  */
 
-import { useState, useEffect } from 'react';
+// Force dynamic rendering to support WebAssembly (ffmpeg.wasm)
+export const dynamic = 'force-dynamic';
+
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import type { RenditionQuality } from '@/lib/types';
+import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
 
-// Helper function to format bytes
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
-}
+type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
 
-export default function UploadPageSDK() {
+export default function UploadPageV2() {
   const router = useRouter();
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
-  // SDK functions loaded dynamically to avoid SSR WASM issues
-  const [sdkLoaded, setSdkLoaded] = useState(false);
-  const [walrusSdk, setWalrusSdk] = useState<any>(null);
-
-  useEffect(() => {
-    // Load Walrus SDK only on client-side
-    import('@/lib/client-walrus-sdk').then((mod) => {
-      setWalrusSdk(mod);
-      setSdkLoaded(true);
-    });
-  }, []);
-
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [selectedQualities, setSelectedQualities] = useState<RenditionQuality[]>([
-    '720p',
-    '480p',
-    '360p',
+    '1080p',
   ]);
 
   const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState({ stage: '', percent: 0, message: '' });
+  const [progress, setProgress] = useState<UploadProgress>({
+    stage: 'transcoding',
+    percent: 0,
+    message: '',
+  });
   const [error, setError] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<{
     totalWal: string;
-    sizeFormatted: string;
-    epochs: number;
+    totalUsd: string;
+    storageMB: string;
+    breakdown: {
+      storage: { wal: string; usd: string };
+      write: { wal: string; usd: string };
+    };
   } | null>(null);
+  const [isEstimating, setIsEstimating] = useState(false);
   const [showCostApproval, setShowCostApproval] = useState(false);
-  const [videoId, setVideoId] = useState<string | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,343 +56,118 @@ export default function UploadPageSDK() {
       }
       setError(null);
       setCostEstimate(null);
+      setShowCostApproval(false);
     }
   };
 
   const handleQualityToggle = (quality: RenditionQuality) => {
     setSelectedQualities((prev) =>
-      prev.includes(quality)
-        ? prev.filter((q) => q !== quality)
-        : [...prev, quality].sort()
+      prev.includes(quality) ? prev.filter((q) => q !== quality) : [...prev, quality].sort()
     );
+    setCostEstimate(null);
+    setShowCostApproval(false);
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile || !account || !title || !sdkLoaded || !walrusSdk) return;
+  const handleEstimateCost = async () => {
+    if (!selectedFile || selectedQualities.length === 0) return;
 
-    setIsUploading(true);
+    setIsEstimating(true);
     setError(null);
 
     try {
-      // Step 1: Transcode and encrypt video
-      setProgress({ stage: 'transcoding', percent: 10, message: 'Uploading to server...' });
+      const fileSizeMB = selectedFile.size / 1024 / 1024;
 
-      const formData = new FormData();
-      formData.append('video', selectedFile);
-      formData.append('qualities', JSON.stringify(selectedQualities));
-      formData.append('segmentDuration', '4');
-
-      const transcodeResponse = await fetch('/api/transcode', {
+      const response = await fetch('/api/v1/estimate-cost', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileSizeMB,
+          qualities: selectedQualities,
+        }),
       });
 
-      if (!transcodeResponse.ok) {
-        const errorData = await transcodeResponse.json();
-        throw new Error(errorData.error || 'Transcoding failed');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to estimate cost');
       }
 
-      const transcodeData = await transcodeResponse.json();
-      const { videoId: vid } = transcodeData;
-      setVideoId(vid);
-
-      setProgress({
-        stage: 'transcoding',
-        percent: 30,
-        message: 'Video transcoded and encrypted',
-      });
-
-      // Step 2: Get cost estimate from blockchain (client-side SDK)
-      setProgress({
-        stage: 'estimating',
-        percent: 40,
-        message: 'Fetching exact cost from Walrus blockchain...',
-      });
-
-      // Fetch encrypted segments to calculate total size
-      const segmentsResponse = await fetch(`/api/v1/encrypted-segments/${vid}`);
-      if (!segmentsResponse.ok) {
-        throw new Error('Failed to get encrypted segments for cost calculation');
-      }
-
-      const segmentsData = await segmentsResponse.json();
-
-      // Calculate total size of all data to upload
-      let totalSize = 0;
-      for (const segment of segmentsData.segments) {
-        totalSize += segment.data.length;
-      }
-      if (segmentsData.poster) {
-        totalSize += segmentsData.poster.data.length;
-      }
-
-      console.log(`[Upload] Calculating cost for ${totalSize} bytes...`);
-
-      // Use SDK to get EXACT cost from blockchain
-      const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet';
-      const epochs = parseInt(process.env.WALRUS_EPOCHS || '50');
-
-      const costEstimateResult = await walrusSdk.calculateStorageCost(totalSize, {
-        network,
-        epochs,
-      });
-
-      console.log(`[Upload] Exact cost from blockchain: ${costEstimateResult.totalCostWal} WAL`);
-
-      setCostEstimate({
-        totalWal: costEstimateResult.totalCostWal,
-        sizeFormatted: formatBytes(totalSize),
-        epochs: costEstimateResult.epochs,
-      });
-
-      setProgress({
-        stage: 'approval',
-        percent: 50,
-        message: `Upload will cost ${costEstimateResult.totalCostWal} WAL (${formatBytes(totalSize)})`,
-      });
-
-      // Show cost approval UI
+      const { estimate } = await response.json();
+      setCostEstimate(estimate);
       setShowCostApproval(true);
-      setIsUploading(false);
-
     } catch (err) {
-      console.error('Upload error:', err);
-      setError(err instanceof Error ? err.message : 'Upload failed');
-      setIsUploading(false);
+      console.error('[Estimate Cost] Error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to estimate cost');
+    } finally {
+      setIsEstimating(false);
     }
   };
 
-  const handleApproveAndPay = async () => {
-    if (!account || !costEstimate || !videoId || !title || !sdkLoaded || !walrusSdk) return;
+  const handleUpload = async () => {
+    if (!selectedFile || !account || !title) return;
 
     setIsUploading(true);
-    setShowCostApproval(false);
     setError(null);
 
     try {
-      setProgress({ stage: 'uploading', percent: 60, message: 'Getting encrypted segments...' });
+      console.log('[Upload V2] Starting client-side upload...');
 
-      // Step 1: Get encrypted segments from server
-      const segmentsResponse = await fetch(`/api/v1/encrypted-segments/${videoId}`);
-      if (!segmentsResponse.ok) {
-        throw new Error('Failed to get encrypted segments');
-      }
+      // Dynamically import the upload orchestrator to avoid loading WASM during build
+      const { uploadVideoClientSide } = await import('@/lib/upload/clientUploadOrchestrator');
 
-      const segmentsData = await segmentsResponse.json();
-
-      setProgress({ stage: 'uploading', percent: 65, message: 'Preparing files for Walrus upload...' });
-
-      // Step 2: Prepare files using writeFilesFlow API (CORRECT WALRUS SDK PATTERN)
-      setProgress({ stage: 'uploading', percent: 70, message: 'Encoding files for storage...' });
-
-      const aggregatorUrl = process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR_URL || 'https://aggregator.walrus.space';
-
-      const segmentBlobs = segmentsData.segments.map((seg: any) => ({
-        contents: new Uint8Array(seg.data),
-        identifier: seg.identifier,
-      }));
-
-      // Add poster if exists
-      if (segmentsData.poster) {
-        segmentBlobs.push({
-          contents: new Uint8Array(segmentsData.poster.data),
-          identifier: 'poster',
-        });
-      }
-
-      // Retry segments upload if storage nodes are overloaded
-      let segmentQuilt;
-      let segmentRetries = 3;
-      while (segmentRetries > 0) {
-        try {
-          // This will trigger wallet popups for signature (register + certify)
-          console.log('[Upload] Calling uploadQuiltWithWallet for segments...');
-          segmentQuilt = await walrusSdk.uploadQuiltWithWallet(
-            segmentBlobs,
-            signAndExecuteTransaction,
-            account!.address,
-            {
-              network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
-              epochs: costEstimate.epochs,
-            }
-          );
-          console.log('[Upload] ✓ Segments uploaded successfully');
-          break; // Success, exit retry loop
-        } catch (err) {
-          segmentRetries--;
-          if (segmentRetries === 0) throw err; // Out of retries, throw error
-
-          console.log(`[Upload] Segment upload error, retrying... (${segmentRetries} attempts left)`);
-          setProgress({
-            stage: 'uploading',
-            percent: 70,
-            message: `Storage nodes busy, retrying segments... (${segmentRetries} attempts left)`
-          });
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+      // Complete client-side flow: transcode → encrypt → upload
+      const result = await uploadVideoClientSide(
+        selectedFile,
+        selectedQualities,
+        signAndExecuteTransaction,
+        account.address,
+        {
+          network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
+          epochs: parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '50'),
+          onProgress: setProgress,
         }
-      }
+      );
 
-      const segmentCostWal = (Number(segmentQuilt.cost.totalCost) / 1_000_000_000).toFixed(6);
-      console.log(`[Upload] Paid ${segmentCostWal} WAL for segments`);
+      console.log('[Upload V2] ✓ Client-side processing complete');
+      console.log('[Upload V2] Registering with server...');
 
-      setProgress({ stage: 'uploading', percent: 80, message: '2/3: Please sign transaction to upload playlists...' });
-
-      // Step 3: Build and upload playlists - USER WILL SIGN AGAIN
-      const segmentPatchIdMap = new Map();
-      segmentQuilt.index.patches.forEach((patch: any) => {
-        segmentPatchIdMap.set(patch.identifier, patch.patchId);
-      });
-
-      const playlistBlobs = segmentsData.renditions.map((rendition: any) => {
-        let playlistContent = '#EXTM3U\\n#EXT-X-VERSION:7\\n#EXT-X-TARGETDURATION:4\\n#EXT-X-PLAYLIST-TYPE:VOD\\n';
-
-        const initPatchId = segmentPatchIdMap.get(`${rendition.quality}_init`);
-        if (initPatchId) {
-          playlistContent += `#EXT-X-MAP:URI="${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${initPatchId}"\\n`;
-        }
-
-        for (let i = 0; i < rendition.segmentCount - 1; i++) {
-          const segPatchId = segmentPatchIdMap.get(`${rendition.quality}_seg_${i}`);
-          playlistContent += `#EXTINF:4.0,\\n${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${segPatchId}\\n`;
-        }
-
-        playlistContent += '#EXT-X-ENDLIST\\n';
-
-        return {
-          contents: new TextEncoder().encode(playlistContent),
-          identifier: `${rendition.quality}_playlist`,
-        };
-      });
-
-      // Retry upload if storage nodes are overloaded
-      let playlistQuilt;
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          console.log('[Upload] Calling uploadQuiltWithWallet for playlists...');
-          playlistQuilt = await walrusSdk.uploadQuiltWithWallet(
-            playlistBlobs,
-            signAndExecuteTransaction,
-            account!.address,
-            {
-              network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
-              epochs: costEstimate.epochs,
-            }
-          );
-          console.log('[Upload] ✓ Playlists uploaded successfully');
-          break; // Success, exit retry loop
-        } catch (err) {
-          retries--;
-          if (retries === 0) throw err; // Out of retries, throw error
-
-          console.log(`[Upload] Storage node error, retrying... (${retries} attempts left)`);
-          setProgress({
-            stage: 'uploading',
-            percent: 80,
-            message: `Storage nodes busy, retrying... (${retries} attempts left)`
-          });
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
-        }
-      }
-
-      setProgress({ stage: 'uploading', percent: 90, message: '3/3: Please sign transaction to upload master playlist...' });
-
-      // Step 4: Upload master playlist - USER WILL SIGN THIRD TIME
-      const playlistPatchIdMap = new Map();
-      playlistQuilt.index.patches.forEach((patch: any) => {
-        playlistPatchIdMap.set(patch.identifier, patch.patchId);
-      });
-
-      let masterContent = '#EXTM3U\\n#EXT-X-VERSION:7\\n\\n';
-      segmentsData.renditions.forEach((rendition: any) => {
-        const playlistPatchId = playlistPatchIdMap.get(`${rendition.quality}_playlist`);
-        const playlistUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${playlistPatchId}`;
-        const [width, height] = rendition.resolution.split('x');
-        masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${rendition.bitrate},RESOLUTION=${width}x${height}\\n${playlistUri}\\n`;
-      });
-
-      // Retry master playlist upload if needed
-      let masterQuilt;
-      let masterRetries = 3;
-      while (masterRetries > 0) {
-        try {
-          console.log('[Upload] Calling uploadQuiltWithWallet for master playlist...');
-          masterQuilt = await walrusSdk.uploadQuiltWithWallet(
-            [{ contents: new TextEncoder().encode(masterContent), identifier: 'master_playlist' }],
-            signAndExecuteTransaction,
-            account!.address,
-            {
-              network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
-              epochs: costEstimate.epochs
-            }
-          );
-          console.log('[Upload] ✓ Master playlist uploaded successfully');
-          break;
-        } catch (err) {
-          masterRetries--;
-          if (masterRetries === 0) throw err;
-
-          console.log(`[Upload] Master playlist upload error, retrying... (${masterRetries} attempts left)`);
-          setProgress({
-            stage: 'uploading',
-            percent: 90,
-            message: `Retrying master playlist... (${masterRetries} attempts left)`
-          });
-          await new Promise(resolve => setTimeout(resolve, 2000));
-        }
-      }
-
-      const masterWalrusUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${masterQuilt.index.patches[0].patchId}`;
-
-      setProgress({ stage: 'uploading', percent: 95, message: 'Registering video...' });
-
-      // Step 5: Register video metadata
+      // Register video with server (server stores encrypted root secret)
       const registerResponse = await fetch('/api/v1/register-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoId,
+          videoId: result.videoId,
           title,
           creatorId: account.address,
-          walrusMasterUri: masterWalrusUri,
-          posterWalrusUri: segmentsData.poster ? `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${segmentPatchIdMap.get('poster')}` : undefined,
-          rootSecretEnc: segmentsData.rootSecretEnc,
-          duration: segmentsData.duration,
-          renditions: segmentsData.renditions.map((r: any) => ({
+          walrusMasterUri: result.walrusMasterUri,
+          posterWalrusUri: result.posterWalrusUri,
+          rootSecretEnc: result.rootSecretEnc, // Server will encrypt this before storage
+          duration: result.duration,
+          renditions: result.renditions.map((r) => ({
             name: r.quality,
             resolution: r.resolution,
             bitrate: r.bitrate,
-            walrusPlaylistUri: `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${playlistPatchIdMap.get(`${r.quality}_playlist`)}`,
-            segments: [], // Build from patch IDs
+            walrusPlaylistUri: r.walrusPlaylistUri,
+            segments: r.segments,
           })),
-          paymentInfo: {
-            paidWal: (Number(segmentQuilt.cost.totalCost) + Number(playlistQuilt.cost.totalCost) + Number(masterQuilt.cost.totalCost)) / 1_000_000_000,
-            paidMist: (Number(segmentQuilt.cost.totalCost) + Number(playlistQuilt.cost.totalCost) + Number(masterQuilt.cost.totalCost)).toString(),
-            walletAddress: account.address,
-            transactionIds: {
-              segments: segmentQuilt.blobObject.objectId,
-              playlists: playlistQuilt.blobObject.objectId,
-              master: masterQuilt.blobObject.objectId,
-            },
-          },
+          paymentInfo: result.paymentInfo,
         }),
       });
 
       if (!registerResponse.ok) {
-        throw new Error('Failed to register video');
+        const errorData = await registerResponse.json();
+        throw new Error(errorData.error || 'Registration failed');
       }
 
       const { video } = await registerResponse.json();
 
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
-      console.log(`[Upload] Video uploaded: ${video.id}`);
+      console.log(`[Upload V2] ✓ Video registered: ${video.id}`);
 
       setTimeout(() => {
         router.push(`/watch/${video.id}`);
       }, 1000);
-
     } catch (err) {
-      console.error('Upload error:', err);
+      console.error('[Upload V2] Error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
       setIsUploading(false);
     }
@@ -410,12 +177,13 @@ export default function UploadPageSDK() {
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Upload Video</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Upload Video
+          </h1>
           <p className="text-text-muted mb-8">
             Pay for decentralized storage with WAL tokens
           </p>
 
-          {/* Upload Form */}
           <div className="space-y-6">
             {/* File Upload */}
             <div>
@@ -427,7 +195,7 @@ export default function UploadPageSDK() {
                 type="file"
                 accept="video/*"
                 onChange={handleFileSelect}
-                disabled={isUploading || showCostApproval}
+                disabled={isUploading}
                 className="block w-full text-sm text-text-muted/80
                   file:mr-4 file:py-3 file:px-6
                   file:rounded-lg file:border-0
@@ -457,9 +225,11 @@ export default function UploadPageSDK() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                disabled={isUploading || showCostApproval}
+                disabled={isUploading}
                 placeholder="My awesome video"
-                className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg"
+                className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg
+                  text-foreground placeholder-text-muted/50
+                  focus:outline-none focus:ring-2 focus:ring-walrus-mint"
               />
             </div>
 
@@ -472,18 +242,20 @@ export default function UploadPageSDK() {
                     key={quality}
                     className={`
                       flex items-center justify-center py-3.5 px-4 rounded-lg border-2 cursor-pointer
-                      ${selectedQualities.includes(quality)
-                        ? 'bg-walrus-mint text-walrus-black border-walrus-mint'
-                        : 'bg-background-elevated text-foreground border-border'
+                      transition-all
+                      ${
+                        selectedQualities.includes(quality)
+                          ? 'bg-walrus-mint text-walrus-black border-walrus-mint'
+                          : 'bg-background-elevated text-foreground border-border hover:border-walrus-mint/50'
                       }
-                      ${isUploading || showCostApproval ? 'opacity-50 cursor-not-allowed' : ''}
+                      ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
                   >
                     <input
                       type="checkbox"
                       checked={selectedQualities.includes(quality)}
                       onChange={() => handleQualityToggle(quality)}
-                      disabled={isUploading || showCostApproval}
+                      disabled={isUploading}
                       className="sr-only"
                     />
                     {quality}
@@ -492,44 +264,83 @@ export default function UploadPageSDK() {
               </div>
             </div>
 
-            {/* Cost Approval UI */}
-            {showCostApproval && costEstimate && (
-              <div className="p-6 bg-walrus-mint/10 border-2 border-walrus-mint rounded-lg">
-                <h3 className="text-lg font-bold text-foreground mb-3">Approve Payment</h3>
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Storage Cost:</span>
-                    <span className="text-foreground font-mono font-bold">{costEstimate.totalWal} WAL</span>
+            {/* Calculate Cost Button */}
+            {!showCostApproval && !isUploading && (
+              <button
+                onClick={handleEstimateCost}
+                disabled={
+                  !selectedFile || !account || !title || isEstimating || selectedQualities.length === 0
+                }
+                className="w-full bg-background-elevated text-foreground py-4 px-6 rounded-lg font-semibold
+                  border-2 border-walrus-mint hover:bg-background-hover
+                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {!account
+                  ? 'Connect Wallet to Continue'
+                  : isEstimating
+                  ? 'Calculating...'
+                  : 'Calculate Storage Cost'}
+              </button>
+            )}
+
+            {/* Cost Approval */}
+            {showCostApproval && costEstimate && !isUploading && (
+              <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
+                  Estimated Storage Cost
+                </h3>
+
+                <div className="space-y-3">
+                  {/* Total Cost */}
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-text-muted">Total Cost:</span>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-foreground font-mono font-bold text-lg">
+                        {costEstimate.totalWal} WAL
+                      </span>
+                      <span className="text-walrus-mint font-medium">
+                        (~${costEstimate.totalUsd} USD)
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">File Size:</span>
-                    <span className="text-foreground">{costEstimate.sizeFormatted}</span>
+
+                  {/* Storage Size */}
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-text-muted">Estimated Storage:</span>
+                    <span className="text-foreground font-mono">
+                      {costEstimate.storageMB} MB
+                    </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Storage Duration:</span>
-                    <span className="text-foreground">{costEstimate.epochs} epochs (~{costEstimate.epochs * 2} days)</span>
+
+                  {/* Breakdown */}
+                  <div className="pt-3 border-t border-border space-y-2">
+                    <div className="flex items-baseline justify-between text-sm">
+                      <span className="text-text-muted">Storage Cost:</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-foreground font-mono">
+                          {costEstimate.breakdown.storage.wal} WAL
+                        </span>
+                        <span className="text-text-muted">
+                          (~${costEstimate.breakdown.storage.usd})
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-baseline justify-between text-sm">
+                      <span className="text-text-muted">Write Cost:</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-foreground font-mono">
+                          {costEstimate.breakdown.write.wal} WAL
+                        </span>
+                        <span className="text-text-muted">
+                          (~${costEstimate.breakdown.write.usd})
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <p className="text-sm text-text-muted mb-4">
-                  You will be prompted to sign a transaction to pay {costEstimate.totalWal} WAL from your wallet.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleApproveAndPay}
-                    className="flex-1 bg-walrus-mint text-walrus-black py-3 px-6 rounded-lg font-semibold hover:bg-mint-800"
-                  >
-                    Sign & Pay
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowCostApproval(false);
-                      setIsUploading(false);
-                      setCostEstimate(null);
-                    }}
-                    className="px-6 py-3 border-2 border-border rounded-lg text-foreground hover:bg-background-hover"
-                  >
-                    Cancel
-                  </button>
+
+                  <p className="text-xs text-text-muted mt-3">
+                    This is an estimate. Actual cost may vary slightly based on final file size.
+                  </p>
                 </div>
               </div>
             )}
@@ -546,7 +357,7 @@ export default function UploadPageSDK() {
               <div className="p-5 bg-background-elevated border-2 border-walrus-mint/20 rounded-lg">
                 <div className="flex justify-between mb-3">
                   <span className="text-foreground font-medium">{progress.message}</span>
-                  <span className="text-walrus-mint font-bold">{progress.percent}%</span>
+                  <span className="text-walrus-mint font-bold">{Math.round(progress.percent)}%</span>
                 </div>
                 <div className="w-full bg-background-hover rounded-full h-2.5">
                   <div
@@ -554,18 +365,28 @@ export default function UploadPageSDK() {
                     style={{ width: `${progress.percent}%` }}
                   />
                 </div>
+                <div className="mt-3 text-xs text-text-muted">
+                  Stage: {progress.stage}
+                </div>
               </div>
             )}
 
             {/* Upload Button */}
-            {!showCostApproval && (
+            {showCostApproval && !isUploading && (
               <button
                 onClick={handleUpload}
-                disabled={!selectedFile || !account || !title || isUploading || selectedQualities.length === 0 || !sdkLoaded}
+                disabled={
+                  !selectedFile || !account || !title || isUploading || selectedQualities.length === 0
+                }
                 className="w-full bg-walrus-mint text-walrus-black py-4 px-6 rounded-lg font-semibold
-                  hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed
+                  transition-colors"
               >
-                {!account ? 'Connect Wallet to Upload' : !sdkLoaded ? 'Loading SDK...' : 'Calculate Cost & Continue'}
+                {!account
+                  ? 'Connect Wallet to Upload'
+                  : isUploading
+                  ? 'Processing...'
+                  : 'Approve & Start Upload'}
               </button>
             )}
           </div>

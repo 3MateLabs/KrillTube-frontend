@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { clearEncryptedResult } from '@/lib/server/encryptedResultCache';
+import { getCachedWalPrice } from '@/lib/suivision/priceCache';
+import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
 
 /**
  * POST /v1/register-video
@@ -71,10 +72,19 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[API Register Video] Registering video: ${videoId}`);
-    console.log(`[API Register Video] Payment: ${paymentInfo.paidWal} WAL from ${paymentInfo.walletAddress}`);
 
-    // Convert root secret from base64
-    const rootSecretBuffer = Buffer.from(rootSecretEnc, 'base64');
+    // Fetch WAL price and calculate USD value
+    const walPrice = await getCachedWalPrice();
+    const paidWalNum = parseFloat(paymentInfo.paidWal);
+    const paidUsd = walToUsd(paidWalNum, walPrice);
+
+    console.log(`[API Register Video] Payment: ${paymentInfo.paidWal} WAL (${formatUsd(paidUsd)}) from ${paymentInfo.walletAddress}`);
+
+    // rootSecretEnc is already KMS-encrypted from the transcode phase
+    // Just convert from base64 to bytes for database storage
+    const rootSecretBytes = new Uint8Array(Buffer.from(rootSecretEnc, 'base64'));
+
+    console.log(`[API Register Video] Root secret (KMS-encrypted) size: ${rootSecretBytes.length} bytes`);
 
     // Store video metadata in database
     const video = await prisma.video.create({
@@ -83,7 +93,7 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri,
         posterWalrusUri: posterWalrusUri || null,
-        rootSecretEnc: rootSecretBuffer,
+        rootSecretEnc: rootSecretBytes, // Store KMS-encrypted secret as Uint8Array
         duration,
         creatorId,
         renditions: {
@@ -115,9 +125,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API Register Video] ✓ Video registered: ${video.id}`);
 
-    // Clear the cached encrypted result
-    clearEncryptedResult(videoId);
-
     return NextResponse.json({
       success: true,
       video: {
@@ -138,7 +145,14 @@ export async function POST(request: NextRequest) {
       stats: {
         totalSegments: video.renditions.reduce((sum, r) => sum + r.segments.length, 0),
       },
-      payment: paymentInfo,
+      payment: {
+        ...paymentInfo,
+        // Add USD values
+        paidUsd,
+        walPriceUsd: walPrice,
+        formattedTotal: `${paymentInfo.paidWal} WAL (~${formatUsd(paidUsd)})`,
+        formattedUsd: formatUsd(paidUsd),
+      },
     });
   } catch (error) {
     console.error('[API Register Video] Error:', error);
