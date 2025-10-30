@@ -56,25 +56,23 @@ export function createWalrusClient(network: 'testnet' | 'mainnet' = DEFAULT_NETW
   const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
 
   if (UPLOAD_RELAY_ENABLED) {
-    console.log('[Walrus Client] Using upload relay:', UPLOAD_RELAY_URLS[network]);
     return new WalrusClient({
       network,
       suiClient,
       uploadRelay: {
         host: UPLOAD_RELAY_URLS[network],
-        timeout: 120000, // 2 minutes for relay request
+        timeout: 120000,
         sendTip: {
-          max: MAX_TIP_MIST, // SDK will auto-calculate tip and add to transaction
+          max: MAX_TIP_MIST,
         },
       },
     });
   } else {
-    console.log('[Walrus Client] Using direct node uploads (no relay)');
     return new WalrusClient({
       network,
       suiClient,
       storageNodeClientOptions: {
-        timeout: 120000, // 2 minutes per node request
+        timeout: 120000,
       },
     });
   }
@@ -101,22 +99,14 @@ export async function uploadBlobWithSigner(
   const deletable = options?.deletable ?? true;
 
   const client = createWalrusClient(network);
-
-  // Calculate cost first
   const cost = await client.storageCost(data.length, epochs);
-  console.log(
-    `[Walrus Client] Cost: ${(Number(cost.totalCost) / 1_000_000_000).toFixed(6)} WAL`
-  );
 
-  // Upload blob - user will be prompted to sign
   const result = await client.writeBlob({
     blob: data,
     deletable,
     epochs,
     signer,
   });
-
-  console.log(`[Walrus Client] ✓ Uploaded blob: ${result.blobId}`);
 
   return {
     blobId: result.blobId,
@@ -161,48 +151,31 @@ export async function uploadQuiltWithSigner(
   const deletable = options?.deletable ?? true;
 
   const client = createWalrusClient(network);
-
-  // Calculate total size and cost
   const totalSize = blobs.reduce((sum, blob) => sum + blob.contents.length, 0);
   const cost = await client.storageCost(totalSize, epochs);
 
-  console.log(`[Walrus Client] Uploading quilt with ${blobs.length} files (${totalSize} bytes)`);
-  console.log(
-    `[Walrus Client] Cost: ${(Number(cost.totalCost) / 1_000_000_000).toFixed(6)} WAL`
-  );
+  const result = await client.writeQuilt({
+    blobs,
+    deletable,
+    epochs,
+    signer,
+  });
 
-  try {
-    // Use writeQuilt for server-side uploads with Signer
-    const result = await client.writeQuilt({
-      blobs,
-      deletable,
-      epochs,
-      signer,
-    });
+  const normalizedPatches = result.index.patches.map(patch => ({
+    ...patch,
+    tags: patch.tags instanceof Map
+      ? Object.fromEntries(patch.tags)
+      : (patch.tags || {})
+  }));
 
-    console.log(`[Walrus Client] ✓ Uploaded quilt: ${result.blobId}`);
-    console.log(`[Walrus Client] ✓ ${result.index.patches.length} patches created`);
-
-    // Normalize tags to Record<string, string>
-    const normalizedPatches = result.index.patches.map(patch => ({
-      ...patch,
-      tags: patch.tags instanceof Map
-        ? Object.fromEntries(patch.tags)
-        : (patch.tags || {})
-    }));
-
-    return {
-      blobId: result.blobId,
-      blobObject: result.blobObject,
-      index: {
-        patches: normalizedPatches
-      },
-      cost,
-    };
-  } catch (error) {
-    console.error('[Walrus Client] writeQuilt error:', error);
-    throw error;
-  }
+  return {
+    blobId: result.blobId,
+    blobObject: result.blobObject,
+    index: {
+      patches: normalizedPatches
+    },
+    cost,
+  };
 }
 
 /**
@@ -256,55 +229,31 @@ export async function uploadQuiltWithWallet(
   const deletable = options?.deletable ?? true;
 
   const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
-
-  // Import Transaction class dynamically
   const { Transaction } = await import('@mysten/sui/transactions');
   const { walrus } = await import('@mysten/walrus');
 
-  // Create Walrus-extended client
   const walrusClient = suiClient.$extend(walrus({ network }));
-
-  // Calculate total size and cost
   const totalSize = blobs.reduce((sum, blob) => sum + blob.contents.length, 0);
-
-  // Use the regular WalrusClient for storageCost (not the extended client)
   const regularClient = createWalrusClient(network);
   const cost = await regularClient.storageCost(totalSize, epochs);
 
-  console.log(`[Walrus Client] Uploading quilt with ${blobs.length} files (${totalSize} bytes)`);
-  console.log(`[Walrus Client] Cost: ${(Number(cost.totalCost) / 1_000_000_000).toFixed(6)} WAL`);
-
-  // WAL token type on mainnet/testnet
   const WAL_TYPE = network === 'mainnet'
     ? '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL'
     : '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
 
-  console.log('[Walrus Client] ========================================');
-  console.log('[Walrus Client] Step 0: Querying WAL coins manually...');
-  console.log('[Walrus Client] ========================================');
-
   try {
-    // Step 0: Query and select WAL coins
     const walCoins = await suiClient.getCoins({
       owner: ownerAddress,
       coinType: WAL_TYPE,
     });
 
     if (!walCoins.data || walCoins.data.length === 0) {
-      throw new Error('No WAL tokens found in wallet. Please acquire WAL tokens to pay for storage.');
+      throw new Error('No WAL tokens found in wallet');
     }
 
     const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
     const primaryCoin = sortedCoins[0];
 
-    console.log(`[Walrus Client] Found ${walCoins.data.length} WAL coins`);
-    console.log(`[Walrus Client] Using coin: ${primaryCoin.coinObjectId}`);
-    console.log(`[Walrus Client] Coin balance: ${(Number(primaryCoin.balance) / 1e9).toFixed(6)} WAL`);
-
-    // Step 1: Encode blobs manually (concatenate all blobs for quilt)
-    console.log('[Walrus Client] Step 1: Encoding blobs...');
-
-    // Concatenate all blobs into single Uint8Array for quilt
     const combinedBlob = new Uint8Array(totalSize);
     let offset = 0;
     const patchBoundaries: Array<{ identifier: string; start: number; end: number; tags: Record<string, string> }> = [];
@@ -321,10 +270,7 @@ export async function uploadQuiltWithWallet(
     }
 
     const encoded = await walrusClient.walrus.encodeBlob(combinedBlob);
-    console.log(`[Walrus Client] ✓ Encoded. Blob ID: ${encoded.blobId}`);
 
-    // Step 2: Register blob on-chain with explicit coin (WALLET POPUP #1)
-    console.log('[Walrus Client] Step 2: Registering blob (wallet popup #1)...');
     const registerTxObj = new Transaction();
     const registerTx = await walrusClient.walrus.registerBlobTransaction({
       transaction: registerTxObj,
@@ -334,16 +280,11 @@ export async function uploadQuiltWithWallet(
       deletable,
       epochs,
       owner: ownerAddress,
-      walCoin: registerTxObj.object(primaryCoin.coinObjectId), // Pass as Transaction object reference
+      walCoin: registerTxObj.object(primaryCoin.coinObjectId),
     });
 
-    console.log('[Walrus Client] Requesting wallet signature for registration...');
-
     const registerResult = await signAndExecute({ transaction: registerTx });
-    console.log(`[Walrus Client] ✓ Registration complete. TX: ${registerResult.digest}`);
 
-    // Step 3: Get blob object ID from transaction
-    console.log('[Walrus Client] Step 3: Fetching transaction details...');
     const txDetails = await suiClient.waitForTransaction({
       digest: registerResult.digest,
       options: {
@@ -358,14 +299,9 @@ export async function uploadQuiltWithWallet(
     ) as { objectId: string } | undefined;
 
     if (!blobObjectChange) {
-      console.error('[Walrus Client] Could not find blob object. Available objects:', txDetails.objectChanges);
       throw new Error('Blob object not found in transaction result');
     }
 
-    console.log(`[Walrus Client] ✓ Blob object found: ${blobObjectChange.objectId}`);
-
-    // Step 4: Upload encoded data to storage nodes
-    console.log('[Walrus Client] Step 4: Uploading to storage nodes...');
     const confirmations = await walrusClient.walrus.writeEncodedBlobToNodes({
       blobId: encoded.blobId,
       metadata: encoded.metadata,
@@ -373,10 +309,7 @@ export async function uploadQuiltWithWallet(
       deletable,
       objectId: blobObjectChange.objectId,
     });
-    console.log(`[Walrus Client] ✓ Upload complete. Confirmations: ${confirmations?.length || 0}`);
 
-    // Step 5: Certify blob on-chain with explicit coin (WALLET POPUP #2)
-    console.log('[Walrus Client] Step 5: Certifying blob (wallet popup #2)...');
     const certifyTxObj = new Transaction();
     const certifyTx = await walrusClient.walrus.certifyBlobTransaction({
       transaction: certifyTxObj,
@@ -384,15 +317,10 @@ export async function uploadQuiltWithWallet(
       blobObjectId: blobObjectChange.objectId,
       confirmations,
       deletable,
-      // Note: certifyBlobTransaction may not support walCoin parameter
-      // The coin should already be available from the register transaction
     });
 
-    console.log('[Walrus Client] Requesting wallet signature for certification...');
     const certifyResult = await signAndExecute({ transaction: certifyTx });
-    console.log(`[Walrus Client] ✓ Certification complete. TX: ${certifyResult.digest}`);
 
-    // Wait for certification to complete
     const certifyTxDetails = await suiClient.waitForTransaction({
       digest: certifyResult.digest,
       options: { showEffects: true },
@@ -402,8 +330,6 @@ export async function uploadQuiltWithWallet(
       throw new Error('Certification transaction failed');
     }
 
-    // Build patches array from boundaries
-    // Note: Remove quilt:// prefix - URLs will be constructed as /by-quilt-patch-id/{blobId}@{start}:{end}
     const patches = patchBoundaries.map((boundary, idx) => ({
       patchId: `${encoded.blobId}@${boundary.start}:${boundary.end}`,
       identifier: boundary.identifier,
@@ -412,10 +338,6 @@ export async function uploadQuiltWithWallet(
       tags: boundary.tags
     }));
 
-    console.log('[Walrus Client] ✓ Upload complete!');
-    console.log('[Walrus Client] Blob ID:', encoded.blobId);
-    console.log('[Walrus Client] Patches:', patches.length);
-
     return {
       blobId: encoded.blobId,
       blobObject: blobObjectChange as any,
@@ -423,11 +345,7 @@ export async function uploadQuiltWithWallet(
       cost,
     };
   } catch (error) {
-    console.error('[Walrus Client] Upload error:', error);
-    console.error('[Walrus Client] Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    console.error('[Walrus] Upload error:', error);
     throw error;
   }
 }
@@ -478,23 +396,17 @@ export async function uploadMultipleBlobsWithWallet(
     ? '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL'
     : '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
 
-  console.log(`[Walrus Client] Uploading ${blobs.length} blobs individually...`);
-
-  // Query WAL coins once
   const walCoins = await suiClient.getCoins({
     owner: ownerAddress,
     coinType: WAL_TYPE,
   });
 
   if (!walCoins.data || walCoins.data.length === 0) {
-    throw new Error('No WAL tokens found in wallet. Please acquire WAL tokens to pay for storage.');
+    throw new Error('No WAL tokens found in wallet');
   }
 
   const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
   const primaryCoin = sortedCoins[0];
-
-  console.log(`[Walrus Client] Found ${walCoins.data.length} WAL coins`);
-  console.log(`[Walrus Client] Using coin: ${primaryCoin.coinObjectId}`);
 
   const results: Array<{
     identifier: string;
@@ -503,17 +415,10 @@ export async function uploadMultipleBlobsWithWallet(
     size: number;
   }> = [];
 
-  // Upload each blob individually
-  for (let i = 0; i < blobs.length; i++) {
-    const blob = blobs[i];
-    console.log(`[Walrus Client] Uploading blob ${i + 1}/${blobs.length}: ${blob.identifier}`);
-
+  for (const blob of blobs) {
     try {
-      // Step 1: Encode blob
       const encoded = await walrusClient.walrus.encodeBlob(blob.contents);
-      console.log(`[Walrus Client] ✓ Encoded ${blob.identifier}: ${encoded.blobId}`);
 
-      // Step 2: Register blob
       const registerTxObj = new Transaction();
       const registerTx = await walrusClient.walrus.registerBlobTransaction({
         transaction: registerTxObj,
@@ -527,9 +432,7 @@ export async function uploadMultipleBlobsWithWallet(
       });
 
       const registerResult = await signAndExecute({ transaction: registerTx });
-      console.log(`[Walrus Client] ✓ Registered ${blob.identifier}`);
 
-      // Step 3: Get blob object ID
       const txDetails = await suiClient.waitForTransaction({
         digest: registerResult.digest,
         options: {
@@ -547,7 +450,6 @@ export async function uploadMultipleBlobsWithWallet(
         throw new Error(`Blob object not found for ${blob.identifier}`);
       }
 
-      // Step 4: Upload to storage nodes
       const confirmations = await walrusClient.walrus.writeEncodedBlobToNodes({
         blobId: encoded.blobId,
         metadata: encoded.metadata,
@@ -555,9 +457,7 @@ export async function uploadMultipleBlobsWithWallet(
         deletable,
         objectId: blobObjectChange.objectId,
       });
-      console.log(`[Walrus Client] ✓ Uploaded ${blob.identifier} to nodes`);
 
-      // Step 5: Certify blob
       const certifyTxObj = new Transaction();
       const certifyTx = await walrusClient.walrus.certifyBlobTransaction({
         transaction: certifyTxObj,
@@ -568,9 +468,7 @@ export async function uploadMultipleBlobsWithWallet(
       });
 
       const certifyResult = await signAndExecute({ transaction: certifyTx });
-      console.log(`[Walrus Client] ✓ Certified ${blob.identifier}`);
 
-      // Wait for certification
       const certifyTxDetails = await suiClient.waitForTransaction({
         digest: certifyResult.digest,
         options: { showEffects: true },
@@ -586,15 +484,11 @@ export async function uploadMultipleBlobsWithWallet(
         blobObjectId: blobObjectChange.objectId,
         size: blob.contents.length,
       });
-
-      console.log(`[Walrus Client] ✓ Complete ${i + 1}/${blobs.length}: ${blob.identifier}`);
     } catch (error) {
-      console.error(`[Walrus Client] Failed to upload ${blob.identifier}:`, error);
       throw new Error(`Failed to upload ${blob.identifier}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  console.log(`[Walrus Client] ✓ All ${blobs.length} blobs uploaded successfully!`);
   return results;
 }
 

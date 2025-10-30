@@ -166,20 +166,12 @@ export class DecryptingLoader {
     // Determine if this is a segment or playlist
     const isSegment = context.frag && context.frag.relurl;
     const isInitSegment = context.frag && context.frag.sn === 'initSegment';
-
-    // Only media segments are encrypted, NOT playlists or init segments
     const isEncrypted = isSegment && !isInitSegment;
 
-    console.log(`[DecryptingLoader] Loading: ${context.url}`);
-    console.log(`[DecryptingLoader] Type: ${isInitSegment ? 'init segment' : isSegment ? 'media segment' : 'playlist'}`);
-    console.log(`[DecryptingLoader] Encrypted: ${isEncrypted}`);
-
-    // For playlists and init segments, just fetch normally (not encrypted)
     if (!isEncrypted) {
       return this.loadPlaintext(context, config, startTime);
     }
 
-    // For media segments, fetch and decrypt
     return this.loadAndDecrypt(context, config, startTime);
   }
 
@@ -191,24 +183,14 @@ export class DecryptingLoader {
   private fixWalrusUrl(url: string): string {
     let fixed = url;
 
-    // Fix 1: Replace broken aggregator domain with working one
     if (fixed.includes('aggregator.walrus.space')) {
       fixed = fixed.replace('aggregator.walrus.space', 'aggregator.mainnet.walrus.mirai.cloud');
-      console.log(`[DecryptingLoader] Fixed aggregator URL`);
     }
 
-    // Fix 2: Strip @start:end byte range from patch IDs (not supported by aggregator)
-    // Example: /v1/blobs/by-quilt-patch-id/blobId@0:196 → /v1/blobs/blobId
     const patchIdMatch = fixed.match(/\/by-quilt-patch-id\/([^@]+)@\d+:\d+/);
     if (patchIdMatch) {
       const blobId = patchIdMatch[1];
-      // Remove /by-quilt-patch-id/ and the @start:end, keeping just the blob ID
       fixed = fixed.replace(/\/by-quilt-patch-id\/[^@]+@\d+:\d+/, `/${blobId}`);
-      console.log(`[DecryptingLoader] Stripped byte range, using full blob: ${blobId}`);
-    }
-
-    if (fixed !== url) {
-      console.log(`[DecryptingLoader] URL rewrite: ${url} → ${fixed}`);
     }
 
     return fixed;
@@ -239,23 +221,15 @@ export class DecryptingLoader {
 
     if (isPlaylist) {
       data = await response.text();
-
-      // Fix URLs inside playlist content (master and variant playlists)
-      // This fixes the embedded URLs that reference other playlists/segments
       let fixedPlaylist = data;
 
-      // Fix aggregator domain in embedded URLs
       if (fixedPlaylist.includes('aggregator.walrus.space')) {
         fixedPlaylist = fixedPlaylist.replace(/aggregator\.walrus\.space/g, 'aggregator.mainnet.walrus.mirai.cloud');
-        console.log('[DecryptingLoader] Fixed aggregator domains in playlist content');
       }
 
-      // Fix patch ID byte ranges in embedded URLs
-      // Example: /v1/blobs/by-quilt-patch-id/blobId@0:196 → /v1/blobs/blobId
       const patchIdRegex = /\/by-quilt-patch-id\/([^\s@\n]+)@\d+:\d+/g;
       if (patchIdRegex.test(fixedPlaylist)) {
         fixedPlaylist = fixedPlaylist.replace(patchIdRegex, '/$1');
-        console.log('[DecryptingLoader] Fixed patch ID byte ranges in playlist content');
       }
 
       data = fixedPlaylist;
@@ -263,16 +237,11 @@ export class DecryptingLoader {
       data = await response.arrayBuffer();
     }
 
-    const duration = performance.now() - startTime;
-
-    // Update stats
     this._stats.loading.first = this._stats.loading.start;
     this._stats.loading.end = performance.now();
     this._stats.loaded = typeof data === 'string' ? data.length : data.byteLength;
     this._stats.total = typeof data === 'string' ? data.length : data.byteLength;
     this._stats.retry = this.retryCount;
-
-    console.log(`[DecryptingLoader] ✓ Loaded plaintext (${duration.toFixed(0)}ms)`);
 
     if (this.callbacks?.onSuccess) {
       this.callbacks.onSuccess(
@@ -309,55 +278,30 @@ export class DecryptingLoader {
     }
 
     const rendition = this.extractRendition(context);
-
-    console.log(`[DecryptingLoader] Segment: ${rendition} #${segIdx === -1 ? 'init' : segIdx}`);
-
-    // OPTIMIZATION 1: Pipeline architecture - Start download and key fetch in PARALLEL
-    const pipelineStartTime = performance.now();
-
-    // Fix legacy/broken URLs before fetching
     const fixedUrl = this.fixWalrusUrl(context.url);
 
     const [encryptedDataBuffer, segmentKey] = await Promise.all([
-      // Download segment (starts immediately, non-blocking)
       fetch(fixedUrl, { signal: this.abortController?.signal }).then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.arrayBuffer();
       }),
-
-      // Fetch key (starts immediately, in parallel with download)
       this.config.sessionManager.getSegmentKey(rendition, segIdx),
     ]);
 
-    const pipelineDuration = performance.now() - pipelineStartTime;
     const encryptedData = new Uint8Array(encryptedDataBuffer);
-
-    console.log(
-      `[DecryptingLoader] ✓ Pipeline (download + key): ${pipelineDuration.toFixed(0)}ms, ${encryptedData.length} bytes`
-    );
-
-    // OPTIMIZATION 2: Use Web Worker pool for parallel decryption (non-blocking UI)
-    const decryptStartTime = performance.now();
     let decryptedData: Uint8Array;
 
     if (this.config.workerPool && this.config.workerPool.isAvailable()) {
-      // Use worker pool for parallel, non-blocking decryption
       decryptedData = await this.config.workerPool.decrypt(
         segmentKey.dek,
         encryptedData,
         segmentKey.iv
       );
-      console.log(`[DecryptingLoader] ✓ Decrypted via worker (${(performance.now() - decryptStartTime).toFixed(0)}ms)`);
     } else {
-      // Fallback to main thread if workers not available
       decryptedData = await aesGcmDecrypt(segmentKey.dek, encryptedData, segmentKey.iv);
-      console.log(`[DecryptingLoader] ✓ Decrypted on main thread (${(performance.now() - decryptStartTime).toFixed(0)}ms)`);
     }
-
-    const totalDuration = performance.now() - startTime;
-    console.log(`[DecryptingLoader] ✓ Total: ${totalDuration.toFixed(0)}ms`);
 
     // Update stats
     this._stats.loading.first = this._stats.loading.start;
@@ -378,15 +322,10 @@ export class DecryptingLoader {
       );
     }
 
-    // OPTIMIZATION 3: Aggressive key prefetching (skip for init segments)
     if (segIdx >= 0 && segIdx < 1000 && this.config.hlsInstance?.levels) {
-      // Prefetch keys for all quality levels (not just current)
-      // This eliminates buffering during ABR quality switches
       this.config.sessionManager
         .prefetchKeysAggressive(this.config.hlsInstance.levels, segIdx, rendition)
-        .catch((error) => {
-          console.warn('[DecryptingLoader] Aggressive prefetch failed:', error);
-        });
+        .catch(() => {});
     }
   }
 
@@ -395,34 +334,23 @@ export class DecryptingLoader {
    * Uses HLS.js level information to map level index to resolution
    */
   private extractRendition(context: any): string {
-    // Get rendition from fragment's level property
     if (context.frag && typeof context.frag.level === 'number' && this.config.hlsInstance) {
       const levelIndex = context.frag.level;
       const levels = this.config.hlsInstance.levels;
 
       if (levels && levels[levelIndex]) {
         const level = levels[levelIndex];
-        const rendition = `${level.height}p`;
-        console.log(`[DecryptingLoader] Extracted rendition from level ${levelIndex}: ${rendition}`);
-        return rendition;
+        return `${level.height}p`;
       }
     }
 
-    // This shouldn't happen in normal operation - log error for debugging
-    console.error('[DecryptingLoader] Failed to extract rendition from HLS level!');
-    console.error('[DecryptingLoader] Fragment level:', context.frag?.level);
-    console.error('[DecryptingLoader] HLS instance available:', !!this.config.hlsInstance);
-    console.error('[DecryptingLoader] Levels available:', this.config.hlsInstance?.levels?.length);
-
-    // Throw error instead of defaulting - this indicates a real problem
-    throw new Error('Cannot extract rendition from fragment context. HLS levels not available.');
+    throw new Error('Cannot extract rendition from fragment context');
   }
 
   /**
    * Abort current load
    */
   abort(): void {
-    console.log('[DecryptingLoader] Aborting load');
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
