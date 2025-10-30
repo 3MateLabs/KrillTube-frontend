@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
-import { decryptRootSecret } from '@/lib/kms/envelope';
+import { decryptRootSecret, loadSessionPrivateKey } from '@/lib/kms/envelope';
 import { deriveSegmentDek, deriveSessionKek } from '@/lib/crypto/keyDerivation';
 import { wrapKey } from '@/lib/crypto/primitives';
 import { toBase64 } from '@/lib/crypto/utils';
@@ -140,8 +140,11 @@ export async function GET(request: NextRequest) {
     const segmentDek = await deriveSegmentDek(rootSecret, videoId, rendition, segIdx);
     console.log(`  ✓ Derived segment DEK`);
 
-    // Step 3: Derive session KEK from ECDH shared secret
-    const serverPrivateKeyJwk = JSON.parse(session.serverPrivJwk) as JsonWebKey;
+    // Step 3: Load ephemeral private key from memory
+    const serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
+    console.log(`  ✓ Loaded ephemeral private key from memory`);
+
+    // Step 4: Derive session KEK from ECDH shared secret
     const sessionKek = await deriveSessionKek(
       serverPrivateKeyJwk,
       new Uint8Array(session.clientPubKey),
@@ -149,11 +152,11 @@ export async function GET(request: NextRequest) {
     );
     console.log(`  ✓ Derived session KEK`);
 
-    // Step 4: Wrap segment DEK with session KEK
+    // Step 5: Wrap segment DEK with session KEK
     const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, segmentDek);
     console.log(`  ✓ Wrapped segment DEK`);
 
-    // Step 5: Log playback activity (optional - for analytics)
+    // Step 6: Log playback activity (optional - for analytics)
     await prisma.playbackLog.create({
       data: {
         sessionId: session.id,
@@ -278,8 +281,10 @@ export async function POST(request: NextRequest) {
     // Decrypt root secret
     const rootSecret = await decryptRootSecret(session.video.rootSecretEnc);
 
+    // Load ephemeral private key from memory
+    const serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
+
     // Derive session KEK
-    const serverPrivateKeyJwk = JSON.parse(session.serverPrivJwk) as JsonWebKey;
     const sessionKek = await deriveSessionKek(
       serverPrivateKeyJwk,
       new Uint8Array(session.clientPubKey),

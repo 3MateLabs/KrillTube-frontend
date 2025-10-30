@@ -16,7 +16,7 @@ import { prisma } from '@/lib/db';
 import { deriveSegmentDek } from '@/lib/crypto/keyDerivation';
 import { wrapKey } from '@/lib/crypto/primitives';
 import { deriveSessionKek as deriveSessionKekServer } from '@/lib/crypto/keyDerivation';
-import { decryptRootSecret } from '@/lib/kms/envelope';
+import { decryptRootSecret, loadSessionPrivateKey } from '@/lib/kms/envelope';
 
 interface BatchKeyRequest {
   // Format 1: Array of {rendition, segIdx}
@@ -103,8 +103,10 @@ export async function POST(request: NextRequest) {
 
     const { video } = session;
 
+    // Load ephemeral private key from memory
+    const serverPrivJwk = loadSessionPrivateKey(session.id);
+
     // Derive session KEK (for wrapping DEKs)
-    const serverPrivJwk = JSON.parse(session.serverPrivJwk);
     const sessionKek = await deriveSessionKekServer(
       serverPrivJwk,
       new Uint8Array(session.clientPubKey),

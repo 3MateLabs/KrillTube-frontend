@@ -93,7 +93,6 @@ model PlaybackSession {
   videoId       String   @map("video_id")
   clientPubKey  Bytes    @map("client_pub_key")   // X25519 public
   serverPubKey  Bytes    @map("server_pub_key")   // X25519 public
-  serverPrivJwk String   @map("server_priv_jwk")  // X25519 private key as JWK (JSON string)
   serverNonce   Bytes    @map("server_nonce")     // 12 bytes
   deviceHash    String?  @map("device_hash")
   expiresAt     DateTime @map("expires_at")

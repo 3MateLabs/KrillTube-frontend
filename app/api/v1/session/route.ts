@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db';
 import { generateX25519Keypair, generateNonce } from '@/lib/crypto/primitives';
 import { toBase64, fromBase64 } from '@/lib/crypto/utils';
 import { cookies } from 'next/headers';
+import { storeSessionPrivateKey, deleteSessionPrivateKey } from '@/lib/kms/envelope';
 
 /**
  * POST /api/v1/session
@@ -81,22 +82,25 @@ export async function POST(request: NextRequest) {
     // Calculate session expiration (30 minutes)
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    // Create session in database
+    // Create session in database (without private key)
     const session = await prisma.playbackSession.create({
       data: {
         cookieValue: sessionToken,
         videoId,
         clientPubKey: Buffer.from(clientPubKeyBytes),
         serverPubKey: Buffer.from(serverKeypair.publicKey),
-        serverPrivJwk: JSON.stringify(serverKeypair.privateKeyJwk), // Store full JWK
         serverNonce: Buffer.from(serverNonce),
         deviceHash: deviceFingerprint || null,
         expiresAt,
       },
     });
 
+    // Store ephemeral private key in memory (30 minutes TTL)
+    storeSessionPrivateKey(session.id, serverKeypair.privateKeyJwk, 30 * 60);
+
     console.log(`[Session API] ✓ Created session: ${session.id}`);
     console.log(`[Session API]   Video: ${video.title}`);
+    console.log(`[Session API]   Private key stored in memory (30 min TTL)`);
     console.log(`[Session API]   Expires: ${expiresAt.toISOString()}`);
 
     // Set HttpOnly cookie with session token
@@ -143,10 +147,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No active session' }, { status: 401 });
     }
 
+    // Get session ID before deleting
+    const session = await prisma.playbackSession.findUnique({
+      where: { cookieValue: sessionToken },
+      select: { id: true },
+    });
+
     // Delete session from database
     await prisma.playbackSession.delete({
       where: { cookieValue: sessionToken },
     });
+
+    // Delete ephemeral private key from memory
+    if (session) {
+      deleteSessionPrivateKey(session.id);
+    }
 
     // Clear cookie
     cookieStore.delete('sessionToken');
