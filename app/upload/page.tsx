@@ -138,7 +138,7 @@ export default function UploadPageSDK() {
 
       // Use SDK to get EXACT cost from blockchain
       const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet';
-      const epochs = parseInt(process.env.WALRUS_EPOCHS || '50');
+      const epochs = parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '50');
 
       const costEstimateResult = await walrusSdk.calculateStorageCost(totalSize, {
         network,

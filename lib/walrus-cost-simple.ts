@@ -30,7 +30,7 @@ export function estimateWalrusCost(
   sizeBytes: number,
   epochs?: number
 ): WalrusCostEstimate {
-  const network = process.env.WALRUS_NETWORK || 'mainnet';
+  const network = process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet';
   const defaultEpochs = network === 'mainnet' ? 200 : 1;
   const epochsToUse = epochs || defaultEpochs;
 

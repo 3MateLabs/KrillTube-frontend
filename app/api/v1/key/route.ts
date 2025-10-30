@@ -6,8 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
-import { decryptRootSecret } from '@/lib/kms/envelope';
-import { deriveSegmentDek, deriveSessionKek } from '@/lib/crypto/keyDerivation';
+import { deriveSessionKek } from '@/lib/crypto/keyDerivation';
 import { wrapKey } from '@/lib/crypto/primitives';
 import { toBase64 } from '@/lib/crypto/utils';
 
@@ -17,17 +16,16 @@ import { toBase64 } from '@/lib/crypto/utils';
  *
  * Flow:
  * 1. Validate session cookie
- * 2. Retrieve encrypted root secret from video
- * 3. Decrypt root secret with KMS master key
- * 4. Derive segment DEK from root secret
- * 5. Derive session KEK from ECDH shared secret
- * 6. Wrap segment DEK with session KEK
- * 7. Return wrapped DEK + IVs
+ * 2. Fetch segment DEK from database (stored in plaintext)
+ * 3. Derive session KEK from ECDH shared secret
+ * 4. Wrap segment DEK with session KEK
+ * 5. Return wrapped DEK + IVs
  *
  * Security:
  * - Session must be valid and not expired
  * - Session must be for the requested video
  * - Only segments from authorized renditions
+ * - DEK is wrapped with session KEK for secure transmission
  * - Rate limiting should be applied (TODO)
  */
 export async function GET(request: NextRequest) {
@@ -114,8 +112,7 @@ export async function GET(request: NextRequest) {
 
     const videoRendition = session.video.renditions[0];
 
-    // Verify segment exists
-    let segmentIv: Uint8Array | undefined;
+    // Verify segment exists and get DEK + IV
     if (!videoRendition.segments || videoRendition.segments.length === 0) {
       return NextResponse.json(
         { error: `Segment ${segIdx} not found in rendition ${rendition}` },
@@ -123,24 +120,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get segment IV (works for both init segments at -1 and media segments at 0+)
-    segmentIv = videoRendition.segments[0].iv;
+    const segment = videoRendition.segments[0];
+    const segmentDek = new Uint8Array(segment.dek);
+    const segmentIv = segment.iv;
 
     console.log(`[Key API] Processing key request:`);
     console.log(`  Video: ${videoId}`);
     console.log(`  Rendition: ${rendition}`);
     console.log(`  Segment: ${segIdx}`);
     console.log(`  Session: ${session.id}`);
+    console.log(`  ✓ Fetched segment DEK from database`);
 
-    // Step 1: Decrypt root secret with KMS
-    const rootSecret = await decryptRootSecret(session.video.rootSecretEnc);
-    console.log(`  ✓ Decrypted root secret`);
-
-    // Step 2: Derive segment DEK
-    const segmentDek = await deriveSegmentDek(rootSecret, videoId, rendition, segIdx);
-    console.log(`  ✓ Derived segment DEK`);
-
-    // Step 3: Derive session KEK from ECDH shared secret
+    // Step 2: Derive session KEK from ECDH shared secret
     const serverPrivateKeyJwk = JSON.parse(session.serverPrivJwk) as JsonWebKey;
     const sessionKek = await deriveSessionKek(
       serverPrivateKeyJwk,
@@ -149,11 +140,11 @@ export async function GET(request: NextRequest) {
     );
     console.log(`  ✓ Derived session KEK`);
 
-    // Step 4: Wrap segment DEK with session KEK
+    // Step 3: Wrap segment DEK with session KEK
     const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, segmentDek);
     console.log(`  ✓ Wrapped segment DEK`);
 
-    // Step 5: Log playback activity (optional - for analytics)
+    // Step 4: Log playback activity (optional - for analytics)
     await prisma.playbackLog.create({
       data: {
         sessionId: session.id,
@@ -275,9 +266,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Key Batch API] Processing batch request: ${segIndices.length} segments`);
 
-    // Decrypt root secret
-    const rootSecret = await decryptRootSecret(session.video.rootSecretEnc);
-
     // Derive session KEK
     const serverPrivateKeyJwk = JSON.parse(session.serverPrivJwk) as JsonWebKey;
     const sessionKek = await deriveSessionKek(
@@ -291,20 +279,25 @@ export async function POST(request: NextRequest) {
     const videoRendition = session.video.renditions[0];
 
     for (const segIdx of segIndices) {
-      // Derive segment DEK
-      const segmentDek = await deriveSegmentDek(rootSecret, videoId, rendition, segIdx);
+      // Find segment with DEK
+      const segment = videoRendition.segments.find((s) => s.segIdx === segIdx);
+
+      if (!segment) {
+        console.warn(`[Key Batch API] Segment ${segIdx} not found, skipping`);
+        continue;
+      }
+
+      // Get DEK from database
+      const segmentDek = new Uint8Array(segment.dek);
 
       // Wrap DEK
       const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, segmentDek);
-
-      // Find segment IV
-      const segment = videoRendition.segments.find((s) => s.segIdx === segIdx);
 
       keys.push({
         segIdx,
         wrappedDek: toBase64(wrappedKey),
         wrapIv: toBase64(wrapIv),
-        segmentIv: segment ? toBase64(segment.iv) : undefined,
+        segmentIv: toBase64(segment.iv),
       });
     }
 

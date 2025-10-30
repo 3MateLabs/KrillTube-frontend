@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       renditionIdx: number;
       type: 'init' | 'segment';
       segIdx?: number;
+      dek: Buffer;
       iv: Buffer;
     }>();
 
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         fileMap.set(identifier, {
           renditionIdx: rendIdx,
           type: 'init',
+          dek: rendition.initSegment.dek,
           iv: rendition.initSegment.iv,
         });
         totalSize += initData.length;
@@ -110,6 +112,7 @@ export async function POST(request: NextRequest) {
           renditionIdx: rendIdx,
           type: 'segment',
           segIdx: segment.segIdx,
+          dek: segment.dek,
           iv: segment.iv,
         });
         totalSize += segData.length;
@@ -147,7 +150,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get aggregator URL for building URIs
-    const aggregatorUrl = process.env.WALRUS_AGGREGATOR_URL || 'https://aggregator.walrus.space';
+    const aggregatorUrl = process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR || 'https://aggregator.walrus.space';
 
     // Get poster URI
     let posterWalrusUri: string | undefined;
@@ -247,15 +250,15 @@ export async function POST(request: NextRequest) {
     // Step 8: Calculate actual costs
     const segmentCost = await suiWalrusClient.storageCost(
       segmentBlobs.reduce((sum, b) => sum + b.contents.length, 0),
-      parseInt(process.env.WALRUS_EPOCHS || '200')
+      parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '200')
     );
     const playlistCost = await suiWalrusClient.storageCost(
       playlistBlobs.reduce((sum, b) => sum + b.contents.length, 0),
-      parseInt(process.env.WALRUS_EPOCHS || '200')
+      parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '200')
     );
     const masterCost = await suiWalrusClient.storageCost(
       new TextEncoder().encode(masterContent).length,
-      parseInt(process.env.WALRUS_EPOCHS || '200')
+      parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '200')
     );
 
     const totalPaidMist = segmentCost.totalCost + playlistCost.totalCost + masterCost.totalCost;
@@ -270,7 +273,6 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri: masterWalrusUri,
         posterWalrusUri,
-        rootSecretEnc: new Uint8Array(encryptedResult.rootSecretEnc),
         duration: encryptedResult.duration,
         creatorId,
         renditions: {
@@ -290,6 +292,7 @@ export async function POST(request: NextRequest) {
               segmentsToCreate.push({
                 segIdx: -1,
                 walrusUri: initUri,
+                dek: new Uint8Array(rendition.initSegment.dek),
                 iv: new Uint8Array(rendition.initSegment.iv),
                 duration: 0,
                 size: rendition.initSegment.encryptedSize,
@@ -303,6 +306,7 @@ export async function POST(request: NextRequest) {
               segmentsToCreate.push({
                 segIdx: segment.segIdx,
                 walrusUri: segUri,
+                dek: new Uint8Array(segment.dek),
                 iv: new Uint8Array(segment.iv),
                 duration: 4.0,
                 size: segment.encryptedSize,

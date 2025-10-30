@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
         renditionIdx: number;
         type: 'init' | 'segment';
         segIdx?: number;
+        dek: Buffer;
         iv: Buffer;
         originalSize: number;
         encryptedSize: number;
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
         fileMap.set(identifier, {
           renditionIdx: rendIdx,
           type: 'init',
+          dek: rendition.initSegment.dek,
           iv: rendition.initSegment.iv,
           originalSize: rendition.initSegment.originalSize,
           encryptedSize: rendition.initSegment.encryptedSize,
@@ -100,6 +102,7 @@ export async function POST(request: NextRequest) {
           renditionIdx: rendIdx,
           type: 'segment',
           segIdx: segment.segIdx,
+          dek: segment.dek,
           iv: segment.iv,
           originalSize: segment.originalSize,
           encryptedSize: segment.encryptedSize,
@@ -299,7 +302,6 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri: masterWalrusUri,
         posterWalrusUri,
-        rootSecretEnc: new Uint8Array(encryptedResult.rootSecretEnc),
         duration: encryptedResult.duration,
         creatorId,
         renditions: {
@@ -322,6 +324,7 @@ export async function POST(request: NextRequest) {
               segmentsToCreate.push({
                 segIdx: -1, // Init segments use -1
                 walrusUri: initUri,
+                dek: new Uint8Array(rendition.initSegment.dek),
                 iv: new Uint8Array(rendition.initSegment.iv),
                 duration: 0, // Init segments have no duration
                 size: rendition.initSegment.encryptedSize,
@@ -337,6 +340,7 @@ export async function POST(request: NextRequest) {
               segmentsToCreate.push({
                 segIdx: segment.segIdx,
                 walrusUri: segUri,
+                dek: new Uint8Array(segment.dek),
                 iv: new Uint8Array(segment.iv),
                 duration: 4.0, // TODO: Get actual duration from transcoder
                 size: segment.encryptedSize,

@@ -12,10 +12,10 @@ import { clearEncryptedResult } from '@/lib/server/encryptedResultCache';
  * Register a video after it has been uploaded to Walrus by the client
  *
  * Expected flow:
- * 1. Client transcodes video (POST /api/transcode)
- * 2. Client gets cost estimate (POST /v1/estimate-cost)
- * 3. Client uploads to Walrus using SDK with user signature
- * 4. Client calls this endpoint with Walrus URIs and metadata
+ * 1. Client transcodes video (or gets plaintext segments from server)
+ * 2. Client encrypts segments with random keys in browser
+ * 3. Client uploads encrypted segments to Walrus using SDK with user signature
+ * 4. Client calls this endpoint with Walrus URIs, keys (DEKs), and metadata
  */
 export async function POST(request: NextRequest) {
   try {
@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
       creatorId,
       walrusMasterUri,
       posterWalrusUri,
-      rootSecretEnc,
       duration,
       renditions,
       paymentInfo,
@@ -36,7 +35,6 @@ export async function POST(request: NextRequest) {
       creatorId: string;
       walrusMasterUri: string;
       posterWalrusUri?: string;
-      rootSecretEnc: string; // Base64 encoded
       duration: number;
       renditions: Array<{
         name: string;
@@ -46,7 +44,8 @@ export async function POST(request: NextRequest) {
         segments: Array<{
           segIdx: number;
           walrusUri: string;
-          iv: string; // Base64 encoded
+          dek: string; // Base64 encoded AES-128 key (16 bytes)
+          iv: string; // Base64 encoded IV (12 bytes)
           duration: number;
           size: number;
         }>;
@@ -73,9 +72,6 @@ export async function POST(request: NextRequest) {
     console.log(`[API Register Video] Registering video: ${videoId}`);
     console.log(`[API Register Video] Payment: ${paymentInfo.paidWal} WAL from ${paymentInfo.walletAddress}`);
 
-    // Convert root secret from base64
-    const rootSecretBuffer = Buffer.from(rootSecretEnc, 'base64');
-
     // Store video metadata in database
     const video = await prisma.video.create({
       data: {
@@ -83,7 +79,6 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri,
         posterWalrusUri: posterWalrusUri || null,
-        rootSecretEnc: rootSecretBuffer,
         duration,
         creatorId,
         renditions: {
@@ -96,6 +91,7 @@ export async function POST(request: NextRequest) {
               create: rendition.segments.map((segment) => ({
                 segIdx: segment.segIdx,
                 walrusUri: segment.walrusUri,
+                dek: Buffer.from(segment.dek, 'base64'),
                 iv: Buffer.from(segment.iv, 'base64'),
                 duration: segment.duration,
                 size: segment.size,

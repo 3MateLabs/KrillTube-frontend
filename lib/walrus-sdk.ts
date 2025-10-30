@@ -10,9 +10,9 @@ import type { Signer } from '@mysten/sui/cryptography';
 import { readFile } from 'fs/promises';
 
 // Get configuration from environment
-const network = (process.env.WALRUS_NETWORK || 'mainnet') as 'testnet' | 'mainnet';
-const epochs = process.env.WALRUS_EPOCHS ? parseInt(process.env.WALRUS_EPOCHS, 10) : 200;
-const suiRpcUrl = process.env.SUI_RPC_URL || getFullnodeUrl(network);
+const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet') as 'testnet' | 'mainnet';
+const epochs = process.env.NEXT_PUBLIC_WALRUS_EPOCHS ? parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS, 10) : 200;
+const suiRpcUrl = process.env.NEXT_PUBLIC_SUI_RPC_URL || getFullnodeUrl(network);
 
 // Create Sui client with Walrus extension
 export const suiWalrusClient = (new SuiClient({

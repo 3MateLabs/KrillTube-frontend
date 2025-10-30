@@ -33,6 +33,7 @@ export async function GET(
         segmentsData.push({
           identifier: `${rendition.quality}_init`,
           data: Array.from(initData),
+          dek: rendition.initSegment.dek.toString('base64'),
           iv: rendition.initSegment.iv.toString('base64'),
           size: rendition.initSegment.encryptedSize,
         });
@@ -44,6 +45,7 @@ export async function GET(
         segmentsData.push({
           identifier: `${rendition.quality}_seg_${segment.segIdx}`,
           data: Array.from(segData),
+          dek: segment.dek.toString('base64'),
           iv: segment.iv.toString('base64'),
           size: segment.encryptedSize,
         });
@@ -62,7 +64,6 @@ export async function GET(
 
     return NextResponse.json({
       videoId,
-      rootSecretEnc: encryptedResult.rootSecretEnc.toString('base64'),
       duration: encryptedResult.duration,
       renditions: encryptedResult.renditions.map(r => ({
         quality: r.quality,
