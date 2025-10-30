@@ -77,6 +77,7 @@ export async function encryptSegment(
     {
       name: 'AES-GCM',
       iv: iv.buffer as ArrayBuffer,
+      tagLength: 128, // MUST match server-side decryption (128-bit auth tag)
     },
     dek,
     data.buffer as ArrayBuffer

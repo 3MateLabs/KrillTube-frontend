@@ -61,9 +61,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (keysToFetch.length > 100) {
+    if (keysToFetch.length > 20) {
       return NextResponse.json(
-        { error: 'Too many keys requested (max 100)' },
+        { error: 'Too many keys requested (max 20)' },
         { status: 400 }
       );
     }
@@ -104,7 +104,17 @@ export async function POST(request: NextRequest) {
     const { video } = session;
 
     // Load ephemeral private key from memory
-    const serverPrivJwk = loadSessionPrivateKey(session.id);
+    let serverPrivJwk;
+    try {
+      serverPrivJwk = loadSessionPrivateKey(session.id);
+    } catch (error) {
+      // Session key lost (server restart) - return 401 to trigger client re-auth
+      console.error('[Batch Key API] Session private key not found (server restart?)');
+      return NextResponse.json(
+        { error: 'Session private key not found. Please refresh and create a new session.' },
+        { status: 401 }
+      );
+    }
 
     // Derive session KEK (for wrapping DEKs)
     const sessionKek = await deriveSessionKekServer(

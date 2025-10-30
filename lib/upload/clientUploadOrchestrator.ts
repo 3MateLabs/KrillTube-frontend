@@ -13,7 +13,7 @@ import {
   encryptSegment,
   toBase64,
 } from '@/lib/crypto/clientEncryption';
-import { uploadQuiltWithWallet } from '@/lib/client-walrus-sdk';
+import { uploadQuiltWithWallet, uploadMultipleBlobsWithWallet } from '@/lib/client-walrus-sdk';
 
 export interface UploadProgress {
   stage: 'transcoding' | 'encrypting' | 'uploading' | 'registering' | 'complete';
@@ -150,17 +150,22 @@ export async function uploadVideoClientSide(
 
   console.log(`[Upload] Encrypted all segments`);
 
-  // Step 3: Upload encrypted segments to Walrus
+  // Step 3: Upload segments and poster first (to get patch IDs)
   onProgress?.({
     stage: 'uploading',
     percent: 60,
-    message: '1/3: Uploading segments to Walrus...',
+    message: 'Uploading segments to Walrus...',
   });
 
-  const segmentBlobs = encryptedSegments.map((seg) => ({
-    contents: seg.data,
-    identifier: seg.identifier,
-  }));
+  // Collect segment blobs (NO playlists yet)
+  const segmentBlobs: Array<{ contents: Uint8Array; identifier: string }> = [];
+
+  encryptedSegments.forEach((seg) => {
+    segmentBlobs.push({
+      contents: seg.data,
+      identifier: seg.identifier,
+    });
+  });
 
   // Add poster if exists
   if (transcoded.poster) {
@@ -170,32 +175,31 @@ export async function uploadVideoClientSide(
     });
   }
 
-  console.log(`[Upload] Uploading ${segmentBlobs.length} blobs to Walrus (${(segmentBlobs.reduce((sum, b) => sum + b.contents.length, 0) / 1024 / 1024).toFixed(2)} MB)...`);
-  console.log('[Upload] Waiting for wallet approval...');
+  console.log(`[Upload] Uploading ${segmentBlobs.length} segments...`);
+  console.log('[Upload] ⏳ Waiting for wallet signatures (2 required: register + certify)...');
 
-  const segmentQuilt = await uploadQuiltWithWallet(
+  const segmentsQuilt = await uploadQuiltWithWallet(
     segmentBlobs,
     signAndExecute,
     walletAddress,
     { network, epochs }
   );
 
-  console.log(`[Upload] ✓ Uploaded segments to Walrus`);
+  console.log(`[Upload] ✓ Uploaded segments!`);
 
-  // Build patch ID map
+  // Build patch ID map from segments quilt
   const patchIdMap = new Map<string, string>();
-  segmentQuilt.index.patches.forEach((patch) => {
+  segmentsQuilt.index.patches.forEach((patch) => {
     patchIdMap.set(patch.identifier, patch.patchId);
   });
 
-  // Step 4: Build and upload playlists
+  // Step 4: Build playlists with REAL patch IDs
   onProgress?.({
     stage: 'uploading',
     percent: 75,
-    message: '2/3: Uploading playlists to Walrus...',
+    message: 'Building playlists with real URLs...',
   });
 
-  // Group segments by quality
   const qualityGroups = new Map<string, EncryptedSegment[]>();
   encryptedSegments.forEach((seg) => {
     if (!qualityGroups.has(seg.quality)) {
@@ -204,22 +208,23 @@ export async function uploadVideoClientSide(
     qualityGroups.get(seg.quality)!.push(seg);
   });
 
-  const playlistBlobs = [];
+  const playlistBlobs: Array<{ contents: Uint8Array; identifier: string }> = [];
+
+  // Build quality playlists with REAL patch IDs
   for (const [quality, segments] of qualityGroups) {
     let playlistContent =
       '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:4\n#EXT-X-PLAYLIST-TYPE:VOD\n';
 
-    // Add init segment
+    // Init segment - use REAL patch ID
     const initPatchId = patchIdMap.get(`${quality}_init`);
-    if (initPatchId) {
-      playlistContent += `#EXT-X-MAP:URI="${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${initPatchId}"\n`;
-    }
+    playlistContent += `#EXT-X-MAP:URI="${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}",BYTERANGE="${initPatchId?.split('@')[1]}"\n`;
 
-    // Add media segments
+    // Media segments - use REAL patch IDs
     const mediaSegments = segments.filter((s) => s.segIdx >= 0).sort((a, b) => a.segIdx - b.segIdx);
     for (const seg of mediaSegments) {
       const patchId = patchIdMap.get(`${quality}_seg_${seg.segIdx}`);
-      playlistContent += `#EXTINF:${seg.duration},\n${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${patchId}\n`;
+      const byteRange = patchId?.split('@')[1]; // Extract "start:end"
+      playlistContent += `#EXTINF:${seg.duration},\n#EXT-X-BYTERANGE:${byteRange}\n${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}\n`;
     }
 
     playlistContent += '#EXT-X-ENDLIST\n';
@@ -230,71 +235,98 @@ export async function uploadVideoClientSide(
     });
   }
 
-  const playlistQuilt = await uploadQuiltWithWallet(
+  console.log(`[Upload] Built ${qualityGroups.size} quality playlists with real URLs`);
+
+  // Step 5: Upload playlists as INDIVIDUAL blobs (not quilt)
+  onProgress?.({
+    stage: 'uploading',
+    percent: 85,
+    message: 'Uploading playlists to Walrus...',
+  });
+
+  console.log(`[Upload] Uploading ${playlistBlobs.length} quality playlists individually...`);
+  console.log(`[Upload] ⏳ Waiting for ${playlistBlobs.length * 2} wallet signatures...`);
+
+  const playlistResults = await uploadMultipleBlobsWithWallet(
     playlistBlobs,
     signAndExecute,
     walletAddress,
     { network, epochs }
   );
 
-  console.log(`[Upload] ✓ Uploaded playlists to Walrus`);
+  console.log(`[Upload] ✓ Uploaded ${playlistResults.length} playlists!`);
 
-  // Build playlist patch ID map
-  const playlistPatchIdMap = new Map<string, string>();
-  playlistQuilt.index.patches.forEach((patch) => {
-    playlistPatchIdMap.set(patch.identifier, patch.patchId);
+  // Build playlist blob ID map
+  const playlistBlobIdMap = new Map<string, string>();
+  playlistResults.forEach((result) => {
+    playlistBlobIdMap.set(result.identifier, result.blobId);
   });
 
-  // Step 5: Build and upload master playlist
-  onProgress?.({
-    stage: 'uploading',
-    percent: 90,
-    message: '3/3: Uploading master playlist to Walrus...',
-  });
+  // Build master playlist with REAL URLs (no placeholders needed)
+  const resolutionMap: Record<string, string> = {
+    '1080p': '1920x1080',
+    '720p': '1280x720',
+    '480p': '854x480',
+    '360p': '640x360',
+  };
+  const bitrateMap: Record<string, number> = {
+    '1080p': 5000000,
+    '720p': 2800000,
+    '480p': 1400000,
+    '360p': 800000,
+  };
 
   let masterContent = '#EXTM3U\n#EXT-X-VERSION:7\n\n';
   for (const quality of qualities) {
-    const playlistPatchId = playlistPatchIdMap.get(`${quality}_playlist`);
-    const playlistUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${playlistPatchId}`;
-
-    // Get resolution and bitrate from quality settings
-    const resolutionMap: Record<string, string> = {
-      '1080p': '1920x1080',
-      '720p': '1280x720',
-      '480p': '854x480',
-      '360p': '640x360',
-    };
-    const bitrateMap: Record<string, number> = {
-      '1080p': 5000000,
-      '720p': 2800000,
-      '480p': 1400000,
-      '360p': 800000,
-    };
-
     const resolution = resolutionMap[quality] || '1280x720';
     const bitrate = bitrateMap[quality] || 2800000;
+    const playlistBlobId = playlistBlobIdMap.get(`${quality}_playlist`);
 
-    masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${bitrate},RESOLUTION=${resolution}\n${playlistUri}\n`;
+    if (!playlistBlobId) {
+      throw new Error(`Missing blob ID for ${quality}_playlist`);
+    }
+
+    const playlistUrl = `${aggregatorUrl}/v1/blobs/${playlistBlobId}`;
+    masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${bitrate},RESOLUTION=${resolution}\n${playlistUrl}\n`;
   }
 
-  const masterQuilt = await uploadQuiltWithWallet(
-    [{ contents: new TextEncoder().encode(masterContent), identifier: 'master_playlist' }],
+  // Step 6: Upload master playlist as individual blob
+  onProgress?.({
+    stage: 'uploading',
+    percent: 92,
+    message: 'Uploading master playlist...',
+  });
+
+  console.log('[Upload] Uploading master playlist...');
+  console.log('[Upload] ⏳ Waiting for 2 more wallet signatures...');
+
+  const masterResults = await uploadMultipleBlobsWithWallet(
+    [{
+      contents: new TextEncoder().encode(masterContent),
+      identifier: 'master_playlist',
+    }],
     signAndExecute,
     walletAddress,
     { network, epochs }
   );
 
-  console.log(`[Upload] ✓ Uploaded master playlist to Walrus`);
+  console.log(`[Upload] ✓ Uploaded master playlist!`);
 
-  const masterWalrusUri = `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${masterQuilt.index.patches[0].patchId}`;
+  onProgress?.({
+    stage: 'uploading',
+    percent: 95,
+    message: 'Finalizing...',
+  });
+
+  const masterWalrusUri = `${aggregatorUrl}/v1/blobs/${masterResults[0].blobId}`;
   const posterWalrusUri = transcoded.poster
-    ? `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${patchIdMap.get('poster')}`
+    ? `${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}`
     : undefined;
 
   // Step 6: Build result for server registration
   onProgress?.({
     stage: 'registering',
-    percent: 95,
+    percent: 97,
     message: 'Preparing registration...',
   });
 
@@ -303,26 +335,34 @@ export async function uploadVideoClientSide(
       (s) => s.quality === quality && s.segIdx >= 0
     );
 
+    const playlistBlobId = playlistBlobIdMap.get(`${quality}_playlist`);
+
+    if (!playlistBlobId) {
+      throw new Error(`Missing blob ID for ${quality}_playlist in rendition`);
+    }
+
     return {
       quality,
-      resolution: { '1080p': '1920x1080', '720p': '1280x720', '480p': '854x480', '360p': '640x360' }[quality] || '1280x720',
-      bitrate: { '1080p': 5000000, '720p': 2800000, '480p': 1400000, '360p': 800000 }[quality] || 2800000,
-      walrusPlaylistUri: `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${playlistPatchIdMap.get(`${quality}_playlist`)}`,
+      resolution: resolutionMap[quality] || '1280x720',
+      bitrate: bitrateMap[quality] || 2800000,
+      walrusPlaylistUri: `${aggregatorUrl}/v1/blobs/${playlistBlobId}`,
       segmentCount: qualitySegments.length + 1, // +1 for init
-      segments: qualitySegments.map((seg) => ({
-        segIdx: seg.segIdx,
-        walrusUri: `${aggregatorUrl}/v1/blobs/by-quilt-patch-id/${patchIdMap.get(`${quality}_seg_${seg.segIdx}`)}`,
-        iv: seg.iv,
-        duration: seg.duration,
-        size: seg.data.length,
-      })),
+      segments: qualitySegments.map((seg) => {
+        const segPatchId = patchIdMap.get(`${quality}_seg_${seg.segIdx}`);
+        const segByteRange = segPatchId?.split('@')[1];
+        return {
+          segIdx: seg.segIdx,
+          walrusUri: `${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}`,
+          iv: seg.iv,
+          duration: seg.duration,
+          size: seg.data.length,
+        };
+      }),
     };
   });
 
-  const totalCost =
-    Number(segmentQuilt.cost.totalCost) +
-    Number(playlistQuilt.cost.totalCost) +
-    Number(masterQuilt.cost.totalCost);
+  // Calculate total cost (segments quilt only - playlists are individual blobs)
+  const totalCost = Number(segmentsQuilt.cost.totalCost);
 
   return {
     videoId: transcoded.videoId,
@@ -336,9 +376,9 @@ export async function uploadVideoClientSide(
       paidMist: totalCost.toString(),
       walletAddress,
       transactionIds: {
-        segments: segmentQuilt.blobObject.objectId,
-        playlists: playlistQuilt.blobObject.objectId,
-        master: masterQuilt.blobObject.objectId,
+        segments: segmentsQuilt.blobObject.objectId,
+        playlists: playlistResults.map(r => r.blobObjectId).join(','),
+        master: masterResults[0].blobObjectId,
       },
     },
   };

@@ -181,31 +181,39 @@ export class DecryptingLoader {
   }
 
   /**
-   * Fix legacy/broken Walrus URLs
+   * Fix legacy/broken Walrus URLs and extract byte range
    * - Replace non-existent aggregator.walrus.space with working aggregator
-   * - Strip @start:end byte range from patch IDs (not supported, fetch full blob instead)
+   * - Convert by-quilt-patch-id URLs to blob ID URLs
+   * - Extract byte range from @start:end notation
+   * Returns: { url: fixed URL, rangeHeader: Range header value or null }
    */
-  private fixWalrusUrl(url: string): string {
+  private fixWalrusUrl(url: string): { url: string; rangeHeader: string | null } {
     let fixed = url;
+    let rangeHeader: string | null = null;
 
     if (fixed.includes(AGGREGATOR_DOMAIN)) {
       fixed = fixed.replace(AGGREGATOR_DOMAIN, AGGREGATOR_REPLACEMENT);
     }
 
-    const patchIdMatch = fixed.match(PATCH_ID_REGEX);
+    // Match patch ID with byte range: blobId@start:end
+    const patchIdMatch = fixed.match(/\/by-quilt-patch-id\/([^@]+)@(\d+):(\d+)/);
     if (patchIdMatch) {
       const blobId = patchIdMatch[1];
-      // Check if /v1/blobs/ is already in the URL
+      const start = patchIdMatch[2];
+      const end = patchIdMatch[3];
+
+      // Create Range header for byte range
+      rangeHeader = `bytes=${start}-${end}`;
+
+      // Replace with blob ID URL (remove by-quilt-patch-id and @range)
       if (fixed.includes('/v1/blobs/by-quilt-patch-id/')) {
-        // URL already has /v1/blobs/, just remove by-quilt-patch-id and @range
-        fixed = fixed.replace(/\/by-quilt-patch-id\/([^@]+)@\d+:\d+/, '/$1');
+        fixed = fixed.replace(/\/by-quilt-patch-id\/[^@]+@\d+:\d+/, `/${blobId}`);
       } else {
-        // URL doesn't have /v1/blobs/, add it
-        fixed = fixed.replace(PATCH_ID_REGEX, `/v1/blobs/${blobId}`);
+        fixed = fixed.replace(/\/by-quilt-patch-id\/[^@]+@\d+:\d+/, `/v1/blobs/${blobId}`);
       }
     }
 
-    return fixed;
+    return { url: fixed, rangeHeader };
   }
 
   /**
@@ -217,11 +225,20 @@ export class DecryptingLoader {
     startTime: number
   ): Promise<void> {
     // Fix legacy/broken URLs before fetching
-    const fixedUrl = this.fixWalrusUrl(context.url);
+    const { url: fixedUrl, rangeHeader } = this.fixWalrusUrl(context.url);
 
-    const response = await fetch(fixedUrl, {
+    const fetchOptions: RequestInit = {
       signal: this.abortController?.signal,
-    });
+    };
+
+    // Add Range header if URL has byte range
+    if (rangeHeader) {
+      fetchOptions.headers = {
+        'Range': rangeHeader,
+      };
+    }
+
+    const response = await fetch(fixedUrl, fetchOptions);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -296,10 +313,21 @@ export class DecryptingLoader {
     }
 
     const rendition = this.extractRendition(context);
-    const fixedUrl = this.fixWalrusUrl(context.url);
+    const { url: fixedUrl, rangeHeader } = this.fixWalrusUrl(context.url);
+
+    const fetchOptions: RequestInit = {
+      signal: this.abortController?.signal,
+    };
+
+    // Add Range header if URL has byte range
+    if (rangeHeader) {
+      fetchOptions.headers = {
+        'Range': rangeHeader,
+      };
+    }
 
     const [encryptedDataBuffer, segmentKey] = await Promise.all([
-      fetch(fixedUrl, { signal: this.abortController?.signal }).then((response) => {
+      fetch(fixedUrl, fetchOptions).then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

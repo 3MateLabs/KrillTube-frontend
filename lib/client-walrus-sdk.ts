@@ -350,7 +350,10 @@ export async function uploadQuiltWithWallet(
 
     return {
       blobId: encoded.blobId,
-      blobObject: blobObjectChange as any,
+      blobObject: {
+        ...blobObjectChange,
+        blobId: encoded.blobId, // Add blobId to blobObject for upload orchestrator
+      } as any,
       index: { patches },
       cost,
     };

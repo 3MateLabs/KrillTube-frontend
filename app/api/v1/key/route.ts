@@ -141,8 +141,18 @@ export async function GET(request: NextRequest) {
     console.log(`  ✓ Derived segment DEK`);
 
     // Step 3: Load ephemeral private key from memory
-    const serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
-    console.log(`  ✓ Loaded ephemeral private key from memory`);
+    let serverPrivateKeyJwk;
+    try {
+      serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
+      console.log(`  ✓ Loaded ephemeral private key from memory`);
+    } catch (error) {
+      // Session key lost (server restart) - return 401 to trigger client re-auth
+      console.error(`  ✗ Session private key not found (server restart?)`);
+      return NextResponse.json(
+        { error: 'Session private key not found. Please refresh and create a new session.' },
+        { status: 401 }
+      );
+    }
 
     // Step 4: Derive session KEK from ECDH shared secret
     const sessionKek = await deriveSessionKek(

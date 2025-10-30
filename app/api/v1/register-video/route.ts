@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri,
         posterWalrusUri: posterWalrusUri || null,
-        rootSecretEnc: rootSecretEncrypted, // Store KMS-encrypted secret
+        rootSecretEnc: Buffer.from(rootSecretEncrypted), // Store KMS-encrypted secret
         duration,
         creatorId,
         renditions: {
