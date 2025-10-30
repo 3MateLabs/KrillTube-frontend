@@ -27,9 +27,10 @@ import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { WalrusClient } from '@mysten/walrus';
 import type { Signer } from '@mysten/sui/cryptography';
 
-// Configuration
 const DEFAULT_NETWORK = 'mainnet';
 const DEFAULT_EPOCHS = 50;
+
+const WAL_TOKEN_TYPE = '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
 
 // Upload relay URLs (public Mysten Labs infrastructure)
 const UPLOAD_RELAY_URLS = {
@@ -237,14 +238,10 @@ export async function uploadQuiltWithWallet(
   const regularClient = createWalrusClient(network);
   const cost = await regularClient.storageCost(totalSize, epochs);
 
-  const WAL_TYPE = network === 'mainnet'
-    ? '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL'
-    : '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
-
   try {
     const walCoins = await suiClient.getCoins({
       owner: ownerAddress,
-      coinType: WAL_TYPE,
+      coinType: WAL_TOKEN_TYPE,
     });
 
     if (!walCoins.data || walCoins.data.length === 0) {
@@ -391,14 +388,9 @@ export async function uploadMultipleBlobsWithWallet(
 
   const walrusClient = suiClient.$extend(walrus({ network }));
 
-  // WAL token type
-  const WAL_TYPE = network === 'mainnet'
-    ? '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL'
-    : '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
-
   const walCoins = await suiClient.getCoins({
     owner: ownerAddress,
-    coinType: WAL_TYPE,
+    coinType: WAL_TOKEN_TYPE,
   });
 
   if (!walCoins.data || walCoins.data.length === 0) {

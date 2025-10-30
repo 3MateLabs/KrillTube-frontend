@@ -26,6 +26,11 @@ export interface DecryptingLoaderConfig {
 /**
  * Custom loader that decrypts segments before passing to hls.js
  */
+const PATCH_ID_REGEX = /\/by-quilt-patch-id\/([^@]+)@\d+:\d+/;
+const PATCH_ID_GLOBAL_REGEX = /\/by-quilt-patch-id\/([^\s@\n]+)@\d+:\d+/g;
+const AGGREGATOR_DOMAIN = 'aggregator.walrus.space';
+const AGGREGATOR_REPLACEMENT = 'aggregator.mainnet.walrus.mirai.cloud';
+
 export class DecryptingLoader {
   private config: DecryptingLoaderConfig;
   private context: any = null;
@@ -183,14 +188,14 @@ export class DecryptingLoader {
   private fixWalrusUrl(url: string): string {
     let fixed = url;
 
-    if (fixed.includes('aggregator.walrus.space')) {
-      fixed = fixed.replace('aggregator.walrus.space', 'aggregator.mainnet.walrus.mirai.cloud');
+    if (fixed.includes(AGGREGATOR_DOMAIN)) {
+      fixed = fixed.replace(AGGREGATOR_DOMAIN, AGGREGATOR_REPLACEMENT);
     }
 
-    const patchIdMatch = fixed.match(/\/by-quilt-patch-id\/([^@]+)@\d+:\d+/);
+    const patchIdMatch = fixed.match(PATCH_ID_REGEX);
     if (patchIdMatch) {
       const blobId = patchIdMatch[1];
-      fixed = fixed.replace(/\/by-quilt-patch-id\/[^@]+@\d+:\d+/, `/${blobId}`);
+      fixed = fixed.replace(PATCH_ID_REGEX, `/${blobId}`);
     }
 
     return fixed;
@@ -223,13 +228,12 @@ export class DecryptingLoader {
       data = await response.text();
       let fixedPlaylist = data;
 
-      if (fixedPlaylist.includes('aggregator.walrus.space')) {
-        fixedPlaylist = fixedPlaylist.replace(/aggregator\.walrus\.space/g, 'aggregator.mainnet.walrus.mirai.cloud');
+      if (fixedPlaylist.includes(AGGREGATOR_DOMAIN)) {
+        fixedPlaylist = fixedPlaylist.replace(new RegExp(AGGREGATOR_DOMAIN.replace('.', '\\.'), 'g'), AGGREGATOR_REPLACEMENT);
       }
 
-      const patchIdRegex = /\/by-quilt-patch-id\/([^\s@\n]+)@\d+:\d+/g;
-      if (patchIdRegex.test(fixedPlaylist)) {
-        fixedPlaylist = fixedPlaylist.replace(patchIdRegex, '/$1');
+      if (PATCH_ID_GLOBAL_REGEX.test(fixedPlaylist)) {
+        fixedPlaylist = fixedPlaylist.replace(PATCH_ID_GLOBAL_REGEX, '/$1');
       }
 
       data = fixedPlaylist;
@@ -261,8 +265,8 @@ export class DecryptingLoader {
    */
   private async loadAndDecrypt(
     context: any,
-    config: any,
-    startTime: number
+    _config: any,
+    _startTime: number
   ): Promise<void> {
     if (!context.frag) {
       throw new Error('No fragment info for segment');
