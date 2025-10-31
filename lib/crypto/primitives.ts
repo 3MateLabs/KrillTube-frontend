@@ -212,7 +212,7 @@ export async function importAesKey(
 
   return await crypto.subtle.importKey(
     'raw',
-    keyBytes,
+    keyBytes as BufferSource,
     {
       name: 'AES-GCM',
       length: 128,

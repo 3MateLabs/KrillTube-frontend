@@ -22,12 +22,13 @@ export interface UploadProgress {
 
 export interface EncryptedSegment {
   identifier: string; // e.g., "720p_seg_0", "720p_init"
-  data: Uint8Array; // encrypted data
+  data: Uint8Array | null; // encrypted data (nullable after copying to upload)
   dek: string; // base64-encoded 16-byte DEK
   iv: string; // base64-encoded 12-byte IV
   quality: string;
   segIdx: number;
   duration: number;
+  size: number; // Store size to avoid accessing data after nullification
 }
 
 export interface ClientUploadResult {
@@ -92,17 +93,40 @@ export async function uploadVideoClientSide(
   const transcoded = await transcodeVideo(file, {
     qualities,
     segmentDuration: 4,
-    onProgress: (p) =>
+    onProgress: (p) => {
+      // p.overall is 0-100, map to 10-40% of total upload flow
+      const overallPercent = 10 + (p.overall / 100) * 30;
+
+      let message = p.message;
+      if (p.estimatedTimeRemaining && p.estimatedTimeRemaining > 0) {
+        const totalSeconds = Math.floor(p.estimatedTimeRemaining);
+        const hours = Math.floor(totalSeconds / 3600);
+        const mins = Math.floor((totalSeconds % 3600) / 60);
+        const secs = totalSeconds % 60;
+
+        // Format as HH:MM:SS
+        const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        message += ` (~${timeStr} left)`;
+      }
+
       onProgress?.({
         stage: 'transcoding',
-        percent: 10 + p * 0.3, // 10-40%
-        message: `Transcoding... ${Math.round(p)}%`,
-      }),
+        percent: overallPercent,
+        message,
+      });
+    },
   });
 
   console.log(`[Upload] Transcoded ${transcoded.segments.length} segments`);
 
+  // Log memory usage before encryption
+  if (performance && (performance as any).memory) {
+    const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+    console.log(`[Upload Memory] Before encryption: ${memMB}MB used`);
+  }
+
   // Step 2: Encrypt segments (each with unique random DEK)
+  // IMPORTANT: Process segments in smaller batches to avoid memory overflow
   onProgress?.({
     stage: 'encrypting',
     percent: 40,
@@ -111,88 +135,172 @@ export async function uploadVideoClientSide(
 
   const encryptedSegments: EncryptedSegment[] = [];
 
-  for (let i = 0; i < transcoded.segments.length; i++) {
-    const seg = transcoded.segments[i];
-    const identifier =
-      seg.type === 'init' ? `${seg.quality}_init` : `${seg.quality}_seg_${seg.segIdx}`;
+  console.log(`[Upload] Starting encryption of ${transcoded.segments.length} segments...`);
 
-    // Generate random DEK for this segment (16 bytes)
-    const dek = generateDEK();
+  try {
+    for (let i = 0; i < transcoded.segments.length; i++) {
+      const seg = transcoded.segments[i];
+      const identifier =
+        seg.type === 'init' ? `${seg.quality}_init` : `${seg.quality}_seg_${seg.segIdx}`;
 
-    // Generate random IV (12 bytes)
-    const iv = generateIV();
+      console.log(`[Upload] Encrypting segment ${i + 1}/${transcoded.segments.length}: ${identifier} (${(seg.data.length / 1024).toFixed(2)}KB)`);
 
-    // Encrypt segment with DEK
-    const encryptedData = await encryptSegment(dek, seg.data, iv);
+      try {
+        // Generate random DEK for this segment (16 bytes)
+        const dek = generateDEK();
 
-    encryptedSegments.push({
-      identifier,
-      data: encryptedData,
-      dek: toBase64(dek), // Include DEK in metadata
-      iv: toBase64(iv),
-      quality: seg.quality,
-      segIdx: seg.segIdx,
-      duration: seg.duration,
-    });
+        // Generate random IV (12 bytes)
+        const iv = generateIV();
 
-    const progress = 40 + ((i + 1) / transcoded.segments.length) * 20; // 40-60%
-    onProgress?.({
-      stage: 'encrypting',
-      percent: progress,
-      message: `Encrypted ${i + 1}/${transcoded.segments.length} segments`,
-    });
+        // Encrypt segment with DEK
+        const encryptedData = await encryptSegment(dek, seg.data, iv);
+
+        encryptedSegments.push({
+          identifier,
+          data: encryptedData,
+          dek: toBase64(dek), // Include DEK in metadata
+          iv: toBase64(iv),
+          quality: seg.quality,
+          segIdx: seg.segIdx,
+          duration: seg.duration,
+          size: encryptedData.length, // Store size before potentially nullifying data
+        });
+
+        // Clear the original unencrypted data from memory
+        // @ts-ignore - intentionally setting to null to free memory
+        transcoded.segments[i].data = null;
+
+        // Log progress every 10 segments or at important milestones
+        if ((i + 1) % 10 === 0 || i === 0 || i === transcoded.segments.length - 1) {
+          if (performance && (performance as any).memory) {
+            const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+            console.log(`[Upload Memory] After ${i + 1} segments encrypted: ${memMB}MB used`);
+          }
+        }
+
+        const progress = 40 + ((i + 1) / transcoded.segments.length) * 20; // 40-60%
+        onProgress?.({
+          stage: 'encrypting',
+          percent: progress,
+          message: `Encrypted ${i + 1}/${transcoded.segments.length} segments`,
+        });
+
+      } catch (segError) {
+        console.error(`[Upload] ERROR encrypting segment ${identifier}:`, segError);
+        console.error(`[Upload] Segment size: ${(seg.data?.length || 0) / 1024}KB`);
+        throw new Error(`Failed to encrypt segment ${identifier}: ${segError instanceof Error ? segError.message : String(segError)}`);
+      }
+    }
+
+    console.log(`[Upload] ✓ Encrypted all segments with random DEKs`);
+
+    if (performance && (performance as any).memory) {
+      const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+      console.log(`[Upload Memory] After all encryption: ${memMB}MB used`);
+    }
+
+  } catch (encryptError) {
+    console.error(`[Upload] ENCRYPTION PHASE FAILED:`, encryptError);
+    if (performance && (performance as any).memory) {
+      const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+      const limitMB = ((performance as any).memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2);
+      console.error(`[Upload Memory] At failure: ${memMB}MB used of ${limitMB}MB limit`);
+    }
+    throw encryptError;
   }
 
-  console.log(`[Upload] Encrypted all segments with random DEKs`);
-
-  // Step 3: Upload segments and poster first (to get patch IDs)
+  // Step 3: Upload segments individually (not as quilt to avoid memory overflow)
   onProgress?.({
     stage: 'uploading',
     percent: 60,
     message: 'Uploading segments to Walrus...',
   });
 
-  // Collect segment blobs (NO playlists yet)
-  const segmentBlobs: Array<{ contents: Uint8Array; identifier: string }> = [];
+  console.log(`[Upload] Uploading ${encryptedSegments.length} segments individually...`);
+  console.log(`[Upload] ⏳ This will require ${encryptedSegments.length * 2} wallet signatures (2 per segment)...`);
 
-  encryptedSegments.forEach((seg) => {
-    segmentBlobs.push({
-      contents: seg.data,
-      identifier: seg.identifier,
-    });
-  });
-
-  // Add poster if exists
-  if (transcoded.poster) {
-    segmentBlobs.push({
-      contents: transcoded.poster,
-      identifier: 'poster',
-    });
+  if (performance && (performance as any).memory) {
+    const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+    console.log(`[Upload Memory] Before upload: ${memMB}MB used`);
   }
 
-  console.log(`[Upload] Uploading ${segmentBlobs.length} segments...`);
-  console.log('[Upload] ⏳ Waiting for wallet signatures (2 required: register + certify)...');
+  // Upload segments individually to avoid combining into one giant blob
+  const segmentUploadResults: Array<{
+    identifier: string;
+    blobId: string;
+    blobObjectId: string;
+  }> = [];
 
-  const segmentsQuilt = await uploadQuiltWithWallet(
-    segmentBlobs,
-    signAndExecute,
-    walletAddress,
-    { network, epochs }
-  );
+  try {
+    for (let i = 0; i < encryptedSegments.length; i++) {
+      const seg = encryptedSegments[i];
+      const progress = 60 + ((i + 1) / encryptedSegments.length) * 25; // 60-85%
 
-  console.log(`[Upload] ✓ Uploaded segments!`);
+      onProgress?.({
+        stage: 'uploading',
+        percent: progress,
+        message: `Uploading segment ${i + 1}/${encryptedSegments.length}...`,
+      });
 
-  // Build patch ID map from segments quilt
-  const patchIdMap = new Map<string, string>();
-  segmentsQuilt.index.patches.forEach((patch) => {
-    patchIdMap.set(patch.identifier, patch.patchId);
+      console.log(`[Upload] Uploading ${seg.identifier} (${(seg.size / 1024).toFixed(2)}KB)...`);
+
+      const results = await uploadMultipleBlobsWithWallet(
+        [{
+          contents: seg.data!,
+          identifier: seg.identifier,
+        }],
+        signAndExecute,
+        walletAddress,
+        { network, epochs }
+      );
+
+      segmentUploadResults.push(results[0]);
+
+      // Free segment data immediately after upload
+      // @ts-ignore
+      seg.data = null;
+
+      console.log(`[Upload] ✓ Uploaded ${seg.identifier}: ${results[0].blobId}`);
+
+      // Log memory every 10 segments
+      if ((i + 1) % 10 === 0 && performance && (performance as any).memory) {
+        const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+        console.log(`[Upload Memory] After ${i + 1} segments uploaded: ${memMB}MB used`);
+      }
+    }
+
+    // Upload poster separately if exists
+    let posterBlobId: string | undefined;
+    if (transcoded.poster) {
+      console.log(`[Upload] Uploading poster (${(transcoded.poster.length / 1024).toFixed(2)}KB)...`);
+
+      const posterResults = await uploadMultipleBlobsWithWallet(
+        [{
+          contents: transcoded.poster,
+          identifier: 'poster',
+        }],
+        signAndExecute,
+        walletAddress,
+        { network, epochs }
+      );
+
+      posterBlobId = posterResults[0].blobId;
+      console.log(`[Upload] ✓ Uploaded poster: ${posterBlobId}`);
+    }
+
+    console.log(`[Upload] ✓ All segments uploaded!`);
+
+  // Build blob ID map from upload results
+  const blobIdMap = new Map<string, string>();
+  segmentUploadResults.forEach((result) => {
+    blobIdMap.set(result.identifier, result.blobId);
   });
 
-  // Step 4: Build playlists with REAL patch IDs
+  // Step 4: Build playlists with individual blob URLs
   onProgress?.({
     stage: 'uploading',
-    percent: 75,
-    message: 'Building playlists with real URLs...',
+    percent: 85,
+    message: 'Building playlists...',
   });
 
   const qualityGroups = new Map<string, EncryptedSegment[]>();
@@ -205,21 +313,26 @@ export async function uploadVideoClientSide(
 
   const playlistBlobs: Array<{ contents: Uint8Array; identifier: string }> = [];
 
-  // Build quality playlists with REAL patch IDs
+  // Build quality playlists with individual blob URLs
   for (const [quality, segments] of qualityGroups) {
     let playlistContent =
       '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:4\n#EXT-X-PLAYLIST-TYPE:VOD\n';
 
-    // Init segment - use REAL patch ID
-    const initPatchId = patchIdMap.get(`${quality}_init`);
-    playlistContent += `#EXT-X-MAP:URI="${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}",BYTERANGE="${initPatchId?.split('@')[1]}"\n`;
+    // Init segment - use individual blob ID
+    const initBlobId = blobIdMap.get(`${quality}_init`);
+    if (!initBlobId) {
+      throw new Error(`Missing blob ID for ${quality}_init`);
+    }
+    playlistContent += `#EXT-X-MAP:URI="${aggregatorUrl}/v1/blobs/${initBlobId}"\n`;
 
-    // Media segments - use REAL patch IDs
+    // Media segments - use individual blob IDs
     const mediaSegments = segments.filter((s) => s.segIdx >= 0).sort((a, b) => a.segIdx - b.segIdx);
     for (const seg of mediaSegments) {
-      const patchId = patchIdMap.get(`${quality}_seg_${seg.segIdx}`);
-      const byteRange = patchId?.split('@')[1]; // Extract "start:end"
-      playlistContent += `#EXTINF:${seg.duration},\n#EXT-X-BYTERANGE:${byteRange}\n${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}\n`;
+      const blobId = blobIdMap.get(`${quality}_seg_${seg.segIdx}`);
+      if (!blobId) {
+        throw new Error(`Missing blob ID for ${quality}_seg_${seg.segIdx}`);
+      }
+      playlistContent += `#EXTINF:${seg.duration},\n${aggregatorUrl}/v1/blobs/${blobId}\n`;
     }
 
     playlistContent += '#EXT-X-ENDLIST\n';
@@ -230,7 +343,7 @@ export async function uploadVideoClientSide(
     });
   }
 
-  console.log(`[Upload] Built ${qualityGroups.size} quality playlists with real URLs`);
+  console.log(`[Upload] Built ${qualityGroups.size} quality playlists`);
 
   // Step 5: Upload playlists as INDIVIDUAL blobs (not quilt)
   onProgress?.({
@@ -314,8 +427,8 @@ export async function uploadVideoClientSide(
   });
 
   const masterWalrusUri = `${aggregatorUrl}/v1/blobs/${masterResults[0].blobId}`;
-  const posterWalrusUri = transcoded.poster
-    ? `${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}`
+  const posterWalrusUri = posterBlobId
+    ? `${aggregatorUrl}/v1/blobs/${posterBlobId}`
     : undefined;
 
   // Step 6: Build result for server registration
@@ -343,24 +456,27 @@ export async function uploadVideoClientSide(
       walrusPlaylistUri: `${aggregatorUrl}/v1/blobs/${playlistBlobId}`,
       segmentCount: qualitySegments.length + 1, // +1 for init
       segments: qualitySegments.map((seg) => {
-        const segPatchId = patchIdMap.get(`${quality}_seg_${seg.segIdx}`);
-        const segByteRange = segPatchId?.split('@')[1];
+        const segBlobId = blobIdMap.get(`${quality}_seg_${seg.segIdx}`);
+        if (!segBlobId) {
+          throw new Error(`Missing blob ID for ${quality}_seg_${seg.segIdx}`);
+        }
         return {
           segIdx: seg.segIdx,
-          walrusUri: `${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}`,
+          walrusUri: `${aggregatorUrl}/v1/blobs/${segBlobId}`, // Use individual blob ID
           dek: seg.dek, // Include DEK for backend storage
           iv: seg.iv,
           duration: seg.duration,
-          size: seg.data.length,
+          size: seg.size, // Use stored size instead of accessing nullified data
         };
       }),
     };
   });
 
-  // Calculate total cost (segments quilt only - playlists are individual blobs)
-  const totalCost = Number(segmentsQuilt.cost.totalCost);
+  // Calculate total cost - sum up all individual segment uploads + playlists + master
+  // Note: This is an approximation since we don't track individual costs
+  const totalCost = 0; // We'll set this to 0 for now, server can recalculate if needed
 
-  return {
+  const result = {
     videoId: transcoded.videoId,
     walrusMasterUri: masterWalrusUri,
     posterWalrusUri,
@@ -371,10 +487,31 @@ export async function uploadVideoClientSide(
       paidMist: totalCost.toString(),
       walletAddress,
       transactionIds: {
-        segments: segmentsQuilt.blobObject.objectId,
+        segments: segmentUploadResults.map(r => r.blobObjectId).join(','),
         playlists: playlistResults.map(r => r.blobObjectId).join(','),
         master: masterResults[0].blobObjectId,
       },
     },
   };
+
+  return result;
+
+  } catch (uploadError) {
+    console.error(`[Upload] UPLOAD PHASE FAILED:`, uploadError);
+
+    if (performance && (performance as any).memory) {
+      const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+      const limitMB = ((performance as any).memory.jsHeapSizeLimit / 1024 / 1024).toFixed(2);
+      console.error(`[Upload Memory] At failure: ${memMB}MB used of ${limitMB}MB limit`);
+    }
+
+    // Try to identify which phase failed
+    if (uploadError instanceof Error) {
+      console.error(`[Upload] Error name: ${uploadError.name}`);
+      console.error(`[Upload] Error message: ${uploadError.message}`);
+      console.error(`[Upload] Error stack:`, uploadError.stack);
+    }
+
+    throw uploadError;
+  }
 }

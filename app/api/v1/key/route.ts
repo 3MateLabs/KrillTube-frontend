@@ -133,11 +133,7 @@ export async function GET(request: NextRequest) {
     const dekBytes = await decryptDek(segment.dekEnc);
     console.log(`  ✓ Decrypted segment DEK`);
 
-    // Step 2: Import DEK as CryptoKey for wrapping
-    const segmentDek = await importAesKey(dekBytes);
-    console.log(`  ✓ Imported DEK as CryptoKey`);
-
-    // Step 3: Load ephemeral private key from memory
+    // Step 2: Load ephemeral private key from memory
     let serverPrivateKeyJwk;
     try {
       serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
@@ -151,7 +147,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Step 4: Derive session KEK from ECDH shared secret
+    // Step 3: Derive session KEK from ECDH shared secret
     const sessionKek = await deriveSessionKek(
       serverPrivateKeyJwk,
       new Uint8Array(session.clientPubKey),
@@ -159,11 +155,11 @@ export async function GET(request: NextRequest) {
     );
     console.log(`  ✓ Derived session KEK`);
 
-    // Step 5: Wrap segment DEK with session KEK
-    const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, segmentDek);
+    // Step 4: Wrap segment DEK with session KEK
+    const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);
     console.log(`  ✓ Wrapped segment DEK`);
 
-    // Step 6: Log playback activity (optional - for analytics)
+    // Step 5: Log playback activity (optional - for analytics)
     await prisma.playbackLog.create({
       data: {
         sessionId: session.id,
@@ -307,11 +303,8 @@ export async function POST(request: NextRequest) {
       // Decrypt segment DEK with KMS
       const dekBytes = await decryptDek(segment.dekEnc);
 
-      // Import DEK as CryptoKey
-      const segmentDek = await importAesKey(dekBytes);
-
-      // Wrap DEK
-      const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, segmentDek);
+      // Wrap DEK bytes with session KEK
+      const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);
 
       keys.push({
         segIdx,

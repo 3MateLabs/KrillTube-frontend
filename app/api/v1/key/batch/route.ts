@@ -13,10 +13,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/db';
-import { deriveSegmentDek } from '@/lib/crypto/keyDerivation';
 import { wrapKey } from '@/lib/crypto/primitives';
 import { deriveSessionKek as deriveSessionKekServer } from '@/lib/crypto/keyDerivation';
-import { decryptRootSecret, loadSessionPrivateKey } from '@/lib/kms/envelope';
+import { decryptDek, loadSessionPrivateKey } from '@/lib/kms/envelope';
 
 interface BatchKeyRequest {
   // Format 1: Array of {rendition, segIdx}
@@ -123,11 +122,6 @@ export async function POST(request: NextRequest) {
       new Uint8Array(session.serverNonce)
     );
 
-    // Decrypt video root secret
-    const rootSecret = await decryptRootSecret(
-      Buffer.from(video.rootSecretEnc)
-    );
-
     // Process all key requests
     const results = await Promise.all(
       keysToFetch.map(async ({ rendition, segIdx }) => {
@@ -156,16 +150,19 @@ export async function POST(request: NextRequest) {
             };
           }
 
-          // Derive DEK for this segment
-          const dek = await deriveSegmentDek(
-            rootSecret,
-            video.id,
-            rendition,
-            segIdx
-          );
+          if (!segment.dekEnc) {
+            return {
+              rendition,
+              segIdx,
+              error: `Segment ${segIdx} has no encrypted DEK`,
+            };
+          }
 
-          // Wrap DEK with session KEK
-          const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dek);
+          // Decrypt DEK from database (encrypted with master key)
+          const dekBytes = await decryptDek(segment.dekEnc);
+
+          // Wrap DEK bytes with session KEK
+          const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);
 
           return {
             rendition,

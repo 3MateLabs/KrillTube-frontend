@@ -7,20 +7,33 @@
  * Server only stores metadata + encrypted root secret
  */
 
-// Force dynamic rendering to support WebAssembly (ffmpeg.wasm)
-export const dynamic = 'force-dynamic';
-
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
 
 type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
 
-export default function UploadPageV2() {
+function UploadContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+
+  // Debug mode: bypass wallet connection
+  const [debugMode, setDebugMode] = useState(false);
+  useEffect(() => {
+    const isDebug = searchParams.get('no-wallet-debug') === 'true';
+    setDebugMode(isDebug);
+    if (isDebug) {
+      console.log('[Upload] Debug mode enabled - wallet connection bypassed');
+    }
+  }, [searchParams]);
+
+  // Use real account or debug placeholder
+  const effectiveAccount = debugMode
+    ? { address: '0x0000000000000000000000000000000000000000000000000000000000000000' }
+    : account;
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -103,23 +116,31 @@ export default function UploadPageV2() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !account || !title) return;
+    if (!selectedFile || !effectiveAccount || !title) return;
 
     setIsUploading(true);
     setError(null);
 
     try {
       console.log('[Upload V2] Starting client-side upload...');
+      if (debugMode) {
+        console.log('[Upload V2] Running in DEBUG mode with placeholder wallet');
+      }
 
       // Dynamically import the upload orchestrator to avoid loading WASM during build
       const { uploadVideoClientSide } = await import('@/lib/upload/clientUploadOrchestrator');
+
+      // Mock signAndExecuteTransaction for debug mode
+      const effectiveSignAndExecute = debugMode
+        ? async () => ({ digest: 'debug-transaction-digest' })
+        : signAndExecuteTransaction;
 
       // Complete client-side flow: transcode → encrypt → upload
       const result = await uploadVideoClientSide(
         selectedFile,
         selectedQualities,
-        signAndExecuteTransaction,
-        account.address,
+        effectiveSignAndExecute,
+        effectiveAccount.address,
         {
           network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
           epochs: parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '50'),
@@ -137,10 +158,9 @@ export default function UploadPageV2() {
         body: JSON.stringify({
           videoId: result.videoId,
           title,
-          creatorId: account.address,
+          creatorId: effectiveAccount.address,
           walrusMasterUri: result.walrusMasterUri,
           posterWalrusUri: result.posterWalrusUri,
-          rootSecretEnc: result.rootSecretEnc, // Server will encrypt this before storage
           duration: result.duration,
           renditions: result.renditions.map((r) => ({
             name: r.quality,
@@ -269,13 +289,13 @@ export default function UploadPageV2() {
               <button
                 onClick={handleEstimateCost}
                 disabled={
-                  !selectedFile || !account || !title || isEstimating || selectedQualities.length === 0
+                  !selectedFile || !effectiveAccount || !title || isEstimating || selectedQualities.length === 0
                 }
                 className="w-full bg-background-elevated text-foreground py-4 px-6 rounded-lg font-semibold
                   border-2 border-walrus-mint hover:bg-background-hover
                   disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {!account
+                {!effectiveAccount
                   ? 'Connect Wallet to Continue'
                   : isEstimating
                   ? 'Calculating...'
@@ -376,16 +396,18 @@ export default function UploadPageV2() {
               <button
                 onClick={handleUpload}
                 disabled={
-                  !selectedFile || !account || !title || isUploading || selectedQualities.length === 0
+                  !selectedFile || !effectiveAccount || !title || isUploading || selectedQualities.length === 0
                 }
                 className="w-full bg-walrus-mint text-walrus-black py-4 px-6 rounded-lg font-semibold
                   hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed
                   transition-colors"
               >
-                {!account
+                {!effectiveAccount
                   ? 'Connect Wallet to Upload'
                   : isUploading
                   ? 'Processing...'
+                  : debugMode
+                  ? '[DEBUG MODE] Start Upload'
                   : 'Approve & Start Upload'}
               </button>
             )}
@@ -393,5 +415,17 @@ export default function UploadPageV2() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function UploadPageV2() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground">Loading...</div>
+      </div>
+    }>
+      <UploadContent />
+    </Suspense>
   );
 }
