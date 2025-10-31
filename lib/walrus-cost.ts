@@ -8,7 +8,7 @@ import { walrus } from '@mysten/walrus';
 const MIST_PER_SUI = 1_000_000_000;
 
 // Get network from environment
-const network = (process.env.WALRUS_NETWORK || 'mainnet') as 'testnet' | 'mainnet';
+const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet') as 'testnet' | 'mainnet';
 
 // Create Sui client with Walrus extension
 const suiClient = (new SuiClient({
