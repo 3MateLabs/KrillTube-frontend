@@ -2,25 +2,36 @@
 'use client';
 
 /**
- * Upload Page V2: Client-Side Encryption
- * Transcode → Encrypt → Upload all in browser
- * Server only stores metadata + encrypted root secret
+ * Upload Page: Hybrid Approach (Client Encrypt + Server Upload)
+ * Flow:
+ * 1. Client transcodes video to HLS (browser)
+ * 2. Client encrypts segments (browser) ← Security: server never sees unencrypted video
+ * 3. Server uploads encrypted blobs to Walrus via HTTP Publisher API ← No signatures
+ * 4. User can immediately watch video
+ *
+ * Benefits:
+ * - Client-side encryption for security
+ * - Server-side HTTP Publisher upload (no wallet signatures)
+ * - Best of both worlds
  */
 
-// Force dynamic rendering to support WebAssembly (ffmpeg.wasm)
 export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 
 type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
+
+interface UploadProgress {
+  stage: 'transcoding' | 'encrypting' | 'uploading' | 'registering' | 'complete';
+  percent: number;
+  message: string;
+}
 
 export default function UploadPageV2() {
   const router = useRouter();
   const account = useCurrentAccount();
-  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -109,65 +120,32 @@ export default function UploadPageV2() {
     setError(null);
 
     try {
-      console.log('[Upload V2] Starting client-side upload...');
+      console.log('[Upload] Starting hybrid upload (client encrypt + server HTTP upload)...');
 
-      // Dynamically import the upload orchestrator to avoid loading WASM during build
-      const { uploadVideoClientSide } = await import('@/lib/upload/clientUploadOrchestrator');
+      // Dynamically import to avoid loading during build
+      const { uploadVideoEncrypted } = await import('@/lib/upload/clientEncryptServerUpload');
 
-      // Complete client-side flow: transcode → encrypt → upload
-      const result = await uploadVideoClientSide(
+      // Hybrid flow:
+      // 1. Client transcodes (browser)
+      // 2. Client encrypts (browser) ← Security: server never sees unencrypted video
+      // 3. Server uploads to Walrus via HTTP Publisher API ← No signatures required
+      const result = await uploadVideoEncrypted(
         selectedFile,
         selectedQualities,
-        signAndExecuteTransaction,
         account.address,
         {
-          network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
-          epochs: parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '50'),
           onProgress: setProgress,
         }
       );
 
-      console.log('[Upload V2] ✓ Client-side processing complete');
-      console.log('[Upload V2] Registering with server...');
-
-      // Register video with server (server stores encrypted root secret)
-      const registerResponse = await fetch('/api/v1/register-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId: result.videoId,
-          title,
-          creatorId: account.address,
-          walrusMasterUri: result.walrusMasterUri,
-          posterWalrusUri: result.posterWalrusUri,
-          rootSecretEnc: result.rootSecretEnc, // Server will encrypt this before storage
-          duration: result.duration,
-          renditions: result.renditions.map((r) => ({
-            name: r.quality,
-            resolution: r.resolution,
-            bitrate: r.bitrate,
-            walrusPlaylistUri: r.walrusPlaylistUri,
-            segments: r.segments,
-          })),
-          paymentInfo: result.paymentInfo,
-        }),
-      });
-
-      if (!registerResponse.ok) {
-        const errorData = await registerResponse.json();
-        throw new Error(errorData.error || 'Registration failed');
-      }
-
-      const { video } = await registerResponse.json();
-
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
-      console.log(`[Upload V2] ✓ Video registered: ${video.id}`);
+      console.log(`[Upload] ✓ Video uploaded: ${result.videoId}`);
 
       setTimeout(() => {
-        router.push(`/watch/${video.id}`);
+        router.push(`/watch/${result.videoId}`);
       }, 1000);
     } catch (err) {
-      console.error('[Upload V2] Error:', err);
+      console.error('[Upload] Error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
       setIsUploading(false);
     }
@@ -181,7 +159,7 @@ export default function UploadPageV2() {
             Upload Video
           </h1>
           <p className="text-text-muted mb-8">
-            Pay for decentralized storage with WAL tokens
+            Upload videos to decentralized Walrus storage (server pays for storage)
           </p>
 
           <div className="space-y-6">

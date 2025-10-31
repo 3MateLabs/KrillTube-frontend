@@ -1,24 +1,37 @@
 /**
- * API Route: /v1/register-video
- * Register video metadata after client-side Walrus upload
+ * Register Video API
+ *
+ * Registers uploaded video with encrypted segments in database.
+ * Client has already:
+ * 1. Transcoded video
+ * 2. Encrypted segments
+ * 3. Uploaded blobs to Walrus (via /api/v1/upload-blob)
+ *
+ * This endpoint:
+ * 1. Encrypts root secret with KMS
+ * 2. Stores video metadata in database
+ * 3. Returns video ID for playback
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getCachedWalPrice } from '@/lib/suivision/priceCache';
-import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
 import { encryptRootSecret } from '@/lib/kms/envelope';
 
-/**
- * POST /v1/register-video
- * Register a video after it has been uploaded to Walrus by the client
- *
- * Expected flow:
- * 1. Client transcodes video (POST /api/transcode)
- * 2. Client gets cost estimate (POST /v1/estimate-cost)
- * 3. Client uploads to Walrus using SDK with user signature
- * 4. Client calls this endpoint with Walrus URIs and metadata
- */
+export const dynamic = 'force-dynamic';
+
+interface RenditionData {
+  quality: string;
+  resolution: string;
+  bitrate: number;
+  segments: Array<{
+    segIdx: number;
+    walrusUri: string;
+    iv: string; // base64
+    duration: number;
+    size: number;
+  }>;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -28,96 +41,65 @@ export async function POST(request: NextRequest) {
       creatorId,
       walrusMasterUri,
       posterWalrusUri,
-      rootSecretEnc,
+      rootSecretEnc, // Base64 (not KMS-encrypted yet)
       duration,
       renditions,
-      paymentInfo,
     }: {
       videoId: string;
       title: string;
       creatorId: string;
       walrusMasterUri: string;
       posterWalrusUri?: string;
-      rootSecretEnc: string; // Base64 encoded
+      rootSecretEnc: string;
       duration: number;
-      renditions: Array<{
-        name: string;
-        resolution: string;
-        bitrate: number;
-        walrusPlaylistUri: string;
-        segments: Array<{
-          segIdx: number;
-          walrusUri: string;
-          iv: string; // Base64 encoded
-          duration: number;
-          size: number;
-        }>;
-      }>;
-      paymentInfo: {
-        paidWal: string;
-        paidMist: string;
-        walletAddress: string;
-        transactionIds: {
-          segments: string;
-          playlists: string;
-          master: string;
-        };
-      };
+      renditions: RenditionData[];
     } = body;
 
-    if (!videoId || !title || !creatorId || !walrusMasterUri || !renditions) {
+    console.log('[Register Video] Registering video...');
+    console.log(`  Video ID: ${videoId}`);
+    console.log(`  Title: ${title}`);
+    console.log(`  Creator: ${creatorId}`);
+    console.log(`  Renditions: ${renditions.length}`);
+
+    // Validate required fields
+    if (!videoId || !title || !creatorId || !rootSecretEnc || !renditions) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    console.log(`[API Register Video] Registering video: ${videoId}`);
+    // Step 1: Encrypt root secret with KMS
+    console.log('[Register Video] Encrypting root secret with KMS...');
+    const rootSecretBuffer = Buffer.from(rootSecretEnc, 'base64');
+    const kmsEncryptedSecret = await encryptRootSecret(rootSecretBuffer);
+    console.log('[Register Video] ✓ Root secret encrypted');
 
-    // Fetch WAL price and calculate USD value
-    const walPrice = await getCachedWalPrice();
-    const paidWalNum = parseFloat(paymentInfo.paidWal);
-    const paidUsd = walToUsd(paidWalNum, walPrice);
+    // Step 2: Store in database
+    console.log('[Register Video] Saving to database...');
 
-    console.log(`[API Register Video] Payment: ${paymentInfo.paidWal} WAL (${formatUsd(paidUsd)}) from ${paymentInfo.walletAddress}`);
-
-    // Client sends plain root secret (32 bytes) encoded as base64
-    // Server must encrypt it with KMS before storing in database
-    const rootSecretPlain = Buffer.from(rootSecretEnc, 'base64');
-
-    if (rootSecretPlain.length !== 32) {
-      return NextResponse.json(
-        { error: `Invalid root secret size: ${rootSecretPlain.length} bytes (expected 32)` },
-        { status: 400 }
-      );
-    }
-
-    const rootSecretEncrypted = await encryptRootSecret(new Uint8Array(rootSecretPlain));
-    console.log(`[API Register Video] Root secret encrypted with KMS (${rootSecretEncrypted.length} bytes)`);
-
-    // Store video metadata in database
     const video = await prisma.video.create({
       data: {
         id: videoId,
         title,
-        walrusMasterUri,
-        posterWalrusUri: posterWalrusUri || null,
-        rootSecretEnc: Buffer.from(rootSecretEncrypted), // Store KMS-encrypted secret
-        duration,
         creatorId,
+        walrusRootUri: walrusMasterUri,
+        posterWalrusUri: posterWalrusUri || null,
+        rootSecretEnc: Buffer.from(kmsEncryptedSecret),
+        duration,
         renditions: {
-          create: renditions.map((rendition) => ({
-            name: rendition.name,
-            resolution: rendition.resolution,
-            bitrate: rendition.bitrate,
-            walrusPlaylistUri: rendition.walrusPlaylistUri,
+          create: renditions.map((r) => ({
+            name: r.quality,
+            resolution: r.resolution,
+            bitrate: r.bitrate,
+            walrusPlaylistUri: '', // Will be generated during playback
             segments: {
-              create: rendition.segments.map((segment) => ({
-                segIdx: segment.segIdx,
-                walrusUri: segment.walrusUri,
-                iv: Buffer.from(segment.iv, 'base64'),
-                duration: segment.duration,
-                size: segment.size,
+              create: r.segments.map((s) => ({
+                segIdx: s.segIdx,
+                walrusUri: s.walrusUri,
+                iv: Buffer.from(s.iv, 'base64'),
+                duration: s.duration,
+                size: s.size,
               })),
             },
           })),
@@ -132,42 +114,24 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(`[API Register Video] ✓ Video registered: ${video.id}`);
+    console.log(`[Register Video] ✓ Video registered: ${video.id}`);
 
     return NextResponse.json({
       success: true,
       video: {
         id: video.id,
         title: video.title,
-        walrusMasterUri: video.walrusMasterUri,
-        posterWalrusUri: video.posterWalrusUri,
         duration: video.duration,
+        walrusRootUri: video.walrusRootUri,
+        posterWalrusUri: video.posterWalrusUri,
         createdAt: video.createdAt,
-        renditions: video.renditions.map((r) => ({
-          id: r.id,
-          name: r.name,
-          resolution: r.resolution,
-          bitrate: r.bitrate,
-          segmentCount: r.segments.length,
-        })),
-      },
-      stats: {
-        totalSegments: video.renditions.reduce((sum, r) => sum + r.segments.length, 0),
-      },
-      payment: {
-        ...paymentInfo,
-        // Add USD values
-        paidUsd,
-        walPriceUsd: walPrice,
-        formattedTotal: `${paymentInfo.paidWal} WAL (~${formatUsd(paidUsd)})`,
-        formattedUsd: formatUsd(paidUsd),
       },
     });
   } catch (error) {
-    console.error('[API Register Video] Error:', error);
+    console.error('[Register Video] Error:', error);
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to register video',
+        error: error instanceof Error ? error.message : 'Registration failed',
       },
       { status: 500 }
     );
