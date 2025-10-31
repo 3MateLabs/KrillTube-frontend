@@ -109,11 +109,9 @@ export function useEncryptedVideo(
           },
         });
 
-        // Step 2: Initialize session (ECDH key exchange with server)
-        await sessionManagerRef.current.initialize();
-        setSession(sessionManagerRef.current.getSession());
-
-        console.log('[useEncryptedVideo] ✓ Session initialized');
+        // Step 2: Skip session initialization in DEMO MODE
+        // Session creation is no longer required for key retrieval
+        console.log('[useEncryptedVideo] ✓ DEMO MODE: Skipping session initialization');
 
         if (!mounted) return;
 

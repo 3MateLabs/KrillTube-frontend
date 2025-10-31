@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
     // Generate opaque session token for cookie
     const sessionToken = crypto.randomUUID();
 
-    // Calculate session expiration (30 minutes)
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    // Calculate session expiration (24 hours for better UX)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     // Create session in database (without private key)
     const session = await prisma.playbackSession.create({
@@ -95,12 +95,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Store ephemeral private key in memory (30 minutes TTL)
-    storeSessionPrivateKey(session.id, serverKeypair.privateKeyJwk, 30 * 60);
+    // Store ephemeral private key in memory (24 hours TTL)
+    storeSessionPrivateKey(session.id, serverKeypair.privateKeyJwk, 24 * 60 * 60);
 
     console.log(`[Session API] ✓ Created session: ${session.id}`);
     console.log(`[Session API]   Video: ${video.title}`);
-    console.log(`[Session API]   Private key stored in memory (30 min TTL)`);
+    console.log(`[Session API]   Private key stored in memory (24 hour TTL)`);
     console.log(`[Session API]   Expires: ${expiresAt.toISOString()}`);
 
     // Set HttpOnly cookie with session token
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 30 * 60, // 30 minutes
+      maxAge: 24 * 60 * 60, // 24 hours
       path: '/',
     });
 

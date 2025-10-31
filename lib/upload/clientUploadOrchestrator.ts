@@ -80,8 +80,10 @@ export async function uploadVideoClientSide(
   const { network = 'mainnet', epochs = 50, onProgress } = options;
 
   const aggregatorUrl =
-    process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR_URL ||
-    'https://aggregator.mainnet.walrus.mirai.cloud';
+    process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR ||
+    (network === 'testnet'
+      ? 'https://aggregator.walrus-testnet.walrus.space'
+      : 'https://aggregator.walrus.space');
 
   // Step 1: Transcode video
   onProgress?.({
@@ -431,6 +433,9 @@ export async function uploadVideoClientSide(
     ? `${aggregatorUrl}/v1/blobs/${posterBlobId}`
     : undefined;
 
+  // Use master playlist blob ID as the video ID for cleaner URLs
+  const masterBlobId = masterResults[0].blobId;
+
   // Step 6: Build result for server registration
   onProgress?.({
     stage: 'registering',
@@ -439,8 +444,9 @@ export async function uploadVideoClientSide(
   });
 
   const renditions = qualities.map((quality) => {
+    // Include ALL segments including init segment (segIdx: -1)
     const qualitySegments = encryptedSegments.filter(
-      (s) => s.quality === quality && s.segIdx >= 0
+      (s) => s.quality === quality
     );
 
     const playlistBlobId = playlistBlobIdMap.get(`${quality}_playlist`);
@@ -454,11 +460,13 @@ export async function uploadVideoClientSide(
       resolution: resolutionMap[quality] || '1280x720',
       bitrate: bitrateMap[quality] || 2800000,
       walrusPlaylistUri: `${aggregatorUrl}/v1/blobs/${playlistBlobId}`,
-      segmentCount: qualitySegments.length + 1, // +1 for init
+      segmentCount: qualitySegments.length,
       segments: qualitySegments.map((seg) => {
-        const segBlobId = blobIdMap.get(`${quality}_seg_${seg.segIdx}`);
+        // Handle init segment (segIdx: -1) vs media segments (segIdx: 0+)
+        const identifier = seg.segIdx === -1 ? `${quality}_init` : `${quality}_seg_${seg.segIdx}`;
+        const segBlobId = blobIdMap.get(identifier);
         if (!segBlobId) {
-          throw new Error(`Missing blob ID for ${quality}_seg_${seg.segIdx}`);
+          throw new Error(`Missing blob ID for ${identifier}`);
         }
         return {
           segIdx: seg.segIdx,
@@ -477,7 +485,7 @@ export async function uploadVideoClientSide(
   const totalCost = 0; // We'll set this to 0 for now, server can recalculate if needed
 
   const result = {
-    videoId: transcoded.videoId,
+    videoId: masterBlobId, // Use blob ID for clean URLs like /watch/{blobId}
     walrusMasterUri: masterWalrusUri,
     posterWalrusUri,
     duration: transcoded.duration,

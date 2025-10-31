@@ -49,11 +49,21 @@ const QUALITY_SETTINGS: Record<string, { resolution: string; bitrate: string }> 
 
 /**
  * Load ffmpeg.wasm with progress tracking
+ *
+ * PERFORMANCE NOTES:
+ * - Currently using single-threaded build (faster to load)
+ * - Multi-threaded build available but requires:
+ *   1. SharedArrayBuffer support
+ *   2. Cross-Origin-Opener-Policy: same-origin
+ *   3. Cross-Origin-Embedder-Policy: require-corp
+ *   4. Using @ffmpeg/core-mt instead of @ffmpeg/core
+ * - For production, consider multi-threaded build for 2-4x speedup
  */
 export async function loadFFmpeg(onProgress?: (progress: TranscodeProgress) => void): Promise<FFmpeg> {
   const ffmpeg = new FFmpeg();
 
   // Load core and wasm files from CDN
+  // For multi-threading: use 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/umd'
   const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
 
   if (onProgress) {
@@ -76,6 +86,70 @@ export async function loadFFmpeg(onProgress?: (progress: TranscodeProgress) => v
   console.log('[FFmpeg] Loaded successfully');
 
   return ffmpeg;
+}
+
+/**
+ * Generate poster image from video using browser's video element
+ * This avoids FFmpeg.wasm memory issues
+ */
+async function generatePosterFromVideo(file: File): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      reject(new Error('Failed to get canvas context'));
+      return;
+    }
+
+    video.preload = 'metadata';
+    video.src = URL.createObjectURL(file);
+
+    video.onloadedmetadata = () => {
+      // Seek to 1 second or 10% of video duration
+      video.currentTime = Math.min(1, video.duration * 0.1);
+    };
+
+    video.onseeked = async () => {
+      try {
+        // Set canvas size to video dimensions
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Convert canvas to JPEG blob
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create poster blob'));
+              return;
+            }
+
+            // Convert blob to Uint8Array
+            blob.arrayBuffer().then((buffer) => {
+              resolve(new Uint8Array(buffer));
+
+              // Cleanup
+              URL.revokeObjectURL(video.src);
+            });
+          },
+          'image/jpeg',
+          0.9 // Quality 90%
+        );
+      } catch (err) {
+        reject(err);
+        URL.revokeObjectURL(video.src);
+      }
+    };
+
+    video.onerror = () => {
+      reject(new Error('Failed to load video'));
+      URL.revokeObjectURL(video.src);
+    };
+  });
 }
 
 /**
@@ -150,6 +224,24 @@ export async function transcodeVideo(
     // Rough estimate: ~1MB per second of HD video
     videoDuration = Math.max(10, file.size / 1024 / 1024);
   }
+
+  // Generate poster using browser's video element (avoid FFmpeg memory issues)
+  console.log('Generating poster...');
+
+  if (onProgress) {
+    onProgress({
+      overall: 12,
+      currentQuality: '',
+      currentQualityIndex: 0,
+      totalQualities: qualities.length,
+      qualityProgress: 0,
+      stage: 'loading',
+      message: 'Generating thumbnail...',
+    });
+  }
+
+  const posterData = await generatePosterFromVideo(file);
+  console.log(`Poster generated: ${(posterData.length / 1024).toFixed(2)} KB`);
 
   // Transcode each quality
   const startTime = Date.now();
@@ -298,12 +390,16 @@ export async function transcodeVideo(
 
     // FFmpeg command for HLS CMAF segmentation
     // Output: init segment + media segments
+    // Using ultrafast preset for 2-3x faster encoding (good enough for streaming)
     await ffmpeg.exec([
       '-i', 'input.mp4',
       '-vf', `scale=${settings.resolution}`,
       '-c:v', 'libx264',
-      '-preset', 'fast',
+      '-preset', 'ultrafast',     // 2-3x faster than 'fast' preset
+      '-tune', 'zerolatency',      // Further speed optimization
       '-b:v', settings.bitrate,
+      '-maxrate', settings.bitrate,
+      '-bufsize', `${parseInt(settings.bitrate) * 2}`, // 2x bitrate for buffer
       '-c:a', 'aac',
       '-b:a', '128k',
       '-f', 'hls',
@@ -399,6 +495,7 @@ export async function transcodeVideo(
       global.gc();
     }
   }
+  console.log('FFmpeg exec complete');
 
   // Generate poster frame (first frame of video)
   if (onProgress) {
@@ -412,6 +509,7 @@ export async function transcodeVideo(
       message: 'Generating thumbnail (extracting first frame)...',
     });
   }
+
 
   // Add progress tracking for poster generation
   ffmpeg.on('progress', ({ progress }) => {
@@ -428,36 +526,14 @@ export async function transcodeVideo(
     }
   });
 
-  await ffmpeg.exec([
-    '-i', 'input.mp4',
-    '-vframes', '1',
-    '-q:v', '2', // High quality JPEG
-    '-f', 'image2',
-    'poster.jpg',
-  ]);
-
-  if (onProgress) {
-    onProgress({
-      overall: 98,
-      currentQuality: '',
-      currentQualityIndex: qualities.length,
-      totalQualities: qualities.length,
-      qualityProgress: 100,
-      stage: 'generating-poster',
-      message: 'Reading thumbnail...',
-    });
-  }
-
-  const posterDataRaw = await ffmpeg.readFile('poster.jpg');
-  const posterData = posterDataRaw instanceof Uint8Array ? posterDataRaw : new Uint8Array();
-
   // Clean up FFmpeg filesystem
   try {
     await ffmpeg.deleteFile('input.mp4');
-    await ffmpeg.deleteFile('poster.jpg');
   } catch (e) {
     // Ignore cleanup errors
   }
+
+  console.log('FFmpeg filesystem cleaned up');
 
   // Estimate duration from segment count
   const maxSegments = Math.max(

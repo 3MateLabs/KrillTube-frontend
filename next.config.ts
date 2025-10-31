@@ -31,6 +31,17 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; worker-src 'self' blob:; child-src 'self' blob:;",
           },
+          // OPTIONAL: Enable for multi-threaded FFmpeg.wasm (2-4x faster transcoding)
+          // Requires using @ffmpeg/core-mt instead of @ffmpeg/core
+          // Uncomment these two headers to enable:
+          // {
+          //   key: 'Cross-Origin-Opener-Policy',
+          //   value: 'same-origin',
+          // },
+          // {
+          //   key: 'Cross-Origin-Embedder-Policy',
+          //   value: 'require-corp',
+          // },
         ],
       },
     ];

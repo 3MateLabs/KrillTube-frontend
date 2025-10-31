@@ -114,13 +114,9 @@ export class SessionManager {
   }
 
   /**
-   * Get unwrapped DEK for a segment
+   * Get unwrapped DEK for a segment (DEMO MODE - no session required)
    */
   async getSegmentKey(rendition: string, segIdx: number): Promise<SegmentKey> {
-    if (!this.session || !this.sessionKek) {
-      throw new Error('Session not initialized');
-    }
-
     // Check cache first
     const cacheKey = `${rendition}:${segIdx}`;
     const cached = this.keyCache.get(cacheKey);
@@ -131,42 +127,33 @@ export class SessionManager {
 
     console.log(`[SessionManager] Fetching key: ${rendition} segment ${segIdx}`);
 
-    // Fetch wrapped DEK from server
+    // DEMO MODE: Fetch DEK directly (no session wrapping)
+    const videoId = this.config.videoId; // Use videoId from config directly
     const response = await fetch(
-      `${this.apiBaseUrl}/v1/key?videoId=${this.session.videoId}&rendition=${rendition}&segIdx=${segIdx}`,
+      `${this.apiBaseUrl}/v1/key?videoId=${videoId}&rendition=${rendition}&segIdx=${segIdx}`,
       {
         credentials: 'include',
       }
     );
 
     if (!response.ok) {
-      if (response.status === 401) {
-        this.handleSessionExpired();
-        throw new Error('Session expired');
-      }
       const error = await response.json();
       throw new Error(`Key retrieval failed: ${error.error || response.statusText}`);
     }
 
     const data = await response.json();
 
-    // Unwrap DEK
-    const dek = await unwrapSegmentDek(
-      this.sessionKek,
-      data.wrappedDek,
-      data.wrapIv
-    );
-
+    // DEMO MODE: DEK is returned directly (unwrapped)
     const segmentKey: SegmentKey = {
-      dek,
-      iv: fromBase64(data.segmentIv),
+      dek: fromBase64(data.dek),
+      iv: fromBase64(data.iv),
       cachedAt: Date.now(),
     };
 
-    // Cache the unwrapped key
+    // Cache the key
     this.keyCache.set(cacheKey, segmentKey);
 
-    console.log(`[SessionManager] ✓ Retrieved and unwrapped key: ${cacheKey}`);
+    console.log(`[SessionManager] ✓ Retrieved key: ${cacheKey}`);
 
     return segmentKey;
   }

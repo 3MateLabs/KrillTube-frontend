@@ -30,6 +30,18 @@ function extractBlobId(uri: string): string {
   return blobId;
 }
 
+/**
+ * Generate Walruscan explorer link using network from env
+ */
+function getWalruscanLink(uri: string): string {
+  const blobId = extractBlobId(uri);
+
+  // Use network from environment variable
+  const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'testnet' | 'mainnet') || 'mainnet';
+
+  return `https://walruscan.com/${network}/blob/${blobId}`;
+}
+
 export default function WatchPage() {
   const params = useParams();
   const videoId = params.id as string;
@@ -187,14 +199,14 @@ export default function WatchPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-text-muted text-xs mb-1">Full URI:</p>
+                      <p className="text-text-muted text-xs mb-1">Walruscan Link:</p>
                       <a
-                        href={video.walrusMasterUri}
+                        href={getWalruscanLink(video.walrusMasterUri)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-400 hover:underline break-all text-xs"
                       >
-                        {video.walrusMasterUri}
+                        View on Walruscan →
                       </a>
                     </div>
                   </div>
@@ -212,14 +224,14 @@ export default function WatchPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-text-muted text-xs mb-1">Full URI:</p>
+                        <p className="text-text-muted text-xs mb-1">Walruscan Link:</p>
                         <a
-                          href={video.posterWalrusUri}
+                          href={getWalruscanLink(video.posterWalrusUri)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:underline break-all text-xs"
                         >
-                          {video.posterWalrusUri}
+                          View on Walruscan →
                         </a>
                       </div>
                     </div>
@@ -245,14 +257,14 @@ export default function WatchPage() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-text-muted text-xs mb-1">Playlist URI:</p>
+                        <p className="text-text-muted text-xs mb-1">Walruscan Link:</p>
                         <a
-                          href={rendition.walrusPlaylistUri}
+                          href={getWalruscanLink(rendition.walrusPlaylistUri)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-blue-400 hover:underline break-all text-xs"
                         >
-                          {rendition.walrusPlaylistUri}
+                          View on Walruscan →
                         </a>
                       </div>
                     </div>

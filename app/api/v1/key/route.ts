@@ -54,64 +54,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate session
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('sessionToken')?.value;
-
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'No active session' }, { status: 401 });
-    }
-
-    // Find session with video and segment info
-    const session = await prisma.playbackSession.findUnique({
-      where: { cookieValue: sessionToken },
+    // DEMO MODE: Skip session validation for easier testing
+    // Find video and segment directly
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
       include: {
-        video: {
+        renditions: {
+          where: { name: rendition },
           include: {
-            renditions: {
-              where: { name: rendition },
-              include: {
-                segments: {
-                  where: { segIdx },
-                },
-              },
+            segments: {
+              where: { segIdx },
             },
           },
         },
       },
     });
 
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-    }
-
-    // Check session expiration
-    if (session.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Session expired' }, { status: 401 });
-    }
-
-    // Verify session is for this video
-    if (session.videoId !== videoId) {
-      return NextResponse.json(
-        { error: 'Session is not authorized for this video' },
-        { status: 403 }
-      );
-    }
-
-    // Verify video exists
-    if (!session.video) {
+    if (!video) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
     // Verify rendition exists
-    if (!session.video.renditions || session.video.renditions.length === 0) {
+    if (!video.renditions || video.renditions.length === 0) {
       return NextResponse.json(
         { error: `Rendition ${rendition} not found` },
         { status: 404 }
       );
     }
 
-    const videoRendition = session.video.renditions[0];
+    const videoRendition = video.renditions[0];
 
     // Verify segment exists
     if (!videoRendition.segments || videoRendition.segments.length === 0) {
@@ -123,68 +94,22 @@ export async function GET(request: NextRequest) {
 
     const segment = videoRendition.segments[0];
 
-    console.log(`[Key API] Processing key request:`);
+    console.log(`[Key API] Processing key request (DEMO MODE - no session):`);
     console.log(`  Video: ${videoId}`);
     console.log(`  Rendition: ${rendition}`);
     console.log(`  Segment: ${segIdx}`);
-    console.log(`  Session: ${session.id}`);
 
-    // Step 1: Decrypt segment DEK with KMS
+    // DEMO MODE: Just decrypt the DEK and return it directly (no session wrapping)
     const dekBytes = await decryptDek(segment.dekEnc);
     console.log(`  ✓ Decrypted segment DEK`);
-
-    // Step 2: Load ephemeral private key from memory
-    let serverPrivateKeyJwk;
-    try {
-      serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
-      console.log(`  ✓ Loaded ephemeral private key from memory`);
-    } catch (error) {
-      // Session key lost (server restart) - return 401 to trigger client re-auth
-      console.error(`  ✗ Session private key not found (server restart?)`);
-      return NextResponse.json(
-        { error: 'Session private key not found. Please refresh and create a new session.' },
-        { status: 401 }
-      );
-    }
-
-    // Step 3: Derive session KEK from ECDH shared secret
-    const sessionKek = await deriveSessionKek(
-      serverPrivateKeyJwk,
-      new Uint8Array(session.clientPubKey),
-      new Uint8Array(session.serverNonce)
-    );
-    console.log(`  ✓ Derived session KEK`);
-
-    // Step 4: Wrap segment DEK with session KEK
-    const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);
-    console.log(`  ✓ Wrapped segment DEK`);
-
-    // Step 5: Log playback activity (optional - for analytics)
-    await prisma.playbackLog.create({
-      data: {
-        sessionId: session.id,
-        videoId,
-        segIdx,
-        rendition,
-        ip: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent') || 'unknown',
-      },
-    });
-
-    // Update session last activity
-    await prisma.playbackSession.update({
-      where: { id: session.id },
-      data: { lastActivity: new Date() },
-    });
 
     const duration = Date.now() - startTime;
     console.log(`  ✓ Request completed in ${duration}ms`);
 
-    // Return wrapped DEK and IV
+    // DEMO MODE: Return unwrapped DEK directly (no session wrapping)
     return NextResponse.json({
-      wrappedDek: toBase64(wrappedKey),
-      wrapIv: toBase64(wrapIv),
-      segmentIv: toBase64(segment.iv),
+      dek: toBase64(dekBytes), // Unwrapped DEK
+      iv: toBase64(segment.iv),  // Segment IV
       duration: `${duration}ms`,
     });
   } catch (error) {

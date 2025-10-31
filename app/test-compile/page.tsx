@@ -85,6 +85,32 @@ export default function TestCompilePage() {
       await ffmpeg.writeFile('input.mp4', videoData);
       addLog('✓ File written to FFmpeg');
 
+      // TEST 0: Generate poster FIRST (before transcoding)
+      addLog('\n=== TEST 0: Generating poster EARLY (before transcoding) ===');
+      try {
+        addLog('Attempting MINIMAL poster generation...');
+
+        await ffmpeg.exec([
+          '-i', 'input.mp4',
+          '-vframes', '1',
+          'poster.jpg',
+        ]);
+
+        addLog('✓ Poster generation exec complete');
+
+        // Try to read the poster
+        const posterData = await ffmpeg.readFile('poster.jpg');
+        addLog(`✓ Poster generated EARLY: ${(posterData.length / 1024).toFixed(2)} KB`);
+
+        // Clean up
+        await ffmpeg.deleteFile('poster.jpg');
+        addLog('✓ Poster cleanup complete');
+
+      } catch (e) {
+        addLog(`❌ EARLY poster generation FAILED: ${e}`);
+        throw e;
+      }
+
       // TEST 1: Probe video info
       addLog('\n=== TEST 1: Probe video info ===');
       try {
@@ -181,7 +207,12 @@ export default function TestCompilePage() {
         throw e;
       }
 
-      setStatus('✅ ALL TESTS PASSED! No memory errors detected.');
+      addLog('\n=== All tests passed! ===');
+      addLog('✅ Poster generation works when done EARLY (before transcoding)');
+      addLog('✅ Transcoding works without memory issues');
+      addLog('✅ Key fix: Use -update 1 flag AND generate poster before transcoding');
+
+      setStatus('✅ All tests passed - memory error fixed!');
 
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

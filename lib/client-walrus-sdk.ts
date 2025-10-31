@@ -398,6 +398,54 @@ export async function uploadMultipleBlobsWithWallet(
   const epochs = options?.epochs || DEFAULT_EPOCHS;
   const deletable = options?.deletable ?? true;
 
+  // For testnet, use free HTTP uploads instead of wallet-based uploads
+  if (network === 'testnet') {
+    console.log('[Upload] Using free HTTP uploads for testnet');
+    const publisherUrl = process.env.NEXT_PUBLIC_WALRUS_PUBLISHER || 'https://publisher.walrus-testnet.walrus.space';
+
+    const results: Array<{
+      identifier: string;
+      blobId: string;
+      blobObjectId: string;
+      size: number;
+    }> = [];
+
+    for (const blob of blobs) {
+      try {
+        console.log(`[HTTP Upload] Uploading ${blob.identifier} (${(blob.contents.length / 1024).toFixed(2)} KB)...`);
+
+        const response = await fetch(`${publisherUrl}/v1/blobs?epochs=${epochs}`, {
+          method: 'PUT',
+          body: new Blob([blob.contents as BlobPart]),
+          headers: {
+            'Content-Type': 'application/octet-stream',
+          },
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP upload failed: ${response.status} ${errorText}`);
+        }
+
+        const result = await response.json();
+
+        results.push({
+          identifier: blob.identifier,
+          blobId: result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId,
+          blobObjectId: '', // Not applicable for HTTP uploads
+          size: blob.contents.length,
+        });
+
+        console.log(`[HTTP Upload] ✓ ${blob.identifier}: ${result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId}`);
+      } catch (err) {
+        console.error(`[HTTP Upload] Failed to upload ${blob.identifier}:`, err);
+        throw err;
+      }
+    }
+
+    return results;
+  }
+
   const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
   const { Transaction } = await import('@mysten/sui/transactions');
   const { walrus } = await import('@mysten/walrus');
