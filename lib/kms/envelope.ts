@@ -15,46 +15,38 @@ import { concatBytes } from '../crypto/utils';
 import { getMasterKey } from './masterKey';
 
 /**
- * Encrypt a video root secret using envelope encryption
+ * Encrypt a segment DEK using the master key
  *
  * The encrypted output can be safely stored in the database.
  *
- * @param plainSecret - Video root secret (32 bytes)
- * @returns Buffer containing encrypted secret
+ * @param plainDek - Segment DEK (16 bytes)
+ * @returns Buffer containing encrypted DEK
  */
-export async function encryptRootSecret(plainSecret: Uint8Array): Promise<Buffer> {
-  if (plainSecret.length !== 32) {
-    throw new Error('Root secret must be 32 bytes');
+export async function encryptDek(plainDek: Uint8Array): Promise<Buffer> {
+  if (plainDek.length !== 16) {
+    throw new Error('DEK must be 16 bytes');
   }
 
-  // Step 1: Generate a random DEK for this secret
-  const dek = generateAes128Key(); // 16 bytes
-  const dataIv = generateIv(); // 12 bytes
-
-  // Step 2: Encrypt the secret with the DEK
-  const encryptedData = await aesGcmEncrypt(dek, plainSecret, dataIv);
-
-  // Step 3: Encrypt the DEK with the master key
+  // Encrypt DEK directly with master key (no envelope needed for small keys)
   const masterKey = getMasterKey();
-  const kekIv = generateIv(); // 12 bytes
-  const encryptedDek = await aesGcmEncrypt(masterKey, dek, kekIv);
+  const iv = generateIv(); // 12 bytes
+  const encryptedDek = await aesGcmEncrypt(masterKey, plainDek, iv);
 
-  // Step 4: Combine everything into a single blob
-  // Format: [version(1)] [dataIv(12)] [kekIv(12)] [encryptedDek(32)] [encryptedData(48)]
-  const version = new Uint8Array([1]); // Version byte for future compatibility
-  const combined = concatBytes(version, dataIv, kekIv, encryptedDek, encryptedData);
+  // Format: [version(1)] [iv(12)] [encryptedDek(32)]
+  const version = new Uint8Array([1]);
+  const combined = concatBytes(version, iv, encryptedDek);
 
   return Buffer.from(combined);
 }
 
 /**
- * Decrypt a video root secret using envelope encryption
+ * Decrypt a segment DEK using the master key
  *
- * @param encryptedSecret - Buffer or Uint8Array containing encrypted secret from database
- * @returns Decrypted root secret (32 bytes)
+ * @param encryptedDek - Buffer or Uint8Array containing encrypted DEK from database
+ * @returns Decrypted DEK (16 bytes)
  */
-export async function decryptRootSecret(encryptedSecret: Buffer | Uint8Array): Promise<Uint8Array> {
-  const data = new Uint8Array(encryptedSecret);
+export async function decryptDek(encryptedDek: Buffer | Uint8Array): Promise<Uint8Array> {
+  const data = new Uint8Array(encryptedDek);
 
   // Parse the combined blob
   let offset = 0;
@@ -67,32 +59,22 @@ export async function decryptRootSecret(encryptedSecret: Buffer | Uint8Array): P
     throw new Error(`Unsupported encryption version: ${version}`);
   }
 
-  // Extract IVs
-  const dataIv = data.slice(offset, offset + 12);
-  offset += 12;
-
-  const kekIv = data.slice(offset, offset + 12);
+  // Extract IV
+  const iv = data.slice(offset, offset + 12);
   offset += 12;
 
   // Extract encrypted DEK (16 bytes + 16 bytes auth tag = 32)
-  const encryptedDek = data.slice(offset, offset + 32);
-  offset += 32;
+  const encryptedDekData = data.slice(offset);
 
-  // Extract encrypted data (32 bytes + 16 bytes auth tag = 48)
-  const encryptedData = data.slice(offset);
-
-  // Step 1: Decrypt the DEK using the master key
+  // Decrypt the DEK using the master key
   const masterKey = getMasterKey();
-  const dek = await aesGcmDecrypt(masterKey, encryptedDek, kekIv);
+  const plainDek = await aesGcmDecrypt(masterKey, encryptedDekData, iv);
 
-  // Step 2: Decrypt the data using the DEK
-  const plainSecret = await aesGcmDecrypt(dek, encryptedData, dataIv);
-
-  if (plainSecret.length !== 32) {
-    throw new Error(`Decrypted secret is not 32 bytes: ${plainSecret.length}`);
+  if (plainDek.length !== 16) {
+    throw new Error(`Decrypted DEK is not 16 bytes: ${plainDek.length}`);
   }
 
-  return plainSecret;
+  return plainDek;
 }
 
 /**

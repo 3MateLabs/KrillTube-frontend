@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
-import { encryptRootSecret } from '@/lib/kms/envelope';
+import { encryptDek } from '@/lib/kms/envelope';
 
 /**
  * POST /v1/register-video
@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
       creatorId,
       walrusMasterUri,
       posterWalrusUri,
-      rootSecretEnc,
       duration,
       renditions,
       paymentInfo,
@@ -38,7 +37,6 @@ export async function POST(request: NextRequest) {
       creatorId: string;
       walrusMasterUri: string;
       posterWalrusUri?: string;
-      rootSecretEnc: string; // Base64 encoded
       duration: number;
       renditions: Array<{
         name: string;
@@ -48,7 +46,8 @@ export async function POST(request: NextRequest) {
         segments: Array<{
           segIdx: number;
           walrusUri: string;
-          iv: string; // Base64 encoded
+          dek: string; // Base64-encoded 16-byte DEK
+          iv: string; // Base64-encoded 12-byte IV
           duration: number;
           size: number;
         }>;
@@ -81,19 +80,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API Register Video] Payment: ${paymentInfo.paidWal} WAL (${formatUsd(paidUsd)}) from ${paymentInfo.walletAddress}`);
 
-    // Client sends plain root secret (32 bytes) encoded as base64
-    // Server must encrypt it with KMS before storing in database
-    const rootSecretPlain = Buffer.from(rootSecretEnc, 'base64');
-
-    if (rootSecretPlain.length !== 32) {
-      return NextResponse.json(
-        { error: `Invalid root secret size: ${rootSecretPlain.length} bytes (expected 32)` },
-        { status: 400 }
-      );
-    }
-
-    const rootSecretEncrypted = await encryptRootSecret(new Uint8Array(rootSecretPlain));
-    console.log(`[API Register Video] Root secret encrypted with KMS (${rootSecretEncrypted.length} bytes)`);
+    // Encrypt all DEKs with master key before storage
+    console.log(`[API Register Video] Encrypting ${renditions.reduce((sum, r) => sum + r.segments.length, 0)} segment DEKs with KMS...`);
 
     // Store video metadata in database
     const video = await prisma.video.create({
@@ -102,25 +90,38 @@ export async function POST(request: NextRequest) {
         title,
         walrusMasterUri,
         posterWalrusUri: posterWalrusUri || null,
-        rootSecretEnc: Buffer.from(rootSecretEncrypted), // Store KMS-encrypted secret
         duration,
         creatorId,
         renditions: {
-          create: renditions.map((rendition) => ({
-            name: rendition.name,
-            resolution: rendition.resolution,
-            bitrate: rendition.bitrate,
-            walrusPlaylistUri: rendition.walrusPlaylistUri,
-            segments: {
-              create: rendition.segments.map((segment) => ({
-                segIdx: segment.segIdx,
-                walrusUri: segment.walrusUri,
-                iv: Buffer.from(segment.iv, 'base64'),
-                duration: segment.duration,
-                size: segment.size,
-              })),
-            },
-          })),
+          create: await Promise.all(
+            renditions.map(async (rendition) => ({
+              name: rendition.name,
+              resolution: rendition.resolution,
+              bitrate: rendition.bitrate,
+              walrusPlaylistUri: rendition.walrusPlaylistUri,
+              segments: {
+                create: await Promise.all(
+                  rendition.segments.map(async (segment) => {
+                    // Decrypt base64 DEK and encrypt with KMS
+                    const dekPlain = Buffer.from(segment.dek, 'base64');
+                    if (dekPlain.length !== 16) {
+                      throw new Error(`Invalid DEK size: ${dekPlain.length} bytes (expected 16)`);
+                    }
+                    const dekEncrypted = await encryptDek(new Uint8Array(dekPlain));
+
+                    return {
+                      segIdx: segment.segIdx,
+                      walrusUri: segment.walrusUri,
+                      dekEnc: Buffer.from(dekEncrypted), // Store KMS-encrypted DEK
+                      iv: Buffer.from(segment.iv, 'base64'),
+                      duration: segment.duration,
+                      size: segment.size,
+                    };
+                  })
+                ),
+              },
+            }))
+          ),
         },
       },
       include: {
@@ -131,6 +132,8 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    console.log(`[API Register Video] ✓ All DEKs encrypted and stored`);
 
     console.log(`[API Register Video] ✓ Video registered: ${video.id}`);
 

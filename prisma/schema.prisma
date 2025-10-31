@@ -44,7 +44,6 @@ model Video {
   title           String
   walrusMasterUri String   @map("walrus_master_uri")
   posterWalrusUri String?  @map("poster_walrus_uri")
-  rootSecretEnc   Bytes    @map("root_secret_enc") // KMS-encrypted root secret
   duration        Float?
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -76,6 +75,7 @@ model VideoSegment {
   renditionId String   @map("rendition_id")
   segIdx      Int      @map("seg_idx")
   walrusUri   String   @map("walrus_uri") // Encrypted segment blob
+  dekEnc      Bytes    @map("dek_enc")    // KMS-encrypted 16-byte DEK
   iv          Bytes    // 12-byte IV for AES-GCM
   duration    Float
   size        Int

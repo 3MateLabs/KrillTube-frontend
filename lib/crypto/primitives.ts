@@ -196,6 +196,33 @@ export async function hkdfDeriveKey(
 }
 
 /**
+ * Import raw AES key bytes as CryptoKey for use with Web Crypto operations
+ *
+ * @param keyBytes - Raw key bytes (16 bytes for AES-128)
+ * @param keyUsages - Key usages (default: ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey'])
+ * @returns Promise resolving to CryptoKey
+ */
+export async function importAesKey(
+  keyBytes: Uint8Array,
+  keyUsages: KeyUsage[] = ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
+): Promise<CryptoKey> {
+  if (keyBytes.length !== 16) {
+    throw new Error('AES key must be 16 bytes (AES-128)');
+  }
+
+  return await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    {
+      name: 'AES-GCM',
+      length: 128,
+    },
+    true, // extractable
+    keyUsages
+  );
+}
+
+/**
  * Encrypt data using AES-GCM-128
  *
  * @param key - CryptoKey or raw key bytes (16 bytes for AES-128)

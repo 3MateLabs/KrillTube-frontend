@@ -13,10 +13,11 @@ export function generateRandomBytes(length: number): Uint8Array {
 }
 
 /**
- * Generate root secret (32 bytes) for video encryption
+ * Generate random DEK for segment encryption (16 bytes)
+ * Each segment gets its own independent random key
  */
-export function generateRootSecret(): Uint8Array {
-  return generateRandomBytes(32);
+export function generateDEK(): Uint8Array {
+  return generateRandomBytes(16);
 }
 
 /**
@@ -27,137 +28,38 @@ export function generateIV(): Uint8Array {
 }
 
 /**
- * Derive segment DEK from root secret using HKDF-SHA256
- * Matches server-side derivation for playback
+ * Encrypt segment data with AES-GCM-128
+ * @param dekBytes - 16-byte DEK as Uint8Array
+ * @param data - Segment data to encrypt
+ * @param iv - 12-byte IV
  */
-export async function deriveSegmentDEK(
-  rootSecret: Uint8Array,
-  videoId: string,
-  rendition: string,
-  segIdx: number
-): Promise<CryptoKey> {
-  // Import root secret as base key (convert to BufferSource)
-  const baseKey = await crypto.subtle.importKey(
+export async function encryptSegment(
+  dekBytes: Uint8Array,
+  data: Uint8Array,
+  iv: Uint8Array
+): Promise<Uint8Array> {
+  // Import DEK as CryptoKey
+  const dekKey = await crypto.subtle.importKey(
     'raw',
-    rootSecret.buffer as ArrayBuffer,
-    'HKDF',
-    false,
-    ['deriveKey']
-  );
-
-  // Salt: videoId|rendition|segIdx (matches server)
-  const salt = new TextEncoder().encode(`${videoId}|${rendition}|${segIdx}`);
-
-  // Derive 128-bit AES key (16 bytes)
-  const dek = await crypto.subtle.deriveKey(
-    {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt,
-      info: new TextEncoder().encode('chunk-dek-v1'),
-    },
-    baseKey,
+    dekBytes.buffer as ArrayBuffer,
     { name: 'AES-GCM', length: 128 },
     false,
     ['encrypt']
   );
 
-  return dek;
-}
-
-/**
- * Encrypt segment data with AES-GCM-128
- */
-export async function encryptSegment(
-  dek: CryptoKey,
-  data: Uint8Array,
-  iv: Uint8Array
-): Promise<Uint8Array> {
   const encrypted = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
       iv: iv.buffer as ArrayBuffer,
-      tagLength: 128, // MUST match server-side decryption (128-bit auth tag)
+      tagLength: 128, // 128-bit auth tag
     },
-    dek,
+    dekKey,
     data.buffer as ArrayBuffer
   );
 
   return new Uint8Array(encrypted);
 }
 
-/**
- * Encrypt root secret with server's public key (X25519)
- * Server will decrypt with its private key to store in KMS
- */
-export async function encryptRootSecretForServer(
-  rootSecret: Uint8Array,
-  serverPublicKey: Uint8Array
-): Promise<{ encrypted: Uint8Array; ephemeralPublicKey: Uint8Array }> {
-  // Generate ephemeral client keypair for ECDH
-  const clientKeypair = await crypto.subtle.generateKey(
-    {
-      name: 'ECDH',
-      namedCurve: 'X25519',
-    },
-    true,
-    ['deriveKey']
-  );
-
-  // Import server's public key
-  const serverPubKey = await crypto.subtle.importKey(
-    'raw',
-    serverPublicKey.buffer as ArrayBuffer,
-    {
-      name: 'ECDH',
-      namedCurve: 'X25519',
-    },
-    false,
-    []
-  );
-
-  // Derive shared secret
-  const sharedSecret = await crypto.subtle.deriveKey(
-    {
-      name: 'ECDH',
-      public: serverPubKey,
-    },
-    clientKeypair.privateKey,
-    {
-      name: 'AES-GCM',
-      length: 256,
-    },
-    false,
-    ['encrypt']
-  );
-
-  // Encrypt root secret with shared secret
-  const iv = generateIV();
-  const encrypted = await crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv.buffer as ArrayBuffer,
-    },
-    sharedSecret,
-    rootSecret.buffer as ArrayBuffer
-  );
-
-  // Export client's public key
-  const clientPubKeyExported = await crypto.subtle.exportKey(
-    'raw',
-    clientKeypair.publicKey
-  );
-
-  // Combine: iv (12 bytes) + encrypted data
-  const combined = new Uint8Array(iv.length + encrypted.byteLength);
-  combined.set(iv, 0);
-  combined.set(new Uint8Array(encrypted), iv.length);
-
-  return {
-    encrypted: combined,
-    ephemeralPublicKey: new Uint8Array(clientPubKeyExported),
-  };
-}
 
 /**
  * Convert Uint8Array to base64

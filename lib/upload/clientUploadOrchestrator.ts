@@ -7,9 +7,8 @@
 
 import { transcodeVideo, type TranscodeResult } from '@/lib/transcode/clientTranscode';
 import {
-  generateRootSecret,
+  generateDEK,
   generateIV,
-  deriveSegmentDEK,
   encryptSegment,
   toBase64,
 } from '@/lib/crypto/clientEncryption';
@@ -24,7 +23,8 @@ export interface UploadProgress {
 export interface EncryptedSegment {
   identifier: string; // e.g., "720p_seg_0", "720p_init"
   data: Uint8Array; // encrypted data
-  iv: string; // base64
+  dek: string; // base64-encoded 16-byte DEK
+  iv: string; // base64-encoded 12-byte IV
   quality: string;
   segIdx: number;
   duration: number;
@@ -34,7 +34,6 @@ export interface ClientUploadResult {
   videoId: string;
   walrusMasterUri: string;
   posterWalrusUri?: string;
-  rootSecretEnc: string; // base64 (NOT encrypted yet - will be encrypted with server pubkey)
   duration: number;
   renditions: Array<{
     quality: string;
@@ -45,7 +44,8 @@ export interface ClientUploadResult {
     segments: Array<{
       segIdx: number;
       walrusUri: string;
-      iv: string; // base64
+      dek: string; // base64-encoded 16-byte DEK
+      iv: string; // base64-encoded 12-byte IV
       duration: number;
       size: number;
     }>;
@@ -102,14 +102,13 @@ export async function uploadVideoClientSide(
 
   console.log(`[Upload] Transcoded ${transcoded.segments.length} segments`);
 
-  // Step 2: Generate root secret and encrypt segments
+  // Step 2: Encrypt segments (each with unique random DEK)
   onProgress?.({
     stage: 'encrypting',
     percent: 40,
     message: 'Encrypting segments...',
   });
 
-  const rootSecret = generateRootSecret();
   const encryptedSegments: EncryptedSegment[] = [];
 
   for (let i = 0; i < transcoded.segments.length; i++) {
@@ -117,23 +116,19 @@ export async function uploadVideoClientSide(
     const identifier =
       seg.type === 'init' ? `${seg.quality}_init` : `${seg.quality}_seg_${seg.segIdx}`;
 
-    // Derive DEK
-    const dek = await deriveSegmentDEK(
-      rootSecret,
-      transcoded.videoId,
-      seg.quality,
-      seg.segIdx
-    );
+    // Generate random DEK for this segment (16 bytes)
+    const dek = generateDEK();
 
-    // Generate IV
+    // Generate random IV (12 bytes)
     const iv = generateIV();
 
-    // Encrypt segment
+    // Encrypt segment with DEK
     const encryptedData = await encryptSegment(dek, seg.data, iv);
 
     encryptedSegments.push({
       identifier,
       data: encryptedData,
+      dek: toBase64(dek), // Include DEK in metadata
       iv: toBase64(iv),
       quality: seg.quality,
       segIdx: seg.segIdx,
@@ -148,7 +143,7 @@ export async function uploadVideoClientSide(
     });
   }
 
-  console.log(`[Upload] Encrypted all segments`);
+  console.log(`[Upload] Encrypted all segments with random DEKs`);
 
   // Step 3: Upload segments and poster first (to get patch IDs)
   onProgress?.({
@@ -353,6 +348,7 @@ export async function uploadVideoClientSide(
         return {
           segIdx: seg.segIdx,
           walrusUri: `${aggregatorUrl}/v1/blobs/${segmentsQuilt.blobObject.blobId}`,
+          dek: seg.dek, // Include DEK for backend storage
           iv: seg.iv,
           duration: seg.duration,
           size: seg.data.length,
@@ -368,7 +364,6 @@ export async function uploadVideoClientSide(
     videoId: transcoded.videoId,
     walrusMasterUri: masterWalrusUri,
     posterWalrusUri,
-    rootSecretEnc: toBase64(rootSecret), // Plain root secret - server will KMS-encrypt before storage
     duration: transcoded.duration,
     renditions,
     paymentInfo: {
