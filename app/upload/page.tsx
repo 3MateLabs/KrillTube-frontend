@@ -58,7 +58,6 @@ function UploadContent() {
     };
   } | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
-  const [showCostApproval, setShowCostApproval] = useState(false);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -68,8 +67,6 @@ function UploadContent() {
         setTitle(file.name.replace(/\.[^/.]+$/, ''));
       }
       setError(null);
-      setCostEstimate(null);
-      setShowCostApproval(false);
     }
   };
 
@@ -77,9 +74,14 @@ function UploadContent() {
     setSelectedQualities((prev) =>
       prev.includes(quality) ? prev.filter((q) => q !== quality) : [...prev, quality].sort()
     );
-    setCostEstimate(null);
-    setShowCostApproval(false);
   };
+
+  // Auto-calculate cost whenever file or qualities change
+  useEffect(() => {
+    if (selectedFile && selectedQualities.length > 0) {
+      handleEstimateCost();
+    }
+  }, [selectedFile, selectedQualities]);
 
   const handleEstimateCost = async () => {
     if (!selectedFile || selectedQualities.length === 0) return;
@@ -106,7 +108,6 @@ function UploadContent() {
 
       const { estimate } = await response.json();
       setCostEstimate(estimate);
-      setShowCostApproval(true);
     } catch (err) {
       console.error('[Estimate Cost] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to estimate cost');
@@ -284,27 +285,18 @@ function UploadContent() {
               </div>
             </div>
 
-            {/* Calculate Cost Button */}
-            {!showCostApproval && !isUploading && (
-              <button
-                onClick={handleEstimateCost}
-                disabled={
-                  !selectedFile || !effectiveAccount || !title || isEstimating || selectedQualities.length === 0
-                }
-                className="w-full bg-background-elevated text-foreground py-4 px-6 rounded-lg font-semibold
-                  border-2 border-walrus-mint hover:bg-background-hover
-                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {!effectiveAccount
-                  ? 'Connect Wallet to Continue'
-                  : isEstimating
-                  ? 'Calculating...'
-                  : 'Calculate Storage Cost'}
-              </button>
+            {/* Loading indicator while calculating */}
+            {isEstimating && (
+              <div className="p-5 bg-background-elevated border-2 border-border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-walrus-mint"></div>
+                  <span className="text-text-muted">Calculating storage cost...</span>
+                </div>
+              </div>
             )}
 
-            {/* Cost Approval */}
-            {showCostApproval && costEstimate && !isUploading && (
+            {/* Cost Estimate - Auto-calculated */}
+            {costEstimate && !isUploading && (
               <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
                   Estimated Storage Cost
@@ -392,7 +384,7 @@ function UploadContent() {
             )}
 
             {/* Upload Button */}
-            {showCostApproval && !isUploading && (
+            {costEstimate && !isUploading && (
               <button
                 onClick={handleUpload}
                 disabled={
