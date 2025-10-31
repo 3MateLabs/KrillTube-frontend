@@ -3,7 +3,7 @@
  * Docs: https://docs.blockvision.org/reference/retrieve-coin-detail
  */
 
-const SUIVISION_API_KEY = process.env.SUIVISION_API || '';
+const SUIVISION_API_KEY = process.env.SUIVISION_API_KEY || '';
 const SUIVISION_BASE_URL = 'https://api.blockvision.org/v2/sui';
 
 // WAL token type from Walrus SDK
