@@ -15,8 +15,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BlobTube - Decentralized Video Platform",
+  title: "WalPlayer - Decentralized Video Platform",
   description: "Upload, transcode, and stream videos on Walrus storage",
+  openGraph: {
+    title: "WalPlayer - Decentralized Video Platform",
+    description: "Upload, transcode, and stream videos on Walrus storage",
+    images: ["/preview-image.png"],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WalPlayer - Decentralized Video Platform",
+    description: "Upload, transcode, and stream videos on Walrus storage",
+    images: ["/preview-image.png"],
+    creator: "@walplayer",
+  },
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({

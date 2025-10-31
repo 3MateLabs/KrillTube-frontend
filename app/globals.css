@@ -1,5 +1,6 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@import "./twitter-optimized.css";
 
 /* PP NeueBit - Walrus Brand Font for Headers */
 /* Note: PP NeueBit is a commercial font. Font files should be placed in /public/fonts/ */

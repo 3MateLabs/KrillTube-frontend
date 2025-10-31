@@ -1,0 +1,351 @@
+/* Twitter Browser Optimizations */
+
+/* Base styles for Twitter browser */
+.twitter-optimized {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
+}
+
+/* Remove Twitter browser's default margins */
+.twitter-mobile-view {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Optimize for Twitter mobile view */
+@media (max-width: 768px) {
+  .twitter-optimized {
+    /* Hide desktop navigation on mobile */
+    .desktop-sidebar {
+      display: none;
+    }
+    
+    /* Full-width containers */
+    .container {
+      max-width: 100%;
+      padding: 0;
+    }
+    
+    /* Larger touch targets */
+    button, a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+}
+
+/* Twitter-style mobile header */
+.twitter-mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Twitter-style bottom navigation */
+.twitter-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 0;
+  z-index: 50;
+  display: none;
+}
+
+.twitter-optimized .twitter-bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.twitter-bottom-nav button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 11px;
+  transition: color 0.2s;
+}
+
+.twitter-bottom-nav button.active {
+  color: #3b82f6;
+}
+
+/* Video player optimizations for Twitter */
+.twitter-optimized .video-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  background: #000;
+}
+
+.twitter-optimized video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-playsinline: true;
+  playsinline: true;
+}
+
+/* Trading panel for mobile */
+.twitter-optimized .trading-panel-mobile {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.98);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  padding: 20px;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 60;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.twitter-optimized .trading-panel-mobile.open {
+  transform: translateY(0);
+}
+
+/* Pull-to-refresh indicator */
+.pull-to-refresh {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.pull-to-refresh.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(70px);
+}
+
+/* Swipe gestures */
+.swipeable {
+  touch-action: pan-y;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* Floating action button */
+.twitter-fab {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 40;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.twitter-fab:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Twitter-style cards */
+.twitter-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.2s;
+}
+
+.twitter-card:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Loading skeleton for Twitter */
+.twitter-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: twitter-loading 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes twitter-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Safe area handling for iPhone */
+.twitter-optimized {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: constant(safe-area-inset-bottom);
+}
+
+.twitter-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: constant(safe-area-inset-bottom);
+}
+
+/* Smooth scrolling */
+.twitter-optimized * {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Disable text selection on buttons */
+.twitter-optimized button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Twitter-style input fields */
+.twitter-input {
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: white;
+  font-size: 16px; /* Prevents zoom on iOS */
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.twitter-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Twitter-style buttons */
+.twitter-button {
+  padding: 12px 24px;
+  border-radius: 24px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.twitter-button-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.twitter-button-primary:active {
+  background: #2563eb;
+  transform: scale(0.98);
+}
+
+.twitter-button-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.twitter-button-secondary:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Responsive video grid */
+.twitter-optimized .video-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 12px;
+}
+
+@media (min-width: 640px) {
+  .twitter-optimized .video-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Twitter-style toast notifications */
+.twitter-toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 24px;
+  font-size: 14px;
+  z-index: 100;
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+}
+
+.twitter-toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* Accessibility improvements */
+.twitter-optimized {
+  /* Focus visible styles */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+  
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

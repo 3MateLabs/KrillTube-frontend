@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CustomVideoPlayer } from '@/components/CustomVideoPlayer';
+import { MobileWatchView } from '@/components/MobileWatchView';
 import { formatDuration, formatBytes } from '@/lib/types';
 
 /**
@@ -37,6 +38,24 @@ export default function WatchPage() {
   const [video, setVideo] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+      const isTwitter = /Twitter|FBAN|FBAV/.test(userAgent);
+      const isMobileDevice = typeof window !== 'undefined' && (
+        /iPhone|iPad|iPod|Android/i.test(userAgent) || window.innerWidth < 768
+      );
+      setIsMobile(isTwitter || isMobileDevice);
+    };
+    
+    checkMobile();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchVideo = async () => {
@@ -107,6 +126,11 @@ export default function WatchPage() {
         </div>
       </div>
     );
+  }
+
+  // Use mobile view for Twitter and mobile devices
+  if (isMobile) {
+    return <MobileWatchView video={video} />;
   }
 
   return (
