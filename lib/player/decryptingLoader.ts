@@ -171,7 +171,8 @@ export class DecryptingLoader {
     // Determine if this is a segment or playlist
     const isSegment = context.frag && context.frag.relurl;
     const isInitSegment = context.frag && context.frag.sn === 'initSegment';
-    const isEncrypted = isSegment && !isInitSegment;
+    // Init segments ARE encrypted in our system (segIdx: -1)
+    const isEncrypted = isSegment; // Both init and media segments are encrypted
 
     if (!isEncrypted) {
       return this.loadPlaintext(context, config, startTime);
