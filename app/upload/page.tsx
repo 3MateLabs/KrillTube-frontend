@@ -10,6 +10,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
 import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
 
 type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
@@ -19,6 +21,12 @@ function UploadContent() {
   const searchParams = useSearchParams();
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+  const { walrusNetwork } = useNetwork();
+
+  // Debug: Log current network
+  useEffect(() => {
+    console.log('[Upload Page] Current Walrus Network:', walrusNetwork);
+  }, [walrusNetwork]);
 
   // Debug mode: bypass wallet connection
   const [debugMode, setDebugMode] = useState(false);
@@ -143,8 +151,9 @@ function UploadContent() {
         effectiveSignAndExecute,
         effectiveAccount.address,
         {
-          network: (process.env.NEXT_PUBLIC_WALRUS_NETWORK as 'mainnet' | 'testnet') || 'mainnet',
-          epochs: parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '50'),
+          network: walrusNetwork, // Dynamic Walrus network from context
+          // Mainnet has strict epoch limits (typically 1-5), testnet can use more
+          epochs: walrusNetwork === 'mainnet' ? 1 : parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS || '5'),
           onProgress: setProgress,
         }
       );
@@ -201,9 +210,14 @@ function UploadContent() {
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Upload Video
           </h1>
-          <p className="text-text-muted mb-8">
+          <p className="text-text-muted mb-6">
             Pay for decentralized storage with WAL tokens
           </p>
+
+          {/* Network Switcher */}
+          <div className="mb-8 p-5 bg-background-elevated border-2 border-border rounded-xl">
+            <UploadNetworkSwitcher />
+          </div>
 
           <div className="space-y-6">
             {/* File Upload */}

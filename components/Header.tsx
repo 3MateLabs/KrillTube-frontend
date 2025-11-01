@@ -53,31 +53,20 @@ export function Header({ onMenuClick }: HeaderProps) {
               </svg>
             </button>
 
-            {/* BlobTube Logo */}
-            <Link
-              href="/"
-              className="flex items-center gap-2.5 group"
-            >
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-walrus-mint/20 rounded-lg blur-lg group-hover:blur-xl transition-all opacity-0 group-hover:opacity-100" />
-                  <div className="relative w-9 h-9 bg-walrus-mint rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                    <svg className="w-6 h-6 text-walrus-black" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-foreground group-hover:text-walrus-mint transition-colors">
-                    BlobTube
-                  </span>
-                  <span className="text-xs font-bold text-walrus-mint px-2 py-0.5 bg-mint-900/30 rounded-full border border-walrus-mint/20">
-                    BETA
-                  </span>
-                </div>
-              </div>
-            </Link>
-          </div>
+          {/* KrillTube Logo */}
+          <a href="/" className="flex items-center gap-3 group">
+            <div className="relative w-9 h-9">
+              <img
+                src="/logos/krilll.png"
+                alt="KrillTube Logo"
+                className="w-full h-full"
+              />
+            </div>
+            <span className="text-lg font-bold text-foreground group-hover:text-walrus-mint transition-colors">
+              KrillTube
+            </span>
+          </a>
+        </div>
 
           {/* Center section: Search */}
           <div className="flex-1 max-w-xl mx-2 lg:mx-8">

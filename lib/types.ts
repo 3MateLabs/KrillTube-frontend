@@ -1,5 +1,5 @@
 /**
- * Shared TypeScript types for BlobTube V1
+ * Shared TypeScript types for KrillTube V1
  */
 
 export type RenditionQuality = '1080p' | '720p' | '480p' | '360p';

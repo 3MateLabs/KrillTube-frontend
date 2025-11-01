@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BlobTube - Decentralized Video Platform",
+  title: "KrillTube - Decentralized Video Platform",
   description: "Upload, transcode, and stream videos on Walrus storage",
+  icons: {
+    icon: "/logos/krilll.png",
+  },
 };
 
 export default function RootLayout({

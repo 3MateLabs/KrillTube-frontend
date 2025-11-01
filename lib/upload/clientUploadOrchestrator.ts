@@ -12,7 +12,7 @@ import {
   encryptSegment,
   toBase64,
 } from '@/lib/crypto/clientEncryption';
-import { uploadQuiltWithWallet, uploadMultipleBlobsWithWallet } from '@/lib/client-walrus-sdk';
+// Server-side upload via API - no wallet SDK or HTTP API needed on client
 
 export interface UploadProgress {
   stage: 'transcoding' | 'encrypting' | 'uploading' | 'registering' | 'complete';
@@ -77,7 +77,13 @@ export async function uploadVideoClientSide(
     onProgress?: (progress: UploadProgress) => void;
   }
 ): Promise<ClientUploadResult> {
-  const { network = 'mainnet', epochs = 50, onProgress } = options;
+  const { network = 'testnet', epochs = 5, onProgress } = options;
+
+  console.log(`[Upload] Network configuration:`, {
+    optionsNetwork: options.network,
+    effectiveNetwork: network,
+    epochs,
+  });
 
   const aggregatorUrl =
     process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR ||
@@ -218,8 +224,7 @@ export async function uploadVideoClientSide(
     message: 'Uploading segments to Walrus...',
   });
 
-  console.log(`[Upload] Uploading ${encryptedSegments.length} segments individually...`);
-  console.log(`[Upload] ⏳ This will require ${encryptedSegments.length * 2} wallet signatures (2 per segment)...`);
+  console.log(`[Upload] Uploading ${encryptedSegments.length} segments via server (no wallet signatures)...`);
 
   if (performance && (performance as any).memory) {
     const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
@@ -246,23 +251,35 @@ export async function uploadVideoClientSide(
 
       console.log(`[Upload] Uploading ${seg.identifier} (${(seg.size / 1024).toFixed(2)}KB)...`);
 
-      const results = await uploadMultipleBlobsWithWallet(
-        [{
-          contents: seg.data!,
-          identifier: seg.identifier,
-        }],
-        signAndExecute,
-        walletAddress,
-        { network, epochs }
-      );
+      // Upload via server API (server uploads to Walrus - no wallet needed)
+      const formData = new FormData();
+      formData.append('blob', new Blob([seg.data!]));
+      formData.append('identifier', seg.identifier);
+      formData.append('network', network);
+      formData.append('epochs', epochs.toString());
 
-      segmentUploadResults.push(results[0]);
+      const response = await fetch('/api/v1/upload-blob', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Server upload failed: ${error.error}`);
+      }
+
+      const result = await response.json();
+      segmentUploadResults.push({
+        identifier: result.identifier,
+        blobId: result.blobId,
+        blobObjectId: result.blobObjectId,
+      });
 
       // Free segment data immediately after upload
       // @ts-ignore
       seg.data = null;
 
-      console.log(`[Upload] ✓ Uploaded ${seg.identifier}: ${results[0].blobId}`);
+      console.log(`[Upload] ✓ Uploaded ${seg.identifier}: ${result.blobId}`);
 
       // Log memory every 10 segments
       if ((i + 1) % 10 === 0 && performance && (performance as any).memory) {
@@ -276,17 +293,24 @@ export async function uploadVideoClientSide(
     if (transcoded.poster) {
       console.log(`[Upload] Uploading poster (${(transcoded.poster.length / 1024).toFixed(2)}KB)...`);
 
-      const posterResults = await uploadMultipleBlobsWithWallet(
-        [{
-          contents: transcoded.poster,
-          identifier: 'poster',
-        }],
-        signAndExecute,
-        walletAddress,
-        { network, epochs }
-      );
+      const formData = new FormData();
+      formData.append('blob', new Blob([transcoded.poster]));
+      formData.append('identifier', 'poster');
+      formData.append('network', network);
+      formData.append('epochs', epochs.toString());
 
-      posterBlobId = posterResults[0].blobId;
+      const response = await fetch('/api/v1/upload-blob', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Poster upload failed: ${error.error}`);
+      }
+
+      const result = await response.json();
+      posterBlobId = result.blobId;
       console.log(`[Upload] ✓ Uploaded poster: ${posterBlobId}`);
     }
 
@@ -355,14 +379,32 @@ export async function uploadVideoClientSide(
   });
 
   console.log(`[Upload] Uploading ${playlistBlobs.length} quality playlists individually...`);
-  console.log(`[Upload] ⏳ Waiting for ${playlistBlobs.length * 2} wallet signatures...`);
 
-  const playlistResults = await uploadMultipleBlobsWithWallet(
-    playlistBlobs,
-    signAndExecute,
-    walletAddress,
-    { network, epochs }
-  );
+  const playlistResults: Array<{ identifier: string; blobId: string; blobObjectId: string }> = [];
+  for (const playlist of playlistBlobs) {
+    const formData = new FormData();
+    formData.append('blob', new Blob([playlist.contents]));
+    formData.append('identifier', playlist.identifier);
+    formData.append('network', network);
+    formData.append('epochs', epochs.toString());
+
+    const response = await fetch('/api/v1/upload-blob', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Playlist upload failed: ${error.error}`);
+    }
+
+    const result = await response.json();
+    playlistResults.push({
+      identifier: result.identifier,
+      blobId: result.blobId,
+      blobObjectId: result.blobObjectId,
+    });
+  }
 
   console.log(`[Upload] ✓ Uploaded ${playlistResults.length} playlists!`);
 
@@ -408,17 +450,29 @@ export async function uploadVideoClientSide(
   });
 
   console.log('[Upload] Uploading master playlist...');
-  console.log('[Upload] ⏳ Waiting for 2 more wallet signatures...');
 
-  const masterResults = await uploadMultipleBlobsWithWallet(
-    [{
-      contents: new TextEncoder().encode(masterContent),
-      identifier: 'master_playlist',
-    }],
-    signAndExecute,
-    walletAddress,
-    { network, epochs }
-  );
+  const masterFormData = new FormData();
+  masterFormData.append('blob', new Blob([new TextEncoder().encode(masterContent)]));
+  masterFormData.append('identifier', 'master_playlist');
+  masterFormData.append('network', network);
+  masterFormData.append('epochs', epochs.toString());
+
+  const masterResponse = await fetch('/api/v1/upload-blob', {
+    method: 'POST',
+    body: masterFormData,
+  });
+
+  if (!masterResponse.ok) {
+    const error = await masterResponse.json();
+    throw new Error(`Master playlist upload failed: ${error.error}`);
+  }
+
+  const masterResult = await masterResponse.json();
+  const masterResults = [{
+    identifier: masterResult.identifier,
+    blobId: masterResult.blobId,
+    blobObjectId: masterResult.blobObjectId,
+  }];
 
   console.log(`[Upload] ✓ Uploaded master playlist!`);
 

@@ -176,7 +176,7 @@ export async function uploadQuiltSDK(
 
 /**
  * Upload encrypted video segments using SDK
- * This is the main function for WalPlayer video uploads
+ * This is the main function for KrillTube video uploads
  */
 export async function uploadEncryptedVideoSDK(files: {
   segments: Array<{ path: string; identifier: string }>;
