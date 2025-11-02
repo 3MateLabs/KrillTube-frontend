@@ -62,7 +62,7 @@ export function createWalrusClient(network: 'testnet' | 'mainnet' = DEFAULT_NETW
       suiClient,
       uploadRelay: {
         host: UPLOAD_RELAY_URLS[network],
-        timeout: 120000,
+        timeout: 300000, // 5 minutes for large blob uploads
         sendTip: {
           max: MAX_TIP_MIST,
         },
@@ -73,7 +73,7 @@ export function createWalrusClient(network: 'testnet' | 'mainnet' = DEFAULT_NETW
       network,
       suiClient,
       storageNodeClientOptions: {
-        timeout: 120000,
+        timeout: 300000, // 5 minutes for large blob uploads
       },
     });
   }
