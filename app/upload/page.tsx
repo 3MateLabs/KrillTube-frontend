@@ -143,14 +143,15 @@ function UploadContent() {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
         // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        // Add 6x safety buffer for:
+        // Add 20x safety buffer because cost estimator uses simplified formula:
+        // - Estimator doesn't use actual Walrus SDK storageCost() calculation
         // - Each blob requires 2 transactions (register + certify)
         // - Poster, playlists, and master playlist uploads (not in estimate)
-        // - Encoding overhead (erasure coding expands data significantly)
+        // - Encoding overhead (erasure coding expands data 3-5x)
         // - Upload relay tips (40 MIST per KiB of encoded data)
-        // - Actual costs per transaction are higher than base estimate
+        // - Actual per-blob costs are much higher than approximation
         const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
-        const walAmountMist = estimatedWalMist * BigInt(6); // 6x buffer for all overhead
+        const walAmountMist = estimatedWalMist * BigInt(20); // 20x buffer for inaccurate estimate
 
         // Estimate gas needed based on file size (rough calculation)
         const fileSizeMB = selectedFile.size / 1024 / 1024;
@@ -159,7 +160,7 @@ function UploadContent() {
 
         console.log('[Upload V2] PTB Funding:', {
           estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
-          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (6x buffer)`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (20x buffer)`,
           gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
           segments: estimatedSegments,
         });
