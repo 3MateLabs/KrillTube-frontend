@@ -15,7 +15,7 @@ import {
 // Server-side upload via API - no wallet SDK or HTTP API needed on client
 
 export interface UploadProgress {
-  stage: 'transcoding' | 'encrypting' | 'uploading' | 'registering' | 'complete';
+  stage: 'funding' | 'transcoding' | 'encrypting' | 'uploading' | 'registering' | 'complete';
   percent: number;
   message: string;
 }
@@ -231,7 +231,19 @@ export async function uploadVideoClientSide(
     console.log(`[Upload Memory] Before upload: ${memMB}MB used`);
   }
 
-  // Upload segments individually to avoid combining into one giant blob
+  // Upload segments using wallet SDK (handles testnet/mainnet)
+  console.log(`[Upload] Uploading ${encryptedSegments.length} segments using Walrus SDK...`);
+
+  // Import wallet upload function
+  const { uploadMultipleBlobsWithWallet } = await import('@/lib/client-walrus-sdk');
+
+  // Prepare blobs for upload
+  const blobsToUpload = encryptedSegments.map((seg) => ({
+    contents: seg.data!,
+    identifier: seg.identifier,
+  }));
+
+  // Upload all segments with progress tracking
   const segmentUploadResults: Array<{
     identifier: string;
     blobId: string;
@@ -239,52 +251,43 @@ export async function uploadVideoClientSide(
   }> = [];
 
   try {
-    for (let i = 0; i < encryptedSegments.length; i++) {
-      const seg = encryptedSegments[i];
-      const progress = 60 + ((i + 1) / encryptedSegments.length) * 25; // 60-85%
+    // Upload segments in batches to show progress
+    const BATCH_SIZE = 5; // Upload 5 segments at a time
+    for (let i = 0; i < blobsToUpload.length; i += BATCH_SIZE) {
+      const batch = blobsToUpload.slice(i, i + BATCH_SIZE);
+      const progress = 60 + ((i + batch.length) / blobsToUpload.length) * 25; // 60-85%
 
       onProgress?.({
         stage: 'uploading',
         percent: progress,
-        message: `Uploading segment ${i + 1}/${encryptedSegments.length}...`,
+        message: `Uploading segments ${i + 1}-${Math.min(i + BATCH_SIZE, blobsToUpload.length)}/${blobsToUpload.length}...`,
       });
 
-      console.log(`[Upload] Uploading ${seg.identifier} (${(seg.size / 1024).toFixed(2)}KB)...`);
+      const results = await uploadMultipleBlobsWithWallet(
+        batch,
+        signAndExecute,
+        walletAddress,
+        {
+          network,
+          epochs,
+          deletable: true,
+        }
+      );
 
-      // Upload via server API (server uploads to Walrus - no wallet needed)
-      const formData = new FormData();
-      formData.append('blob', new Blob([seg.data!]));
-      formData.append('identifier', seg.identifier);
-      formData.append('network', network);
-      formData.append('epochs', epochs.toString());
+      segmentUploadResults.push(...results);
 
-      const response = await fetch('/api/v1/upload-blob', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Server upload failed: ${error.error}`);
+      // Free segment data after upload
+      for (let j = i; j < i + batch.length; j++) {
+        // @ts-ignore
+        encryptedSegments[j].data = null;
       }
 
-      const result = await response.json();
-      segmentUploadResults.push({
-        identifier: result.identifier,
-        blobId: result.blobId,
-        blobObjectId: result.blobObjectId,
-      });
+      console.log(`[Upload] ✓ Uploaded batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(blobsToUpload.length / BATCH_SIZE)}`);
 
-      // Free segment data immediately after upload
-      // @ts-ignore
-      seg.data = null;
-
-      console.log(`[Upload] ✓ Uploaded ${seg.identifier}: ${result.blobId}`);
-
-      // Log memory every 10 segments
-      if ((i + 1) % 10 === 0 && performance && (performance as any).memory) {
+      // Log memory every batch
+      if (performance && (performance as any).memory) {
         const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
-        console.log(`[Upload Memory] After ${i + 1} segments uploaded: ${memMB}MB used`);
+        console.log(`[Upload Memory] After ${i + batch.length} segments uploaded: ${memMB}MB used`);
       }
     }
 
@@ -293,24 +296,14 @@ export async function uploadVideoClientSide(
     if (transcoded.poster) {
       console.log(`[Upload] Uploading poster (${(transcoded.poster.length / 1024).toFixed(2)}KB)...`);
 
-      const formData = new FormData();
-      formData.append('blob', new Blob([transcoded.poster]));
-      formData.append('identifier', 'poster');
-      formData.append('network', network);
-      formData.append('epochs', epochs.toString());
+      const posterResults = await uploadMultipleBlobsWithWallet(
+        [{ contents: transcoded.poster, identifier: 'poster' }],
+        signAndExecute,
+        walletAddress,
+        { network, epochs, deletable: true }
+      );
 
-      const response = await fetch('/api/v1/upload-blob', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Poster upload failed: ${error.error}`);
-      }
-
-      const result = await response.json();
-      posterBlobId = result.blobId;
+      posterBlobId = posterResults[0].blobId;
       console.log(`[Upload] ✓ Uploaded poster: ${posterBlobId}`);
     }
 
@@ -371,40 +364,21 @@ export async function uploadVideoClientSide(
 
   console.log(`[Upload] Built ${qualityGroups.size} quality playlists`);
 
-  // Step 5: Upload playlists as INDIVIDUAL blobs (not quilt)
+  // Step 5: Upload playlists using wallet SDK
   onProgress?.({
     stage: 'uploading',
     percent: 85,
     message: 'Uploading playlists to Walrus...',
   });
 
-  console.log(`[Upload] Uploading ${playlistBlobs.length} quality playlists individually...`);
+  console.log(`[Upload] Uploading ${playlistBlobs.length} quality playlists...`);
 
-  const playlistResults: Array<{ identifier: string; blobId: string; blobObjectId: string }> = [];
-  for (const playlist of playlistBlobs) {
-    const formData = new FormData();
-    formData.append('blob', new Blob([playlist.contents]));
-    formData.append('identifier', playlist.identifier);
-    formData.append('network', network);
-    formData.append('epochs', epochs.toString());
-
-    const response = await fetch('/api/v1/upload-blob', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Playlist upload failed: ${error.error}`);
-    }
-
-    const result = await response.json();
-    playlistResults.push({
-      identifier: result.identifier,
-      blobId: result.blobId,
-      blobObjectId: result.blobObjectId,
-    });
-  }
+  const playlistResults = await uploadMultipleBlobsWithWallet(
+    playlistBlobs,
+    signAndExecute,
+    walletAddress,
+    { network, epochs, deletable: true }
+  );
 
   console.log(`[Upload] ✓ Uploaded ${playlistResults.length} playlists!`);
 
@@ -442,7 +416,7 @@ export async function uploadVideoClientSide(
     masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${bitrate},RESOLUTION=${resolution}\n${playlistUrl}\n`;
   }
 
-  // Step 6: Upload master playlist as individual blob
+  // Step 6: Upload master playlist using wallet SDK
   onProgress?.({
     stage: 'uploading',
     percent: 92,
@@ -451,28 +425,12 @@ export async function uploadVideoClientSide(
 
   console.log('[Upload] Uploading master playlist...');
 
-  const masterFormData = new FormData();
-  masterFormData.append('blob', new Blob([new TextEncoder().encode(masterContent)]));
-  masterFormData.append('identifier', 'master_playlist');
-  masterFormData.append('network', network);
-  masterFormData.append('epochs', epochs.toString());
-
-  const masterResponse = await fetch('/api/v1/upload-blob', {
-    method: 'POST',
-    body: masterFormData,
-  });
-
-  if (!masterResponse.ok) {
-    const error = await masterResponse.json();
-    throw new Error(`Master playlist upload failed: ${error.error}`);
-  }
-
-  const masterResult = await masterResponse.json();
-  const masterResults = [{
-    identifier: masterResult.identifier,
-    blobId: masterResult.blobId,
-    blobObjectId: masterResult.blobObjectId,
-  }];
+  const masterResults = await uploadMultipleBlobsWithWallet(
+    [{ contents: new TextEncoder().encode(masterContent), identifier: 'master_playlist' }],
+    signAndExecute,
+    walletAddress,
+    { network, epochs, deletable: true }
+  );
 
   console.log(`[Upload] ✓ Uploaded master playlist!`);
 

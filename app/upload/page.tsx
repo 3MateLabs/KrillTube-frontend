@@ -1,4 +1,3 @@
-
 'use client';
 
 /**
@@ -12,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
+import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
 import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
 
 type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
@@ -22,6 +22,22 @@ function UploadContent() {
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { walrusNetwork } = useNetwork();
+  const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress } = usePersonalDelegator();
+
+  // State declarations MUST come before useEffects that reference them
+  const [debugMode, setDebugMode] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [selectedQualities, setSelectedQualities] = useState<RenditionQuality[]>([
+    '1080p',
+  ]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress>({
+    stage: 'transcoding',
+    percent: 0,
+    message: '',
+  });
+  const [error, setError] = useState<string | null>(null);
 
   // Debug: Log current network
   useEffect(() => {
@@ -29,7 +45,6 @@ function UploadContent() {
   }, [walrusNetwork]);
 
   // Debug mode: bypass wallet connection
-  const [debugMode, setDebugMode] = useState(false);
   useEffect(() => {
     const isDebug = searchParams.get('no-wallet-debug') === 'true';
     setDebugMode(isDebug);
@@ -38,24 +53,6 @@ function UploadContent() {
     }
   }, [searchParams]);
 
-  // Use real account or debug placeholder
-  const effectiveAccount = debugMode
-    ? { address: '0x0000000000000000000000000000000000000000000000000000000000000000' }
-    : account;
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [title, setTitle] = useState('');
-  const [selectedQualities, setSelectedQualities] = useState<RenditionQuality[]>([
-    '1080p',
-  ]);
-
-  const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState<UploadProgress>({
-    stage: 'transcoding',
-    percent: 0,
-    message: '',
-  });
-  const [error, setError] = useState<string | null>(null);
   const [costEstimate, setCostEstimate] = useState<{
     totalWal: string;
     totalUsd: string;
@@ -66,6 +63,11 @@ function UploadContent() {
     };
   } | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
+
+  // Use real account or debug placeholder
+  const effectiveAccount = debugMode
+    ? { address: '0x0000000000000000000000000000000000000000000000000000000000000000' }
+    : account;
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -125,7 +127,7 @@ function UploadContent() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !effectiveAccount || !title) return;
+    if (!selectedFile || !effectiveAccount || !title || !costEstimate) return;
 
     setIsUploading(true);
     setError(null);
@@ -136,20 +138,97 @@ function UploadContent() {
         console.log('[Upload V2] Running in DEBUG mode with placeholder wallet');
       }
 
-      // Dynamically import the upload orchestrator to avoid loading WASM during build
+      // STEP 1: Fund delegator wallet (mainnet only) via PTB
+      if (walrusNetwork === 'mainnet' && !debugMode && account) {
+        console.log('[Upload V2] Funding delegator wallet with PTB...');
+
+        // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
+        // Add 3x safety buffer for:
+        // - Each blob requires 2 transactions (register + certify)
+        // - Poster, playlists, and master playlist uploads (not in estimate)
+        // - Encoding overhead (erasure coding expands data)
+        // - Upload relay tips (40 MIST per KiB of encoded data)
+        const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
+        const walAmountMist = estimatedWalMist * BigInt(3); // 3x buffer for all overhead
+
+        // Estimate gas needed based on file size (rough calculation)
+        const fileSizeMB = selectedFile.size / 1024 / 1024;
+        const estimatedSegments = Math.ceil(fileSizeMB / 2) * selectedQualities.length;
+        const gasNeeded = estimateGasNeeded(estimatedSegments);
+
+        console.log('[Upload V2] PTB Funding:', {
+          estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (3x buffer)`,
+          gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
+          segments: estimatedSegments,
+        });
+
+        try {
+          // Build PTB that funds BOTH SUI and WAL in one transaction
+          const fundingTx = await buildFundingTransaction(
+            account.address,
+            gasNeeded,
+            walAmountMist
+          );
+
+          if (!fundingTx) {
+            throw new Error('Failed to build funding transaction');
+          }
+
+          // User signs ONCE to fund both SUI gas + WAL storage
+          setProgress({ stage: 'funding', percent: 5, message: 'Approve funding transaction...' });
+          console.log('[Upload V2] ⏳ Waiting for user to approve PTB...');
+
+          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
+
+          console.log('[Upload V2] ✓ Delegator funded:', fundingResult.digest);
+          setProgress({ stage: 'funding', percent: 10, message: 'Delegator wallet funded!' });
+        } catch (fundingError) {
+          console.error('[Upload V2] Funding failed:', fundingError);
+          throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
+        }
+      }
+
+      // STEP 2: Dynamically import the upload orchestrator to avoid loading WASM during build
       const { uploadVideoClientSide } = await import('@/lib/upload/clientUploadOrchestrator');
 
-      // Mock signAndExecuteTransaction for debug mode
-      const effectiveSignAndExecute = debugMode
-        ? async () => ({ digest: 'debug-transaction-digest' })
-        : signAndExecuteTransaction;
+      // Determine signer and address based on network
+      let effectiveSignAndExecute;
+      let effectiveUploadAddress;
+
+      if (debugMode) {
+        // Debug mode: mock transaction
+        effectiveSignAndExecute = async () => ({ digest: 'debug-transaction-digest' });
+        effectiveUploadAddress = effectiveAccount.address;
+      } else if (walrusNetwork === 'mainnet') {
+        // Mainnet: use delegator wallet (already funded via PTB)
+        if (!delegatorAddress || !executeWithDelegator) {
+          throw new Error('Delegator wallet not initialized');
+        }
+        // Wrap executeWithDelegator to match expected signature
+        effectiveSignAndExecute = async (args: { transaction: any }) => {
+          const result = await executeWithDelegator(args.transaction);
+          if (!result) {
+            throw new Error('Delegator transaction failed');
+          }
+          return {
+            digest: result.digest,
+            effects: result.success ? { status: { status: 'success' } } : { status: { status: 'failure' } },
+          };
+        };
+        effectiveUploadAddress = delegatorAddress;
+      } else {
+        // Testnet: use user's wallet (free HTTP uploads)
+        effectiveSignAndExecute = signAndExecuteTransaction;
+        effectiveUploadAddress = effectiveAccount.address;
+      }
 
       // Complete client-side flow: transcode → encrypt → upload
       const result = await uploadVideoClientSide(
         selectedFile,
         selectedQualities,
         effectiveSignAndExecute,
-        effectiveAccount.address,
+        effectiveUploadAddress,
         {
           network: walrusNetwork, // Dynamic Walrus network from context
           // Mainnet has strict epoch limits (typically 1-5), testnet can use more
@@ -193,6 +272,12 @@ function UploadContent() {
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
       console.log(`[Upload V2] ✓ Video registered: ${video.id}`);
 
+      // Auto-reclaim unused gas if on mainnet
+      if (walrusNetwork === 'mainnet' && account) {
+        console.log('[Upload V2] Auto-reclaiming unused gas...');
+        await autoReclaimGas(account.address);
+      }
+
       setTimeout(() => {
         router.push(`/watch/${video.id}`);
       }, 1000);
@@ -200,6 +285,12 @@ function UploadContent() {
       console.error('[Upload V2] Error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
       setIsUploading(false);
+
+      // Auto-reclaim on error too if on mainnet
+      if (walrusNetwork === 'mainnet' && account) {
+        console.log('[Upload V2] Auto-reclaiming after error...');
+        await autoReclaimGas(account.address).catch(console.error);
+      }
     }
   };
 
@@ -402,7 +493,11 @@ function UploadContent() {
               <button
                 onClick={handleUpload}
                 disabled={
-                  !selectedFile || !effectiveAccount || !title || isUploading || selectedQualities.length === 0
+                  !selectedFile ||
+                  !effectiveAccount ||
+                  !title ||
+                  isUploading ||
+                  selectedQualities.length === 0
                 }
                 className="w-full bg-walrus-mint text-walrus-black py-4 px-6 rounded-lg font-semibold
                   hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed
@@ -414,6 +509,8 @@ function UploadContent() {
                   ? 'Processing...'
                   : debugMode
                   ? '[DEBUG MODE] Start Upload'
+                  : walrusNetwork === 'mainnet'
+                  ? `Fund & Upload (${costEstimate.totalWal} WAL + Gas)`
                   : 'Approve & Start Upload'}
               </button>
             )}

@@ -452,18 +452,6 @@ export async function uploadMultipleBlobsWithWallet(
 
   const walrusClient = suiClient.$extend(walrus({ network }));
 
-  const walCoins = await suiClient.getCoins({
-    owner: ownerAddress,
-    coinType: WAL_TOKEN_TYPE,
-  });
-
-  if (!walCoins.data || walCoins.data.length === 0) {
-    throw new Error('No WAL tokens found in wallet');
-  }
-
-  const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
-  const primaryCoin = sortedCoins[0];
-
   const results: Array<{
     identifier: string;
     blobId: string;
@@ -473,6 +461,21 @@ export async function uploadMultipleBlobsWithWallet(
 
   for (const blob of blobs) {
     try {
+      // Query WAL coins for EACH upload (coins change after each transaction)
+      const walCoins = await suiClient.getCoins({
+        owner: ownerAddress,
+        coinType: WAL_TOKEN_TYPE,
+      });
+
+      if (!walCoins.data || walCoins.data.length === 0) {
+        throw new Error('No WAL tokens found in wallet');
+      }
+
+      const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
+      const primaryCoin = sortedCoins[0];
+
+      console.log(`[Walrus SDK] Uploading ${blob.identifier} with coin ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
+
       const encoded = await walrusClient.walrus.encodeBlob(blob.contents);
 
       const registerTxObj = new Transaction();

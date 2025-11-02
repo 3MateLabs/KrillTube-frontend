@@ -36,7 +36,7 @@ export function UploadNetworkSwitcher() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-text-muted">Cost:</span>
           <span className="text-sm font-semibold text-foreground">
-            {isMainnet ? 'Server Paid' : 'Free'}
+            {isMainnet ? 'User Paid' : 'Free'}
           </span>
 
           {/* Info Icon */}
@@ -57,7 +57,7 @@ export function UploadNetworkSwitcher() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40"
             onClick={() => setShowInfo(false)}
           />
 
@@ -83,11 +83,11 @@ export function UploadNetworkSwitcher() {
               <div className="space-y-4 text-sm">
                 {/* Mainnet */}
                 <div>
-                  <h4 className="font-medium text-foreground mb-2">Mainnet (Server Paid)</h4>
+                  <h4 className="font-medium text-foreground mb-2">Mainnet (User Paid)</h4>
                   <ul className="space-y-1 text-text-muted ml-4">
                     <li>• Permanent storage on Walrus</li>
                     <li>• Production-ready reliability</li>
-                    <li>• Server covers storage costs</li>
+                    <li>• User pays with WAL from their wallet</li>
                   </ul>
                 </div>
 
@@ -97,7 +97,7 @@ export function UploadNetworkSwitcher() {
                   <ul className="space-y-1 text-text-muted ml-4">
                     <li>• Completely free to use</li>
                     <li>• Perfect for testing uploads</li>
-                    <li>• Files may be wiped during updates</li>
+                    <li>• Files may be wiped after some time (~100 days)</li>
                   </ul>
                 </div>
               </div>
