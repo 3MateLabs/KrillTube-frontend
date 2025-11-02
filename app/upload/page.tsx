@@ -143,13 +143,14 @@ function UploadContent() {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
         // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        // Add 3x safety buffer for:
+        // Add 6x safety buffer for:
         // - Each blob requires 2 transactions (register + certify)
         // - Poster, playlists, and master playlist uploads (not in estimate)
-        // - Encoding overhead (erasure coding expands data)
+        // - Encoding overhead (erasure coding expands data significantly)
         // - Upload relay tips (40 MIST per KiB of encoded data)
+        // - Actual costs per transaction are higher than base estimate
         const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
-        const walAmountMist = estimatedWalMist * BigInt(3); // 3x buffer for all overhead
+        const walAmountMist = estimatedWalMist * BigInt(6); // 6x buffer for all overhead
 
         // Estimate gas needed based on file size (rough calculation)
         const fileSizeMB = selectedFile.size / 1024 / 1024;
@@ -158,7 +159,7 @@ function UploadContent() {
 
         console.log('[Upload V2] PTB Funding:', {
           estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
-          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (3x buffer)`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (6x buffer)`,
           gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
           segments: estimatedSegments,
         });
