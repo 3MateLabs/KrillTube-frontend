@@ -51,7 +51,7 @@ async function uploadWithFallback(
         headers: {
           'Content-Type': 'application/octet-stream',
         },
-        body: buffer,
+        body: new Uint8Array(buffer),
         signal: AbortSignal.timeout(30000), // 30 second timeout per publisher
       });
 

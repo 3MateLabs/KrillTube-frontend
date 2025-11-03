@@ -30,7 +30,7 @@ export async function uploadBlobHttp(
 
   const response = await fetch(`${publisherUrl}/v1/blobs?${queryParams}`, {
     method: 'PUT',
-    body: blob,
+    body: new Uint8Array(blob),
     headers: {
       'Content-Type': 'application/octet-stream',
     },
@@ -131,7 +131,7 @@ export async function uploadQuiltHttp(
   blobs.forEach((blob) => {
     formData.append(
       blob.identifier,
-      new Blob([blob.contents], { type: 'application/octet-stream' }),
+      new Blob([new Uint8Array(blob.contents)], { type: 'application/octet-stream' }),
       blob.identifier
     );
   });

@@ -99,7 +99,7 @@ function UploadContent() {
 
   // State declarations MUST come before useEffects that reference them
   const [debugMode, setDebugMode] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [selectedQualities, setSelectedQualities] = useState<RenditionQuality[]>([
@@ -209,8 +209,8 @@ function UploadContent() {
       prev.map((config) => {
         if (config.id !== id) return config;
 
-        const newMode = config.inputMode === 'coin' ? 'usd' : 'coin';
-        const updatedConfig = { ...config, inputMode: newMode };
+        const newMode: 'coin' | 'usd' = config.inputMode === 'coin' ? 'usd' : 'coin';
+        const updatedConfig: FeeConfig = { ...config, inputMode: newMode };
 
         // When switching to USD mode, calculate USD from coin amount
         if (newMode === 'usd') {
@@ -309,7 +309,7 @@ function UploadContent() {
           name: metadata.name,
           symbol: metadata.symbol,
           description: metadata.description,
-          iconUrl: iconUrl,
+          iconUrl: iconUrl ?? null,
         };
 
         // Cache the metadata
@@ -912,7 +912,7 @@ function UploadContent() {
             <div className="space-y-6">
               <Step3FeeSharing
                 referrerSharePercent={referrerSharePercent}
-                onReferrerSharePercentChange={setReferrerSharePercent}
+                onReferrerShareChange={setReferrerSharePercent}
                 onShowPlatformFeeDialog={() => setShowPlatformFeeDialog(true)}
               />
 

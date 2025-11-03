@@ -20,8 +20,9 @@ interface CostEstimate {
 }
 
 interface StorageOption {
-  value: number;
   label: string;
+  epochs: number;
+  category: 'days' | 'months' | 'years';
 }
 
 interface CostEstimateSectionProps {
