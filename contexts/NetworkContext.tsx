@@ -32,7 +32,7 @@ const walrusConfigs: Record<WalrusNetwork, NetworkConfig> = {
 const NetworkContext = createContext<NetworkContextType | undefined>(undefined);
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
-  // Initialize from localStorage or default to testnet (free for testing)
+  // Initialize from localStorage or default to mainnet
   const [walrusNetwork, setWalrusNetworkState] = useState<WalrusNetwork>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('walrusNetwork');
@@ -40,8 +40,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         return stored;
       }
     }
-    // Default to testnet (free)
-    return 'testnet';
+    // Default to mainnet
+    return 'mainnet';
   });
 
   const setWalrusNetwork = (newNetwork: WalrusNetwork) => {

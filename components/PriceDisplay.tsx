@@ -33,8 +33,9 @@ export function PriceDisplay({
 
       setIsLoading(true);
       try {
-        // Fetch price from a simple endpoint
-        const response = await fetch('/api/v1/wal-price');
+        // WAL token type
+        const walTokenType = '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
+        const response = await fetch(`/api/v1/coin-price/${encodeURIComponent(walTokenType)}`);
         if (response.ok) {
           const { price } = await response.json();
           setUsdValue(walNum * price);

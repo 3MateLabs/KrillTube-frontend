@@ -17,9 +17,10 @@ const WALRUS_WRITE_COST = 0.00001; // Fixed write cost per object
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { fileSizeMB, qualities } = body as {
+    const { fileSizeMB, qualities, epochs = 1 } = body as {
       fileSizeMB: number;
       qualities: string[];
+      epochs?: number;
     };
 
     if (!fileSizeMB || !qualities || qualities.length === 0) {
@@ -51,8 +52,8 @@ export async function POST(request: NextRequest) {
     // Add overhead for playlists, init segments, poster (~10%)
     const totalStorageMB = totalTranscodedSizeMB * 1.1;
 
-    // Calculate costs
-    const storageCost = totalStorageMB * WALRUS_COST_PER_MB;
+    // Calculate costs (storage cost scales linearly with epochs)
+    const storageCost = totalStorageMB * WALRUS_COST_PER_MB * epochs;
     const writeCost = WALRUS_WRITE_COST * (qualities.length + 2); // Playlists + master + poster
     const totalWal = storageCost + writeCost;
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     const storageUsd = walToUsd(storageCost, walPrice);
     const writeUsd = walToUsd(writeCost, walPrice);
 
-    console.log(`[API Estimate Cost] File: ${fileSizeMB.toFixed(2)} MB, Qualities: ${qualities.join(', ')}`);
+    console.log(`[API Estimate Cost] File: ${fileSizeMB.toFixed(2)} MB, Qualities: ${qualities.join(', ')}, Epochs: ${epochs}`);
     console.log(`[API Estimate Cost] Estimated storage: ${totalStorageMB.toFixed(2)} MB`);
     console.log(`[API Estimate Cost] Total cost: ${totalWal.toFixed(6)} WAL (~${formatUsd(totalUsd)})`);
 
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
         totalUsd: formatSmallUsd(totalUsd),
         totalMist: Math.floor(totalWal * 1_000_000_000).toString(),
         storageMB: totalStorageMB.toFixed(2),
+        epochs,
         breakdown: {
           storage: {
             wal: storageCost.toFixed(6),
