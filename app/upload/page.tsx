@@ -6,13 +6,18 @@
  * Server only stores metadata + encrypted root secret
  */
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
 import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
+import { PlatformFeeComparisonDialog } from '@/components/PlatformFeeComparisonDialog';
+import { Step2Monetization } from '@/components/upload/Step2Monetization';
+import { Step3FeeSharing } from '@/components/upload/Step3FeeSharing';
+import { TranscodingProgress } from '@/components/upload/TranscodingProgress';
+import { CostEstimateSection } from '@/components/upload/CostEstimateSection';
 import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
 
 type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
@@ -115,6 +120,7 @@ function UploadContent() {
   const [isTranscoding, setIsTranscoding] = useState(false);
   const [transcodingProgress, setTranscodingProgress] = useState<number>(0);
   const [transcodedData, setTranscodedData] = useState<any>(null); // Store transcoded video data
+  const [showPlatformFeeDialog, setShowPlatformFeeDialog] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState<UploadProgress>({
     stage: 'transcoding',
@@ -122,6 +128,9 @@ function UploadContent() {
     message: '',
   });
   const [error, setError] = useState<string | null>(null);
+
+  // Ref for scrolling to page title
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   // Debug: Log current network
   useEffect(() => {
@@ -401,9 +410,17 @@ function UploadContent() {
       setError(null);
       // Start transcoding in background when moving to step 2
       startTranscoding();
+      // Scroll to page title
+      setTimeout(() => {
+        titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } else if (currentStep === 2) {
       setCurrentStep(3);
       setError(null);
+      // Scroll to page title
+      setTimeout(() => {
+        titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     }
   };
 
@@ -411,9 +428,17 @@ function UploadContent() {
     if (currentStep === 2) {
       setCurrentStep(1);
       setError(null);
+      // Scroll to page title
+      setTimeout(() => {
+        titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } else if (currentStep === 3) {
       setCurrentStep(2);
       setError(null);
+      // Scroll to page title
+      setTimeout(() => {
+        titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     }
   };
 
@@ -470,8 +495,15 @@ function UploadContent() {
   const handleUpload = async () => {
     if (!selectedFile || !effectiveAccount || !title || !costEstimate) return;
 
+    // Move to summary/uploading step
+    setCurrentStep(4);
     setIsUploading(true);
     setError(null);
+
+    // Scroll to page title
+    setTimeout(() => {
+      titleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
 
     try {
       console.log('[Upload V2] Starting client-side upload...');
@@ -641,11 +673,17 @@ function UploadContent() {
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 ref={titleRef} className="text-3xl font-bold text-foreground mb-2">
             Upload Video
           </h1>
           <p className="text-text-muted mb-6">
-            {currentStep === 1 ? 'Select your video and configure quality settings' : currentStep === 2 ? 'Set monetization fees for your video' : 'Configure fee sharing with referrers'}
+            {currentStep === 1
+              ? 'Select your video and configure quality settings'
+              : currentStep === 2
+              ? 'Set monetization fees for your video'
+              : currentStep === 3
+              ? 'Configure fee sharing with referrers'
+              : 'Review your settings and wait for upload to complete'}
           </p>
 
           {/* Step Indicator */}
@@ -767,177 +805,14 @@ function UploadContent() {
             </div>
 
               {/* Cost Estimate - Auto-calculated */}
-              {(costEstimate || isEstimating) && (
-              <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg relative">
-                {/* Loading overlay */}
-                {isEstimating && (
-                  <div className="absolute inset-0 bg-background-elevated/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-                    <div className="flex items-center gap-3">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-walrus-mint"></div>
-                      <span className="text-text-muted text-sm">Calculating...</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Estimated Storage Cost
-                  </h3>
-                  <div className="ml-4">
-                    <UploadNetworkSwitcher />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {/* Storage Duration */}
-                  {walrusNetwork === 'mainnet' ? (
-                    <div>
-                      <div className="flex items-baseline justify-between mb-2">
-                        <label className="text-sm font-medium text-text-muted">
-                          Storage Duration:
-                        </label>
-                        <span className="text-foreground font-bold text-xl">
-                          {selectedStorageOption.label}
-                        </span>
-                      </div>
-
-                      {/* Categorical Slider */}
-                      <div className="relative">
-                        <input
-                          type="range"
-                          min="0"
-                          max={STORAGE_OPTIONS.length - 1}
-                          value={storageOptionIndex}
-                          onChange={(e) => setStorageOptionIndex(parseInt(e.target.value))}
-                          className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
-                          style={{
-                            background: `linear-gradient(to right,
-                              var(--walrus-mint) 0%,
-                              var(--walrus-mint) ${(storageOptionIndex / (STORAGE_OPTIONS.length - 1)) * 100}%,
-                              #4b5563 ${(storageOptionIndex / (STORAGE_OPTIONS.length - 1)) * 100}%,
-                              #4b5563 100%)`
-                          }}
-                        />
-
-                        {/* Category Markers */}
-                        <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
-                          <span className="font-medium">Days</span>
-                          <span className="font-medium">Months</span>
-                          <span className="font-medium">Years</span>
-                        </div>
-                      </div>
-
-                      {/* Quick Presets */}
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => setStorageOptionIndex(6)} // 7 days
-                          className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                        >
-                          7 days
-                        </button>
-                        <button
-                          onClick={() => setStorageOptionIndex(30)} // 1 month
-                          className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                        >
-                          1 month
-                        </button>
-                        <button
-                          onClick={() => setStorageOptionIndex(35)} // 6 months
-                          className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                        >
-                          6 months
-                        </button>
-                        <button
-                          onClick={() => setStorageOptionIndex(42)} // 1 year
-                          className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                        >
-                          1 year
-                        </button>
-                      </div>
-
-                      <p className="text-xs text-walrus-mint mt-3">
-                        💡 You can extend storage later or delete early to receive rebates
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-background-hover rounded-lg border border-border">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-text-muted">Storage Duration:</span>
-                        <span className="text-foreground font-semibold">100 days</span>
-                      </div>
-                      <p className="text-xs text-text-muted mt-2">
-                        ℹ️ You can store data in testnet for 100 days and it will be expired
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Total Cost */}
-                  {costEstimate && (
-                    <>
-                      <div className="flex items-baseline justify-between pt-3 border-t border-border">
-                        <span className="text-text-muted">Total Cost:</span>
-                        {walrusNetwork === 'testnet' ? (
-                          <span className="text-walrus-mint font-bold text-lg">
-                            Free
-                          </span>
-                        ) : (
-                          <div className="flex items-baseline gap-3">
-                            <span className="text-foreground font-mono font-bold text-lg">
-                              {costEstimate.totalWal} WAL
-                            </span>
-                            <span className="text-walrus-mint font-medium">
-                              (~${costEstimate.totalUsd} USD)
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Storage Size */}
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-text-muted">Estimated Storage:</span>
-                        <span className="text-foreground font-mono">
-                          {costEstimate.storageMB} MB
-                        </span>
-                      </div>
-
-                      {/* Breakdown - Only show for mainnet */}
-                      {walrusNetwork === 'mainnet' && (
-                        <div className="pt-3 border-t border-border space-y-2">
-                          <div className="flex items-baseline justify-between text-sm">
-                            <span className="text-text-muted">Storage Cost:</span>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-foreground font-mono">
-                                {costEstimate.breakdown.storage.wal} WAL
-                              </span>
-                              <span className="text-text-muted">
-                                (~${costEstimate.breakdown.storage.usd})
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-baseline justify-between text-sm">
-                            <span className="text-text-muted">Write Cost:</span>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-foreground font-mono">
-                                {costEstimate.breakdown.write.wal} WAL
-                              </span>
-                              <span className="text-text-muted">
-                                (~${costEstimate.breakdown.write.usd})
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <p className="text-xs text-text-muted mt-3">
-                        {walrusNetwork === 'testnet'
-                          ? 'Testnet storage is free. No payment required.'
-                          : 'This is an estimate. Actual cost may vary slightly based on final file size.'}
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-              )}
+              <CostEstimateSection
+                costEstimate={costEstimate}
+                isEstimating={isEstimating}
+                walrusNetwork={walrusNetwork}
+                storageOptionIndex={storageOptionIndex}
+                storageOptions={STORAGE_OPTIONS}
+                onStorageOptionChange={setStorageOptionIndex}
+              />
 
               {/* Next Button */}
               <button
@@ -955,240 +830,18 @@ function UploadContent() {
           {/* Step 2: Monetization Settings */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              {/* Fee Configurations */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <label className="block text-sm font-medium text-foreground">
-                    Payment Methods
-                  </label>
-                  <button
-                    onClick={handleAddFeeConfig}
-                    className="text-sm text-walrus-mint hover:text-mint-800 font-medium transition-colors flex items-center gap-1"
-                  >
-                    <span className="text-lg">+</span> Add Payment Method
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {feeConfigs.map((config, index) => (
-                    <div key={config.id} className="p-5 bg-background-elevated border-2 border-border rounded-lg">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-sm font-semibold text-foreground">Payment Method {index + 1}</h4>
-                        {feeConfigs.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveFeeConfig(config.id)}
-                            className="text-sm text-red-400 hover:text-red-300 transition-colors"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="space-y-4">
-                        {/* Token Type */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <label className="text-sm font-medium text-text-muted">
-                              Token Type
-                            </label>
-                            {coinMetadataCache[config.tokenType]?.iconUrl && (
-                              <img
-                                src={coinMetadataCache[config.tokenType].iconUrl!}
-                                alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                className="w-4 h-4 rounded-full"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            )}
-                            {coinMetadataCache[config.tokenType] && (
-                              <span className="text-xs text-walrus-mint font-medium">
-                                {coinMetadataCache[config.tokenType].symbol}
-                              </span>
-                            )}
-                          </div>
-                          <input
-                            type="text"
-                            value={config.tokenType}
-                            onChange={(e) => handleUpdateFeeConfig(config.id, 'tokenType', e.target.value)}
-                            placeholder="0x2::sui::SUI"
-                            className="w-full px-4 py-3 bg-background border border-border rounded-lg
-                              text-foreground placeholder-text-muted/50 font-mono text-sm
-                              focus:outline-none focus:ring-2 focus:ring-walrus-mint"
-                          />
-                          <p className="text-xs text-text-muted mt-1">
-                            Enter the full token type (e.g., 0x2::sui::SUI)
-                          </p>
-                        </div>
-
-                        {/* Amount per 1000 views */}
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-medium text-text-muted">
-                              Amount per 1,000 Views{config.inputMode === 'usd' ? ' (in USD)' : ''}
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => handleToggleInputMode(config.id)}
-                              className="text-xs px-2 py-1 rounded bg-background-hover hover:bg-border text-walrus-mint font-medium transition-colors"
-                            >
-                              {config.inputMode === 'coin' ? 'USD' : coinMetadataCache[config.tokenType]?.symbol || 'Coin'}
-                            </button>
-                          </div>
-
-                          {/* Input field based on mode */}
-                          {config.inputMode === 'coin' ? (
-                            <input
-                              type="number"
-                              value={config.amountPer1000Views}
-                              onChange={(e) => handleUpdateCoinAmount(config.id, e.target.value)}
-                              placeholder="0"
-                              min="0"
-                              step="0.000001"
-                              className="w-full px-4 py-3 bg-background border border-border rounded-lg
-                                text-foreground placeholder-text-muted/50
-                                focus:outline-none focus:ring-2 focus:ring-walrus-mint"
-                            />
-                          ) : (
-                            <input
-                              type="number"
-                              value={config.usdAmountPer1000Views || ''}
-                              onChange={(e) => handleUpdateUsdAmount(config.id, e.target.value)}
-                              placeholder="0"
-                              min="0"
-                              step="0.01"
-                              className="w-full px-4 py-3 bg-background border border-border rounded-lg
-                                text-foreground placeholder-text-muted/50
-                                focus:outline-none focus:ring-2 focus:ring-walrus-mint"
-                            />
-                          )}
-
-                          {/* Show conversion below input */}
-                          {config.inputMode === 'usd' && config.usdAmountPer1000Views && parseFloat(config.usdAmountPer1000Views) > 0 && coinPriceCache[config.tokenType] && (
-                            <p className="text-xs text-text-muted mt-2">
-                              ≈{' '}
-                              {coinMetadataCache[config.tokenType]?.iconUrl && (
-                                <img
-                                  src={coinMetadataCache[config.tokenType].iconUrl!}
-                                  alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                  className="w-3.5 h-3.5 rounded-full inline align-middle"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              )}{' '}
-                              <span className="font-semibold text-walrus-mint">
-                                {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
-                                  ? formatNumber(parseFloat(config.amountPer1000Views))
-                                  : '0'}{' '}
-                                {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
-                              </span>
-                            </p>
-                          )}
-
-                          {config.inputMode === 'coin' && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && coinPriceCache[config.tokenType] && (
-                            <p className="text-xs text-text-muted mt-2">
-                              ≈ <span className="font-semibold text-walrus-mint">${formatNumber(parseFloat(config.amountPer1000Views) * coinPriceCache[config.tokenType].usdPrice)} USD</span>
-                            </p>
-                          )}
-
-                          <p className="text-xs text-text-muted mt-3">
-                            You will get{' '}
-                            {coinMetadataCache[config.tokenType]?.iconUrl && (
-                              <img
-                                src={coinMetadataCache[config.tokenType].iconUrl!}
-                                alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                className="w-3.5 h-3.5 rounded-full inline align-middle"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            )}{' '}
-                            <span className="font-semibold text-foreground">
-                              {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
-                                ? formatNumber(parseFloat(config.amountPer1000Views))
-                                : '0'}{' '}
-                              {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
-                            </span>
-                            {coinPriceCache[config.tokenType] && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
-                              <span className="text-walrus-mint font-medium">
-                                {' '}(~${formatNumber(parseFloat(config.amountPer1000Views) * coinPriceCache[config.tokenType].usdPrice)} USD)
-                              </span>
-                            )}{' '}
-                            per 1000 views and each viewer will pay{' '}
-                            {coinMetadataCache[config.tokenType]?.iconUrl && (
-                              <img
-                                src={coinMetadataCache[config.tokenType].iconUrl!}
-                                alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                className="w-3.5 h-3.5 rounded-full inline align-middle"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            )}{' '}
-                            <span className="font-semibold text-foreground">
-                              {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
-                                ? formatNumber(parseFloat(config.amountPer1000Views) / 1000)
-                                : '0'}{' '}
-                              {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
-                            </span>
-                            {coinPriceCache[config.tokenType] && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
-                              <span className="text-walrus-mint font-medium">
-                                {' '}(~${formatNumber((parseFloat(config.amountPer1000Views) / 1000) * coinPriceCache[config.tokenType].usdPrice)} USD)
-                              </span>
-                            )}{' '}
-                            to watch your full video
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
-                <h3 className="text-lg font-semibold text-foreground mb-3">
-                  Monetization Summary
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">Total Payment Methods:</span>
-                    <span className="text-foreground font-semibold">{feeConfigs.length}</span>
-                  </div>
-                  {feeConfigs.map((config, index) => (
-                    <div key={config.id} className="flex justify-between text-sm py-2 border-t border-border">
-                      <span className="text-text-muted">Method {index + 1}:</span>
-                      <div className="text-right">
-                        <div className="inline-flex items-center gap-1.5 text-foreground font-medium">
-                          {coinMetadataCache[config.tokenType]?.iconUrl && (
-                            <img
-                              src={coinMetadataCache[config.tokenType].iconUrl!}
-                              alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                              className="w-3.5 h-3.5 rounded-full"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          )}
-                          <span>
-                            {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
-                              ? formatNumber(parseFloat(config.amountPer1000Views))
-                              : '0'}{' '}
-                            {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
-                          </span>
-                        </div>
-                        {coinPriceCache[config.tokenType] && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
-                          <div className="text-xs text-walrus-mint font-medium">
-                            ~${formatNumber(parseFloat(config.amountPer1000Views) * coinPriceCache[config.tokenType].usdPrice)} USD
-                          </div>
-                        )}
-                        <div className="text-xs text-text-muted">per 1,000 views</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <Step2Monetization
+                feeConfigs={feeConfigs}
+                coinMetadataCache={coinMetadataCache}
+                coinPriceCache={coinPriceCache}
+                onAddFeeConfig={handleAddFeeConfig}
+                onRemoveFeeConfig={handleRemoveFeeConfig}
+                onUpdateTokenType={(id, value) => handleUpdateFeeConfig(id, 'tokenType', value)}
+                onUpdateCoinAmount={handleUpdateCoinAmount}
+                onUpdateUsdAmount={handleUpdateUsdAmount}
+                onToggleInputMode={handleToggleInputMode}
+                formatNumber={formatNumber}
+              />
 
               {/* Error */}
               {error && (
@@ -1239,24 +892,7 @@ function UploadContent() {
               </div>
 
               {/* Transcoding Progress - Bottom */}
-              {isTranscoding && (
-                <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-walrus-mint"></div>
-                    <span className="text-foreground font-medium">Processing video in background...</span>
-                    <span className="text-walrus-mint font-bold ml-auto">{Math.round(transcodingProgress)}%</span>
-                  </div>
-                  <div className="w-full bg-background-hover rounded-full h-2">
-                    <div
-                      className="bg-walrus-mint h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${transcodingProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-text-muted mt-2">
-                    Your video is being processed while you configure monetization. This will speed up the final upload!
-                  </p>
-                </div>
-              )}
+              <TranscodingProgress isTranscoding={isTranscoding} progress={transcodingProgress} />
 
               {transcodedData && !isTranscoding && (
                 <div className="p-4 bg-walrus-mint/10 border-2 border-walrus-mint/30 rounded-lg">
@@ -1274,197 +910,11 @@ function UploadContent() {
           {/* Step 3: Fee Sharing */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              {/* Referrer Share Configuration */}
-              <div className="p-6 bg-background-elevated border-2 border-border rounded-lg">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Revenue Sharing
-                </h3>
-                <p className="text-sm text-text-muted mb-6">
-                  Configure how your video revenue will be shared. The platform automatically takes 10% to maintain the service.
-                </p>
-
-                {/* Referrer Share Slider */}
-                <div className="mb-8">
-                  <div className="flex items-baseline justify-between mb-3">
-                    <label className="text-sm font-medium text-foreground">
-                      Referrer Share
-                    </label>
-                    <span className="text-2xl font-bold text-walrus-mint">
-                      {referrerSharePercent}%
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min="0"
-                    max="90"
-                    step="5"
-                    value={referrerSharePercent}
-                    onChange={(e) => setReferrerSharePercent(parseInt(e.target.value))}
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
-                    style={{
-                      background: `linear-gradient(to right,
-                        var(--walrus-mint) 0%,
-                        var(--walrus-mint) ${(referrerSharePercent / 90) * 100}%,
-                        #4b5563 ${(referrerSharePercent / 90) * 100}%,
-                        #4b5563 100%)`
-                    }}
-                  />
-
-                  {/* Quick Presets */}
-                  <div className="flex gap-2 mt-4">
-                    {[0, 10, 20, 30, 40, 50].map((percent) => (
-                      <button
-                        key={percent}
-                        onClick={() => setReferrerSharePercent(percent)}
-                        className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                          referrerSharePercent === percent
-                            ? 'bg-walrus-mint text-walrus-black font-semibold'
-                            : 'bg-background-hover text-text-muted hover:bg-walrus-mint/20 hover:text-walrus-mint'
-                        }`}
-                      >
-                        {percent}%
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Revenue Distribution Pie Chart */}
-                <div className="p-5 bg-background border border-border rounded-lg">
-                  <h4 className="text-sm font-semibold text-foreground mb-4">
-                    Revenue Distribution
-                  </h4>
-
-                  <div className="flex items-center gap-8">
-                    {/* Pie Chart SVG */}
-                    <svg width="160" height="160" viewBox="0 0 160 160" className="flex-shrink-0">
-                      {(() => {
-                        const creatorPercent = 100 - referrerSharePercent - 10;
-                        const platformPercent = 10;
-
-                        // Calculate pie slices
-                        const radius = 70;
-                        const cx = 80;
-                        const cy = 80;
-
-                        // Helper to get point on circle
-                        const getPoint = (percent: number) => {
-                          const angle = (percent / 100) * 2 * Math.PI - Math.PI / 2;
-                          return {
-                            x: cx + radius * Math.cos(angle),
-                            y: cy + radius * Math.sin(angle),
-                          };
-                        };
-
-                        // Calculate cumulative percentages
-                        let cumulative = 0;
-                        const slices = [
-                          { label: 'Creator', percent: creatorPercent, color: '#83FFE6' }, // walrus-mint
-                          { label: 'Referrer', percent: referrerSharePercent, color: '#A78BFA' }, // purple
-                          { label: 'Platform', percent: platformPercent, color: '#6B7280' }, // gray
-                        ];
-
-                        return (
-                          <>
-                            {slices.map((slice, i) => {
-                              if (slice.percent === 0) return null;
-
-                              const startPercent = cumulative;
-                              cumulative += slice.percent;
-                              const endPercent = cumulative;
-
-                              const start = getPoint(startPercent);
-                              const end = getPoint(endPercent);
-
-                              const largeArc = slice.percent > 50 ? 1 : 0;
-
-                              const pathData = [
-                                `M ${cx} ${cy}`,
-                                `L ${start.x} ${start.y}`,
-                                `A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`,
-                                'Z',
-                              ].join(' ');
-
-                              return (
-                                <path
-                                  key={i}
-                                  d={pathData}
-                                  fill={slice.color}
-                                  stroke="#1a1a1a"
-                                  strokeWidth="2"
-                                />
-                              );
-                            })}
-                          </>
-                        );
-                      })()}
-                    </svg>
-
-                    {/* Legend */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: '#83FFE6' }} />
-                          <span className="text-sm text-foreground">Creator (You)</span>
-                        </div>
-                        <span className="text-sm font-semibold text-walrus-mint">
-                          {100 - referrerSharePercent - 10}%
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: '#A78BFA' }} />
-                          <span className="text-sm text-foreground">Referrer</span>
-                        </div>
-                        <span className="text-sm font-semibold text-purple-400">
-                          {referrerSharePercent}%
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 rounded" style={{ backgroundColor: '#6B7280' }} />
-                          <span className="text-sm text-foreground">Platform</span>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-400">
-                          10%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {/* Example with referrer */}
-                    <div className="p-3 bg-background-hover rounded-lg">
-                      <p className="text-xs text-text-muted">
-                        <span className="font-semibold text-foreground">Example 1: With Referrer</span> - If a viewer pays 10 SUI to watch your video through a referral link:
-                      </p>
-                      <ul className="mt-2 space-y-1 text-xs text-text-muted ml-4">
-                        <li>• You receive: <span className="text-walrus-mint font-semibold">{((100 - referrerSharePercent - 10) / 100 * 10).toFixed(2)} SUI</span></li>
-                        <li>• Referrer receives: <span className="text-purple-400 font-semibold">{(referrerSharePercent / 100 * 10).toFixed(2)} SUI</span></li>
-                        <li>• Platform receives: <span className="text-gray-400 font-semibold">1.00 SUI</span></li>
-                      </ul>
-                    </div>
-
-                    {/* Example without referrer */}
-                    <div className="p-3 bg-background-hover rounded-lg">
-                      <p className="text-xs text-text-muted">
-                        <span className="font-semibold text-foreground">Example 2: No Referrer</span> - If a viewer pays 10 SUI directly (no referral):
-                      </p>
-                      <ul className="mt-2 space-y-1 text-xs text-text-muted ml-4">
-                        <li>• You receive: <span className="text-walrus-mint font-semibold">{((100 - 10) / 100 * 10).toFixed(2)} SUI</span> <span className="text-walrus-mint/70">(you get the referrer's share too!)</span></li>
-                        <li>• Referrer receives: <span className="text-purple-400 font-semibold">0.00 SUI</span> <span className="text-text-muted/70">(no referrer)</span></li>
-                        <li>• Platform receives: <span className="text-gray-400 font-semibold">1.00 SUI</span></li>
-                      </ul>
-                    </div>
-
-                    <p className="text-xs text-walrus-mint/80 italic">
-                      💡 When there's no referrer, you keep their share! The platform always takes 10%.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <Step3FeeSharing
+                referrerSharePercent={referrerSharePercent}
+                onReferrerSharePercentChange={setReferrerSharePercent}
+                onShowPlatformFeeDialog={() => setShowPlatformFeeDialog(true)}
+              />
 
               {/* Error */}
               {error && (
@@ -1549,24 +999,7 @@ function UploadContent() {
               </div>
 
               {/* Transcoding Progress - Bottom */}
-              {isTranscoding && (
-                <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-walrus-mint"></div>
-                    <span className="text-foreground font-medium">Processing video in background...</span>
-                    <span className="text-walrus-mint font-bold ml-auto">{Math.round(transcodingProgress)}%</span>
-                  </div>
-                  <div className="w-full bg-background-hover rounded-full h-2">
-                    <div
-                      className="bg-walrus-mint h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${transcodingProgress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-text-muted mt-2">
-                    Video processing is almost done! You can continue configuring while we finish.
-                  </p>
-                </div>
-              )}
+              <TranscodingProgress isTranscoding={isTranscoding} progress={transcodingProgress} />
 
               {transcodedData && !isTranscoding && (
                 <div className="p-4 bg-walrus-mint/10 border-2 border-walrus-mint/30 rounded-lg">
@@ -1580,8 +1013,151 @@ function UploadContent() {
               )}
             </div>
           )}
+
+          {/* Step 4: Summary & Upload Progress */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              {/* Configuration Summary */}
+              <div className="p-6 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Upload Summary</h3>
+
+                {/* Video Details */}
+                <div className="mb-4 pb-4 border-b border-border">
+                  <h4 className="text-sm font-semibold text-walrus-mint mb-2">Video Details</h4>
+                  <div className="space-y-1 text-sm text-text-muted">
+                    <p><span className="font-medium">Title:</span> {title}</p>
+                    <p><span className="font-medium">File:</span> {selectedFile?.name}</p>
+                    <p><span className="font-medium">Size:</span> {selectedFile && (selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p><span className="font-medium">Quality:</span> {selectedQualities.join(', ')}</p>
+                  </div>
+                </div>
+
+                {/* Monetization */}
+                <div className="mb-4 pb-4 border-b border-border">
+                  <h4 className="text-sm font-semibold text-walrus-mint mb-2">Monetization</h4>
+                  <div className="space-y-2">
+                    {feeConfigs.map((config) => {
+                      const metadata = coinMetadataCache[config.tokenType];
+                      const priceData = coinPriceCache[config.tokenType];
+                      return (
+                        <div key={config.id} className="flex items-center justify-between text-sm">
+                          <span className="text-text-muted">
+                            {metadata?.symbol || config.tokenType.split('::').pop()}:
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {config.amountPer1000Views} per 1,000 views
+                            {priceData && config.amountPer1000Views && (
+                              <span className="text-walrus-mint ml-2">
+                                (~${(parseFloat(config.amountPer1000Views) * priceData.usdPrice).toFixed(2)})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Fee Sharing */}
+                <div className="mb-4 pb-4 border-b border-border">
+                  <h4 className="text-sm font-semibold text-walrus-mint mb-2">Revenue Sharing</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">Creator (You):</span>
+                      <span className="text-foreground font-medium">{100 - referrerSharePercent - 10}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">Referrer:</span>
+                      <span className="text-foreground font-medium">{referrerSharePercent}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-muted">Platform:</span>
+                      <span className="text-foreground font-medium">10%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Storage Info */}
+                {costEstimate && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-walrus-mint mb-2">Storage</h4>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">Network:</span>
+                        <span className="text-foreground font-medium">{walrusNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">Duration:</span>
+                        <span className="text-foreground font-medium">{STORAGE_OPTIONS[storageOptionIndex].label}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-muted">Cost:</span>
+                        <span className="text-foreground font-medium">
+                          {walrusNetwork === 'testnet' ? 'Free' : `${costEstimate.totalWal} WAL (~$${costEstimate.totalUsd})`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Progress */}
+              {isUploading && (
+                <div className="p-6 bg-background-elevated border-2 border-walrus-mint/20 rounded-lg">
+                  <div className="flex justify-between mb-3">
+                    <span className="text-foreground font-medium">{progress.message}</span>
+                    <span className="text-walrus-mint font-bold">{Math.round(progress.percent)}%</span>
+                  </div>
+                  <div className="w-full bg-background-hover rounded-full h-3">
+                    <div
+                      className="bg-walrus-mint h-3 rounded-full transition-all duration-500"
+                      style={{ width: `${progress.percent}%` }}
+                    />
+                  </div>
+                  <div className="mt-3 text-sm text-text-muted">
+                    Stage: {progress.stage}
+                  </div>
+                </div>
+              )}
+
+              {/* Error */}
+              {error && (
+                <div className="p-4 border-2 border-red-500/30 bg-red-500/10 rounded-lg">
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {!isUploading && !error && (
+                <div className="p-6 bg-walrus-mint/10 border-2 border-walrus-mint/30 rounded-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <svg className="w-6 h-6 text-walrus-mint" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-lg font-semibold text-foreground">Upload Complete!</span>
+                  </div>
+                  <p className="text-sm text-text-muted mb-4">
+                    Your video has been successfully uploaded and is now available.
+                  </p>
+                  <button
+                    onClick={() => router.push('/')}
+                    className="w-full bg-walrus-mint text-walrus-black py-3 px-6 rounded-lg font-semibold
+                      hover:bg-mint-800 transition-colors"
+                  >
+                    Go to Homepage
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Platform Fee Comparison Dialog */}
+      <PlatformFeeComparisonDialog
+        isOpen={showPlatformFeeDialog}
+        onClose={() => setShowPlatformFeeDialog(false)}
+      />
     </div>
   );
 }
