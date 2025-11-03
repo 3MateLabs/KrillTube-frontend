@@ -21,6 +21,8 @@ type FeeConfig = {
   id: string;
   tokenType: string;
   amountPer1000Views: string;
+  usdAmountPer1000Views?: string; // Optional USD equivalent
+  inputMode?: 'coin' | 'usd'; // Track which input mode user is using
 };
 
 type CoinMetadata = {
@@ -103,6 +105,7 @@ function UploadContent() {
       id: crypto.randomUUID(),
       tokenType: '0x2::sui::SUI',
       amountPer1000Views: '10',
+      inputMode: 'coin',
     },
   ]);
   const [coinMetadataCache, setCoinMetadataCache] = useState<Record<string, CoinMetadata>>({});
@@ -174,6 +177,7 @@ function UploadContent() {
         id: crypto.randomUUID(),
         tokenType: '0x2::sui::SUI',
         amountPer1000Views: '10',
+        inputMode: 'coin',
       },
     ]);
   };
@@ -190,6 +194,91 @@ function UploadContent() {
     );
   };
 
+  // Toggle between coin and USD input mode
+  const handleToggleInputMode = (id: string) => {
+    setFeeConfigs((prev) =>
+      prev.map((config) => {
+        if (config.id !== id) return config;
+
+        const newMode = config.inputMode === 'coin' ? 'usd' : 'coin';
+        const updatedConfig = { ...config, inputMode: newMode };
+
+        // When switching to USD mode, calculate USD from coin amount
+        if (newMode === 'usd') {
+          const priceData = coinPriceCache[config.tokenType];
+          if (priceData && priceData.usdPrice > 0 && config.amountPer1000Views) {
+            const coinNum = parseFloat(config.amountPer1000Views);
+            if (!isNaN(coinNum) && coinNum > 0) {
+              const usdAmount = coinNum * priceData.usdPrice;
+              updatedConfig.usdAmountPer1000Views = usdAmount.toString();
+            }
+          }
+        }
+        // When switching to coin mode, calculate coin from USD amount
+        else if (newMode === 'coin') {
+          const priceData = coinPriceCache[config.tokenType];
+          if (priceData && priceData.usdPrice > 0 && config.usdAmountPer1000Views) {
+            const usdNum = parseFloat(config.usdAmountPer1000Views);
+            if (!isNaN(usdNum) && usdNum > 0) {
+              const coinAmount = usdNum / priceData.usdPrice;
+              updatedConfig.amountPer1000Views = coinAmount.toString();
+            }
+          }
+        }
+
+        return updatedConfig;
+      })
+    );
+  };
+
+  // Update USD amount and auto-convert to coin amount
+  const handleUpdateUsdAmount = (id: string, usdValue: string) => {
+    setFeeConfigs((prev) =>
+      prev.map((config) => {
+        if (config.id !== id) return config;
+
+        // Store USD value
+        const updatedConfig = { ...config, usdAmountPer1000Views: usdValue };
+
+        // Convert USD to coin amount if we have the price
+        const priceData = coinPriceCache[config.tokenType];
+        if (priceData && priceData.usdPrice > 0 && usdValue) {
+          const usdNum = parseFloat(usdValue);
+          if (!isNaN(usdNum) && usdNum > 0) {
+            const coinAmount = usdNum / priceData.usdPrice;
+            updatedConfig.amountPer1000Views = coinAmount.toString();
+          }
+        }
+
+        return updatedConfig;
+      })
+    );
+  };
+
+  // Update coin amount and auto-convert to USD
+  const handleUpdateCoinAmount = (id: string, coinValue: string) => {
+    setFeeConfigs((prev) =>
+      prev.map((config) => {
+        if (config.id !== id) return config;
+
+        // Store coin value
+        const updatedConfig = { ...config, amountPer1000Views: coinValue };
+
+        // Convert coin to USD if we have the price
+        const priceData = coinPriceCache[config.tokenType];
+        if (priceData && priceData.usdPrice > 0 && coinValue) {
+          const coinNum = parseFloat(coinValue);
+          if (!isNaN(coinNum) && coinNum > 0) {
+            const usdAmount = coinNum * priceData.usdPrice;
+            updatedConfig.usdAmountPer1000Views = usdAmount.toString();
+          }
+        }
+
+        return updatedConfig;
+      })
+    );
+  };
+
   // Fetch coin metadata for a token type
   const fetchCoinMetadata = async (tokenType: string) => {
     // Check cache first
@@ -200,12 +289,18 @@ function UploadContent() {
     try {
       const metadata = await suiClient.getCoinMetadata({ coinType: tokenType });
       if (metadata) {
+        // Use fallback icon for SUI if metadata doesn't have one
+        let iconUrl = metadata.iconUrl;
+        if (!iconUrl && tokenType === '0x2::sui::SUI') {
+          iconUrl = 'https://imagedelivery.net/cBNDGgkrsEA-b_ixIp9SkQ/sui-coin.svg/public';
+        }
+
         const coinData: CoinMetadata = {
           decimals: metadata.decimals,
           name: metadata.name,
           symbol: metadata.symbol,
           description: metadata.description,
-          iconUrl: metadata.iconUrl,
+          iconUrl: iconUrl,
         };
 
         // Cache the metadata
@@ -900,7 +995,7 @@ function UploadContent() {
                               <img
                                 src={coinMetadataCache[config.tokenType].iconUrl!}
                                 alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                className="w-5 h-5 rounded-full"
+                                className="w-4 h-4 rounded-full"
                                 onError={(e) => {
                                   e.currentTarget.style.display = 'none';
                                 }}
@@ -928,39 +1023,92 @@ function UploadContent() {
 
                         {/* Amount per 1000 views */}
                         <div>
-                          <label className="block text-sm font-medium text-text-muted mb-2">
-                            Amount per 1,000 Views
-                          </label>
-                          <input
-                            type="number"
-                            value={config.amountPer1000Views}
-                            onChange={(e) => handleUpdateFeeConfig(config.id, 'amountPer1000Views', e.target.value)}
-                            placeholder="0"
-                            min="0"
-                            step="0.000001"
-                            className="w-full px-4 py-3 bg-background border border-border rounded-lg
-                              text-foreground placeholder-text-muted/50
-                              focus:outline-none focus:ring-2 focus:ring-walrus-mint"
-                          />
-                          <p className="text-xs text-text-muted mt-1">
-                            You will get{' '}
-                            <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-text-muted">
+                              Amount per 1,000 Views{config.inputMode === 'usd' ? ' (in USD)' : ''}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleInputMode(config.id)}
+                              className="text-xs px-2 py-1 rounded bg-background-hover hover:bg-border text-walrus-mint font-medium transition-colors"
+                            >
+                              {config.inputMode === 'coin' ? 'USD' : coinMetadataCache[config.tokenType]?.symbol || 'Coin'}
+                            </button>
+                          </div>
+
+                          {/* Input field based on mode */}
+                          {config.inputMode === 'coin' ? (
+                            <input
+                              type="number"
+                              value={config.amountPer1000Views}
+                              onChange={(e) => handleUpdateCoinAmount(config.id, e.target.value)}
+                              placeholder="0"
+                              min="0"
+                              step="0.000001"
+                              className="w-full px-4 py-3 bg-background border border-border rounded-lg
+                                text-foreground placeholder-text-muted/50
+                                focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+                            />
+                          ) : (
+                            <input
+                              type="number"
+                              value={config.usdAmountPer1000Views || ''}
+                              onChange={(e) => handleUpdateUsdAmount(config.id, e.target.value)}
+                              placeholder="0"
+                              min="0"
+                              step="0.01"
+                              className="w-full px-4 py-3 bg-background border border-border rounded-lg
+                                text-foreground placeholder-text-muted/50
+                                focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+                            />
+                          )}
+
+                          {/* Show conversion below input */}
+                          {config.inputMode === 'usd' && config.usdAmountPer1000Views && parseFloat(config.usdAmountPer1000Views) > 0 && coinPriceCache[config.tokenType] && (
+                            <p className="text-xs text-text-muted mt-2">
+                              ≈{' '}
                               {coinMetadataCache[config.tokenType]?.iconUrl && (
                                 <img
                                   src={coinMetadataCache[config.tokenType].iconUrl!}
                                   alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                  className="w-4 h-4 rounded-full inline-block"
+                                  className="w-3.5 h-3.5 rounded-full inline align-middle"
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                   }}
                                 />
-                              )}
-                              <span>
+                              )}{' '}
+                              <span className="font-semibold text-walrus-mint">
                                 {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
                                   ? formatNumber(parseFloat(config.amountPer1000Views))
                                   : '0'}{' '}
                                 {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
                               </span>
+                            </p>
+                          )}
+
+                          {config.inputMode === 'coin' && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && coinPriceCache[config.tokenType] && (
+                            <p className="text-xs text-text-muted mt-2">
+                              ≈ <span className="font-semibold text-walrus-mint">${formatNumber(parseFloat(config.amountPer1000Views) * coinPriceCache[config.tokenType].usdPrice)} USD</span>
+                            </p>
+                          )}
+
+                          <p className="text-xs text-text-muted mt-3">
+                            You will get{' '}
+                            {coinMetadataCache[config.tokenType]?.iconUrl && (
+                              <img
+                                src={coinMetadataCache[config.tokenType].iconUrl!}
+                                alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
+                                className="w-3.5 h-3.5 rounded-full inline align-middle"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            )}{' '}
+                            <span className="font-semibold text-foreground">
+                              {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
+                                ? formatNumber(parseFloat(config.amountPer1000Views))
+                                : '0'}{' '}
+                              {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
                             </span>
                             {coinPriceCache[config.tokenType] && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
                               <span className="text-walrus-mint font-medium">
@@ -968,23 +1116,21 @@ function UploadContent() {
                               </span>
                             )}{' '}
                             per 1000 views and each viewer will pay{' '}
-                            <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-                              {coinMetadataCache[config.tokenType]?.iconUrl && (
-                                <img
-                                  src={coinMetadataCache[config.tokenType].iconUrl!}
-                                  alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                                  className="w-4 h-4 rounded-full inline-block"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              )}
-                              <span>
-                                {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
-                                  ? formatNumber(parseFloat(config.amountPer1000Views) / 1000)
-                                  : '0'}{' '}
-                                {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
-                              </span>
+                            {coinMetadataCache[config.tokenType]?.iconUrl && (
+                              <img
+                                src={coinMetadataCache[config.tokenType].iconUrl!}
+                                alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
+                                className="w-3.5 h-3.5 rounded-full inline align-middle"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            )}{' '}
+                            <span className="font-semibold text-foreground">
+                              {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
+                                ? formatNumber(parseFloat(config.amountPer1000Views) / 1000)
+                                : '0'}{' '}
+                              {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
                             </span>
                             {coinPriceCache[config.tokenType] && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
                               <span className="text-walrus-mint font-medium">
@@ -1019,7 +1165,7 @@ function UploadContent() {
                             <img
                               src={coinMetadataCache[config.tokenType].iconUrl!}
                               alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                              className="w-4 h-4 rounded-full"
+                              className="w-3.5 h-3.5 rounded-full"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
                               }}
@@ -1032,6 +1178,11 @@ function UploadContent() {
                             {coinMetadataCache[config.tokenType]?.symbol || config.tokenType.split('::').pop() || 'TOKEN'}
                           </span>
                         </div>
+                        {coinPriceCache[config.tokenType] && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
+                          <div className="text-xs text-walrus-mint font-medium">
+                            ~${formatNumber(parseFloat(config.amountPer1000Views) * coinPriceCache[config.tokenType].usdPrice)} USD
+                          </div>
+                        )}
                         <div className="text-xs text-text-muted">per 1,000 views</div>
                       </div>
                     </div>
