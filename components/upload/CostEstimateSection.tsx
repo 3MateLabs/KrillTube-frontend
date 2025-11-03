@@ -32,6 +32,8 @@ interface CostEstimateSectionProps {
   storageOptionIndex: number;
   storageOptions: StorageOption[];
   onStorageOptionChange: (index: number) => void;
+  testnetStorageDays: number;
+  onTestnetStorageDaysChange: (days: number) => void;
 }
 
 export function CostEstimateSection({
@@ -41,10 +43,15 @@ export function CostEstimateSection({
   storageOptionIndex,
   storageOptions,
   onStorageOptionChange,
+  testnetStorageDays,
+  onTestnetStorageDaysChange,
 }: CostEstimateSectionProps) {
   if (!costEstimate && !isEstimating) return null;
 
   const selectedStorageOption = storageOptions[storageOptionIndex];
+  const displayLabel = walrusNetwork === 'testnet'
+    ? `${testnetStorageDays} ${testnetStorageDays === 1 ? 'day' : 'days'}`
+    : selectedStorageOption.label;
 
   return (
     <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg relative">
@@ -69,90 +76,145 @@ export function CostEstimateSection({
 
       <div className="space-y-3">
         {/* Storage Duration */}
-        {walrusNetwork === 'mainnet' ? (
-          <div>
-            <div className="flex items-baseline justify-between mb-2">
-              <label className="text-sm font-medium text-text-muted">
-                Storage Duration:
-              </label>
-              <span className="text-foreground font-bold text-xl">
-                {selectedStorageOption.label}
-              </span>
-            </div>
+        <div>
+          <div className="flex items-baseline justify-between mb-2">
+            <label className="text-sm font-medium text-text-muted">
+              Storage Duration:
+            </label>
+            <span className="text-foreground font-bold text-xl">
+              {displayLabel}
+            </span>
+          </div>
 
-            {/* Categorical Slider */}
-            <div className="relative">
-              <input
-                type="range"
-                min="0"
-                max={storageOptions.length - 1}
-                value={storageOptionIndex}
-                onChange={(e) => onStorageOptionChange(parseInt(e.target.value))}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
-                style={{
-                  background: `linear-gradient(to right,
-                    var(--walrus-mint) 0%,
-                    var(--walrus-mint) ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
-                    #4b5563 ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
-                    #4b5563 100%)`
-                }}
-              />
+          {walrusNetwork === 'mainnet' ? (
+            <>
+              {/* Mainnet: Full Slider with all options */}
+              <div className="relative">
+                <input
+                  type="range"
+                  min="0"
+                  max={storageOptions.length - 1}
+                  value={storageOptionIndex}
+                  onChange={(e) => onStorageOptionChange(parseInt(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
+                  style={{
+                    background: `linear-gradient(to right,
+                      var(--walrus-mint) 0%,
+                      var(--walrus-mint) ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
+                      #4b5563 ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
+                      #4b5563 100%)`
+                  }}
+                />
 
-              {/* Category Markers */}
-              <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
-                <span className="font-medium">Days</span>
-                <span className="font-medium">Months</span>
-                <span className="font-medium">Years</span>
+                {/* Category Markers */}
+                <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
+                  <span className="font-medium">Days</span>
+                  <span className="font-medium">Months</span>
+                  <span className="font-medium">Years</span>
+                </div>
               </div>
-            </div>
 
-            {/* Quick Presets */}
-            <div className="flex gap-2 mt-3">
-              <button
-                type="button"
-                onClick={() => onStorageOptionChange(6)}
-                className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-              >
-                7 days
-              </button>
-              <button
-                type="button"
-                onClick={() => onStorageOptionChange(30)}
-                className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-              >
-                1 month
-              </button>
-              <button
-                type="button"
-                onClick={() => onStorageOptionChange(35)}
-                className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-              >
-                6 months
-              </button>
-              <button
-                type="button"
-                onClick={() => onStorageOptionChange(42)}
-                className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-              >
-                1 year
-              </button>
-            </div>
+              {/* Quick Presets */}
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => onStorageOptionChange(6)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  7 days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStorageOptionChange(30)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  1 month
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStorageOptionChange(35)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  6 months
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onStorageOptionChange(42)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  1 year
+                </button>
+              </div>
 
-            <p className="text-xs text-walrus-mint mt-3">
-              💡 You can extend storage later or delete early to receive rebates
-            </p>
-          </div>
-        ) : (
-          <div className="p-3 bg-background-hover rounded-lg border border-border">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-text-muted">Storage Duration:</span>
-              <span className="text-foreground font-semibold">100 days</span>
-            </div>
-            <p className="text-xs text-text-muted mt-2">
-              ℹ️ You can store data in testnet for 100 days and it will be expired
-            </p>
-          </div>
-        )}
+              <p className="text-xs text-walrus-mint mt-3">
+                💡 You can extend storage later or delete early to receive rebates
+              </p>
+            </>
+          ) : (
+            <>
+              {/* Testnet: Simple 1-53 days slider */}
+              <div className="relative">
+                <input
+                  type="range"
+                  min="1"
+                  max="53"
+                  value={testnetStorageDays}
+                  onChange={(e) => onTestnetStorageDaysChange(parseInt(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
+                  style={{
+                    background: `linear-gradient(to right,
+                      var(--walrus-mint) 0%,
+                      var(--walrus-mint) ${((testnetStorageDays - 1) / 52) * 100}%,
+                      #4b5563 ${((testnetStorageDays - 1) / 52) * 100}%,
+                      #4b5563 100%)`
+                  }}
+                />
+
+                {/* Range Markers */}
+                <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
+                  <span className="font-medium">1 day</span>
+                  <span className="font-medium">53 days</span>
+                </div>
+              </div>
+
+              {/* Quick Presets for Testnet */}
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => onTestnetStorageDaysChange(1)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  1 day
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTestnetStorageDaysChange(7)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  7 days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTestnetStorageDaysChange(30)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  30 days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTestnetStorageDaysChange(53)}
+                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
+                >
+                  53 days
+                </button>
+              </div>
+
+              <p className="text-xs text-walrus-mint mt-3">
+                ℹ️ Testnet maximum: 53 days (free storage)
+              </p>
+            </>
+          )}
+        </div>
 
         {/* Total Cost */}
         {costEstimate && (

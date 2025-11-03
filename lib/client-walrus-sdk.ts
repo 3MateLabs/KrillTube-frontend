@@ -30,6 +30,12 @@ import type { Signer } from '@mysten/sui/cryptography';
 const DEFAULT_NETWORK = 'mainnet';
 const DEFAULT_EPOCHS = 50;
 
+// Network-specific epoch constraints (from Walrus documentation)
+// Testnet: 1 day/epoch, max 53 epochs (53 days)
+// Mainnet: 2 weeks/epoch, max 53 epochs (~2 years)
+const MAX_EPOCHS_TESTNET = 53;
+const MAX_EPOCHS_MAINNET = 53;
+
 const WAL_TOKEN_TYPE = '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
 
 // Upload relay URLs (public Mysten Labs infrastructure)
@@ -45,6 +51,32 @@ const UPLOAD_RELAY_ENABLED = process.env.NEXT_PUBLIC_UPLOAD_RELAY_ENABLED !== 'f
 // Maximum tip amount in MIST (100 million MIST = 0.1 WAL)
 // For reference: 1 MB encoded ~= 1,300 KiB = 52,000 MIST = 0.000052 WAL
 const MAX_TIP_MIST = 100_000_000;
+
+/**
+ * Validate and clamp epochs to network-specific maximum
+ */
+export function validateEpochs(epochs: number, network: 'testnet' | 'mainnet'): number {
+  const maxEpochs = network === 'testnet' ? MAX_EPOCHS_TESTNET : MAX_EPOCHS_MAINNET;
+
+  if (epochs > maxEpochs) {
+    console.warn(`[Walrus] Requested ${epochs} epochs exceeds ${network} maximum of ${maxEpochs}. Capping to ${maxEpochs}.`);
+    return maxEpochs;
+  }
+
+  if (epochs < 1) {
+    console.warn(`[Walrus] Epochs must be at least 1. Setting to 1.`);
+    return 1;
+  }
+
+  return epochs;
+}
+
+/**
+ * Get maximum epochs for a network
+ */
+export function getMaxEpochs(network: 'testnet' | 'mainnet'): number {
+  return network === 'testnet' ? MAX_EPOCHS_TESTNET : MAX_EPOCHS_MAINNET;
+}
 
 /**
  * Create Walrus client for browser uploads
@@ -395,7 +427,8 @@ export async function uploadMultipleBlobsWithWallet(
   size: number;
 }>> {
   const network = options?.network || DEFAULT_NETWORK;
-  const epochs = options?.epochs || DEFAULT_EPOCHS;
+  const requestedEpochs = options?.epochs || DEFAULT_EPOCHS;
+  const epochs = validateEpochs(requestedEpochs, network);
   const deletable = options?.deletable ?? true;
 
   // For testnet, use free HTTP uploads instead of wallet-based uploads

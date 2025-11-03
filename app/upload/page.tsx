@@ -115,7 +115,8 @@ function UploadContent() {
   ]);
   const [coinMetadataCache, setCoinMetadataCache] = useState<Record<string, CoinMetadata>>({});
   const [coinPriceCache, setCoinPriceCache] = useState<Record<string, CoinPrice>>({});
-  const [storageOptionIndex, setStorageOptionIndex] = useState<number>(0); // Index into STORAGE_OPTIONS (default: 1 day)
+  const [storageOptionIndex, setStorageOptionIndex] = useState<number>(0); // Index into STORAGE_OPTIONS (default: 1 day) - for mainnet
+  const [testnetStorageDays, setTestnetStorageDays] = useState<number>(1); // 1-53 days for testnet
   const [referrerSharePercent, setReferrerSharePercent] = useState<number>(30); // 0-90% (platform always takes 10%, default: 30%)
   const [isTranscoding, setIsTranscoding] = useState(false);
   const [transcodingProgress, setTranscodingProgress] = useState<number>(0);
@@ -442,9 +443,8 @@ function UploadContent() {
     }
   };
 
-  // Get current storage epochs
-  const selectedStorageOption = STORAGE_OPTIONS[storageOptionIndex];
-  const storageEpochs = selectedStorageOption.epochs;
+  // Get current storage epochs (testnet uses simple day counter, mainnet uses STORAGE_OPTIONS)
+  const storageEpochs = walrusNetwork === 'testnet' ? testnetStorageDays : STORAGE_OPTIONS[storageOptionIndex].epochs;
 
   // Debounced cost estimation - only recalculate after user stops dragging
   useEffect(() => {
@@ -456,7 +456,7 @@ function UploadContent() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [selectedFile, selectedQualities, storageOptionIndex, walrusNetwork]);
+  }, [selectedFile, selectedQualities, storageOptionIndex, testnetStorageDays, walrusNetwork]);
 
   const handleEstimateCost = async () => {
     if (!selectedFile || selectedQualities.length === 0) return;
@@ -473,7 +473,8 @@ function UploadContent() {
         body: JSON.stringify({
           fileSizeMB,
           qualities: selectedQualities,
-          epochs: walrusNetwork === 'mainnet' ? storageEpochs : 100, // Testnet uses ~100 epochs (100 days)
+          // Cap epochs to network-specific maximums (testnet: 53, mainnet: 53)
+          epochs: walrusNetwork === 'mainnet' ? storageEpochs : Math.min(storageEpochs, 53),
         }),
       });
 
@@ -606,8 +607,8 @@ function UploadContent() {
         effectiveUploadAddress,
         {
           network: walrusNetwork, // Dynamic Walrus network from context
-          // Use user-selected epochs for mainnet, testnet uses 100 epochs
-          epochs: walrusNetwork === 'mainnet' ? storageEpochs : 100,
+          // Cap epochs to network-specific maximums (testnet: 53, mainnet: 53)
+          epochs: walrusNetwork === 'mainnet' ? storageEpochs : Math.min(storageEpochs, 53),
           onProgress: setProgress,
         }
       );
@@ -812,6 +813,8 @@ function UploadContent() {
                 storageOptionIndex={storageOptionIndex}
                 storageOptions={STORAGE_OPTIONS}
                 onStorageOptionChange={setStorageOptionIndex}
+                testnetStorageDays={testnetStorageDays}
+                onTestnetStorageDaysChange={setTestnetStorageDays}
               />
 
               {/* Next Button */}
@@ -1088,7 +1091,11 @@ function UploadContent() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-text-muted">Duration:</span>
-                        <span className="text-foreground font-medium">{STORAGE_OPTIONS[storageOptionIndex].label}</span>
+                        <span className="text-foreground font-medium">
+                          {walrusNetwork === 'testnet'
+                            ? `${testnetStorageDays} ${testnetStorageDays === 1 ? 'day' : 'days'}`
+                            : STORAGE_OPTIONS[storageOptionIndex].label}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-text-muted">Cost:</span>
