@@ -382,8 +382,9 @@ function UploadContent() {
     try {
       console.log('[Upload] Starting background transcoding...');
 
-      // Dynamically import transcode function
+      // Dynamically import transcode function and cache utilities
       const { transcodeVideo } = await import('@/lib/transcode/clientTranscode');
+      const { saveToCache } = await import('@/lib/transcode/transcodeCacheDB');
 
       // Start transcoding with progress callback
       const transcoded = await transcodeVideo(selectedFile, {
@@ -396,6 +397,12 @@ function UploadContent() {
 
       console.log('[Upload] Transcoding complete:', transcoded.segments.length, 'segments');
       setTranscodedData(transcoded);
+
+      // Save to cache for later use (non-blocking)
+      saveToCache(selectedFile, selectedQualities, transcoded).catch((err) => {
+        console.warn('[Upload] Failed to cache transcoded data:', err);
+      });
+
       setIsTranscoding(false);
     } catch (err) {
       console.error('[Upload] Transcoding error:', err);
@@ -662,6 +669,7 @@ function UploadContent() {
       console.error('[Upload V2] Error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
       setIsUploading(false);
+      setCurrentStep(3); // Go back to step 3 so user can retry
 
       // Auto-reclaim on error too if on mainnet
       if (walrusNetwork === 'mainnet' && account) {

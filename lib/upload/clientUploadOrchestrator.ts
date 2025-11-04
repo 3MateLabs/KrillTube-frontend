@@ -91,41 +91,63 @@ export async function uploadVideoClientSide(
       ? 'https://aggregator.walrus-testnet.walrus.space'
       : 'https://aggregator.walrus.space');
 
-  // Step 1: Transcode video
+  // Step 1: Check cache first, then transcode if needed
   onProgress?.({
     stage: 'transcoding',
-    percent: 10,
-    message: 'Transcoding video in browser...',
+    percent: 5,
+    message: 'Checking for cached transcode...',
   });
 
-  const transcoded = await transcodeVideo(file, {
-    qualities,
-    segmentDuration: 4,
-    onProgress: (p) => {
-      // p.overall is 0-100, map to 10-40% of total upload flow
-      const overallPercent = 10 + (p.overall / 100) * 30;
+  // Import cache utilities
+  const { loadFromCache } = await import('@/lib/transcode/transcodeCacheDB');
 
-      let message = p.message;
-      if (p.estimatedTimeRemaining && p.estimatedTimeRemaining > 0) {
-        const totalSeconds = Math.floor(p.estimatedTimeRemaining);
-        const hours = Math.floor(totalSeconds / 3600);
-        const mins = Math.floor((totalSeconds % 3600) / 60);
-        const secs = totalSeconds % 60;
+  // Try to load from cache
+  let transcoded = await loadFromCache(file, qualities);
 
-        // Format as HH:MM:SS
-        const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        message += ` (~${timeStr} left)`;
-      }
+  if (transcoded) {
+    console.log(`[Upload] ✓ Using cached transcode (${transcoded.segments.length} segments)`);
+    onProgress?.({
+      stage: 'transcoding',
+      percent: 40,
+      message: 'Using cached transcode (skipping re-processing)',
+    });
+  } else {
+    console.log('[Upload] ✗ No cache found, transcoding video...');
+    onProgress?.({
+      stage: 'transcoding',
+      percent: 10,
+      message: 'Transcoding video in browser...',
+    });
 
-      onProgress?.({
-        stage: 'transcoding',
-        percent: overallPercent,
-        message,
-      });
-    },
-  });
+    transcoded = await transcodeVideo(file, {
+      qualities,
+      segmentDuration: 4,
+      onProgress: (p) => {
+        // p.overall is 0-100, map to 10-40% of total upload flow
+        const overallPercent = 10 + (p.overall / 100) * 30;
 
-  console.log(`[Upload] Transcoded ${transcoded.segments.length} segments`);
+        let message = p.message;
+        if (p.estimatedTimeRemaining && p.estimatedTimeRemaining > 0) {
+          const totalSeconds = Math.floor(p.estimatedTimeRemaining);
+          const hours = Math.floor(totalSeconds / 3600);
+          const mins = Math.floor((totalSeconds % 3600) / 60);
+          const secs = totalSeconds % 60;
+
+          // Format as HH:MM:SS
+          const timeStr = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+          message += ` (~${timeStr} left)`;
+        }
+
+        onProgress?.({
+          stage: 'transcoding',
+          percent: overallPercent,
+          message,
+        });
+      },
+    });
+
+    console.log(`[Upload] Transcoded ${transcoded.segments.length} segments`);
+  }
 
   // Log memory usage before encryption
   if (performance && (performance as any).memory) {
