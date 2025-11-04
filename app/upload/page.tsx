@@ -656,6 +656,15 @@ function UploadContent() {
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
       console.log(`[Upload V2] ✓ Video registered: ${video.id}`);
 
+      // Clear cache after successful upload (it's no longer needed)
+      try {
+        const { deleteCacheForFile } = await import('@/lib/transcode/transcodeCacheDB');
+        await deleteCacheForFile(selectedFile, selectedQualities);
+        console.log('[Upload V2] ✓ Cleared cache for uploaded video');
+      } catch (cacheError) {
+        console.warn('[Upload V2] Failed to clear cache:', cacheError);
+      }
+
       // Auto-reclaim unused gas if on mainnet
       if (walrusNetwork === 'mainnet' && account) {
         console.log('[Upload V2] Auto-reclaiming unused gas...');

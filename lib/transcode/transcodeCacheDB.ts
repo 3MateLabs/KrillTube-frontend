@@ -202,6 +202,43 @@ export async function clearOldCache(maxAgeMs: number = 24 * 60 * 60 * 1000): Pro
 }
 
 /**
+ * Delete a specific cache entry by cache key
+ */
+export async function deleteCacheEntry(cacheKey: string): Promise<void> {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+
+    await new Promise<void>((resolve, reject) => {
+      const request = store.delete(cacheKey);
+      request.onsuccess = () => {
+        console.log(`[Cache] ✓ Deleted cache entry: ${cacheKey}`);
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    db.close();
+  } catch (error) {
+    console.error('[Cache] Failed to delete cache entry:', error);
+  }
+}
+
+/**
+ * Delete cache entry for a specific file and quality settings
+ */
+export async function deleteCacheForFile(file: File, qualities: string[]): Promise<void> {
+  try {
+    const fileHash = await generateFileHash(file);
+    const cacheKey = generateCacheKey(fileHash, qualities);
+    await deleteCacheEntry(cacheKey);
+  } catch (error) {
+    console.error('[Cache] Failed to delete cache for file:', error);
+  }
+}
+
+/**
  * Clear all cached data
  */
 export async function clearAllCache(): Promise<void> {
