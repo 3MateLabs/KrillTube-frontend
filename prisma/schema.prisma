@@ -7,118 +7,107 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Asset {
-  id        String          @id @default(cuid())
-  creatorId String          @map("creator_id")
-  title     String
-  status    String          @default("uploading")
-  createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @updatedAt @map("updated_at")
-  revisions AssetRevision[]
+model asset_revisions {
+  id              String   @id
+  asset_id        String
+  manifest_json   Json
+  walrus_root_uri String
+  created_at      DateTime @default(now())
+  assets          assets   @relation(fields: [asset_id], references: [id], onDelete: Cascade)
 
-  @@index([creatorId])
-  @@index([status])
-  @@index([createdAt])
-  @@map("assets")
+  @@index([asset_id])
 }
 
-model AssetRevision {
-  id            String   @id @default(cuid())
-  assetId       String   @map("asset_id")
-  manifestJson  Json     @map("manifest_json")
-  walrusRootUri String   @map("walrus_root_uri")
-  createdAt     DateTime @default(now()) @map("created_at")
-  asset         Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
-
-  @@index([assetId])
-  @@map("asset_revisions")
-}
-
-// ============================================================================
-// V2 Encrypted Video Models
-// ============================================================================
-
-model Video {
-  id              String   @id @default(cuid())
-  creatorId       String   @map("creator_id")
+model assets {
+  id              String            @id
+  creator_id      String
   title           String
-  walrusMasterUri String   @map("walrus_master_uri")
-  posterWalrusUri String?  @map("poster_walrus_uri")
-  duration        Float?
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  status          String            @default("uploading")
+  created_at      DateTime          @default(now())
+  updated_at      DateTime
+  asset_revisions asset_revisions[]
 
-  renditions VideoRendition[]
-  sessions   PlaybackSession[]
+  @@index([created_at])
+  @@index([creator_id])
+  @@index([status])
+}
 
-  @@index([creatorId])
-  @@map("videos")
+model playback_logs {
+  id         String   @id
+  session_id String
+  video_id   String
+  seg_idx    Int
+  rendition  String
+  timestamp  DateTime @default(now())
+  ip         String?
+  user_agent String?
+
+  @@index([session_id])
+  @@index([timestamp])
+  @@index([video_id])
+}
+
+model PlaybackSession {
+  id           String   @id @default(cuid())
+  cookieValue  String   @unique @map("cookie_value")
+  videoId      String   @map("video_id")
+  clientPubKey Bytes    @map("client_pub_key")
+  serverPubKey Bytes    @map("server_pub_key")
+  serverNonce  Bytes    @map("server_nonce")
+  deviceHash   String?  @map("device_hash")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastActivity DateTime @default(now()) @map("last_activity")
+  video        Video    @relation("VideoToPlaybackSession", fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([cookieValue])
+  @@index([expiresAt])
+  @@index([videoId])
+  @@map("playback_sessions")
 }
 
 model VideoRendition {
-  id                String   @id @default(cuid())
-  videoId           String   @map("video_id")
-  name              String   // "720p", "480p", "360p"
-  walrusPlaylistUri String   @map("walrus_playlist_uri")
-  resolution        String   // "1280x720"
+  id                String         @id @default(cuid())
+  videoId           String         @map("video_id")
+  name              String
+  walrusPlaylistUri String         @map("walrus_playlist_uri")
+  resolution        String
   bitrate           Int
-
-  video    Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  segments VideoSegment[]
+  video             Video          @relation("VideoToVideoRendition", fields: [videoId], references: [id], onDelete: Cascade)
+  segments          VideoSegment[] @relation("VideoRenditionToVideoSegment")
 
   @@unique([videoId, name])
   @@map("video_renditions")
 }
 
 model VideoSegment {
-  id          String   @id @default(cuid())
-  renditionId String   @map("rendition_id")
-  segIdx      Int      @map("seg_idx")
-  walrusUri   String   @map("walrus_uri") // Encrypted segment blob
-  dekEnc      Bytes    @map("dek_enc")    // KMS-encrypted 16-byte DEK
-  iv          Bytes    // 12-byte IV for AES-GCM
+  id          String         @id @default(cuid())
+  renditionId String         @map("rendition_id")
+  segIdx      Int            @map("seg_idx")
+  walrusUri   String         @map("walrus_uri")
+  iv          Bytes
   duration    Float
   size        Int
-
-  rendition VideoRendition @relation(fields: [renditionId], references: [id], onDelete: Cascade)
+  dekEnc      Bytes          @map("dek_enc")
+  rendition   VideoRendition @relation("VideoRenditionToVideoSegment", fields: [renditionId], references: [id], onDelete: Cascade)
 
   @@unique([renditionId, segIdx])
   @@index([renditionId])
   @@map("video_segments")
 }
 
-model PlaybackSession {
-  id            String   @id @default(cuid())
-  cookieValue   String   @unique @map("cookie_value") // Opaque token
-  videoId       String   @map("video_id")
-  clientPubKey  Bytes    @map("client_pub_key")   // X25519 public
-  serverPubKey  Bytes    @map("server_pub_key")   // X25519 public
-  serverNonce   Bytes    @map("server_nonce")     // 12 bytes
-  deviceHash    String?  @map("device_hash")
-  expiresAt     DateTime @map("expires_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  lastActivity  DateTime @default(now()) @map("last_activity")
+model Video {
+  id              String            @id @default(cuid())
+  title           String
+  walrusMasterUri String            @map("walrus_master_uri")
+  posterWalrusUri String?           @map("poster_walrus_uri")
+  duration        Float?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  creatorId       String            @map("creator_id")
+  sessions        PlaybackSession[] @relation("VideoToPlaybackSession")
+  renditions      VideoRendition[]  @relation("VideoToVideoRendition")
 
-  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
-
-  @@index([cookieValue])
-  @@index([videoId])
-  @@index([expiresAt])
-  @@map("playback_sessions")
-}
-
-model PlaybackLog {
-  id         String   @id @default(cuid())
-  sessionId  String   @map("session_id")
-  videoId    String   @map("video_id")
-  segIdx     Int      @map("seg_idx")
-  rendition  String
-  timestamp  DateTime @default(now())
-  ip         String?
-  userAgent  String?  @map("user_agent")
-
-  @@index([sessionId])
-  @@index([videoId])
-  @@index([timestamp])
-  @@map("playback_logs")
+  @@index([creatorId])
+  @@map("videos")
 }

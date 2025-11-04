@@ -262,10 +262,10 @@ export function usePersonalDelegator() {
   // Estimate SUI needed for upload operations
   const estimateGasNeeded = useCallback((numberOfSegments: number): bigint => {
     // Each segment requires 2 transactions (register + certify)
-    // Each transaction needs ~0.006 SUI gas budget
+    // Each transaction needs ~0.02 SUI gas budget (increased for safety)
     // Add poster, playlists, master playlist (not counted in numberOfSegments)
-    const gasPerSegment = BigInt(12_000_000); // 0.012 SUI per segment (2 transactions × 0.006)
-    const baseGas = BigInt(50_000_000);       // 0.05 SUI base overhead for poster + playlists
+    const gasPerSegment = BigInt(40_000_000); // 0.04 SUI per segment (2 transactions × 0.02)
+    const baseGas = BigInt(200_000_000);       // 0.2 SUI base overhead for poster + playlists
     const total = baseGas + (gasPerSegment * BigInt(numberOfSegments));
 
     console.log('[Delegator] Gas estimate for', numberOfSegments, 'segments:', {

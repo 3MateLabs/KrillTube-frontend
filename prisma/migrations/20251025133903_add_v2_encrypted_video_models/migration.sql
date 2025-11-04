@@ -4,7 +4,6 @@ CREATE TABLE "videos" (
     "title" TEXT NOT NULL,
     "walrus_master_uri" TEXT NOT NULL,
     "poster_walrus_uri" TEXT,
-    "root_secret_enc" BYTEA NOT NULL,
     "duration" DOUBLE PRECISION,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,

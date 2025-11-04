@@ -1,14 +1,13 @@
 /**
  * Server-side key derivation functions
  *
- * This module handles all key derivation operations on the server:
+ * This module handles key derivation for playback sessions:
  * - Session KEK (Key Encryption Key) derivation from ECDH shared secret
- * - Segment DEK (Data Encryption Key) derivation from video root secret
  *
  * All keys are derived deterministically using HKDF-SHA256.
  */
 
-import { deriveSharedSecret, hkdf, hkdfDeriveKey } from './primitives';
+import { deriveSharedSecret, hkdfDeriveKey } from './primitives';
 import { stringToBytes } from './utils';
 
 /**
@@ -61,113 +60,6 @@ export async function deriveSessionKek(
   console.log('[Server KEK] ✓ Derived KEK');
 
   return kek;
-}
-
-/**
- * Derive a segment DEK (Data Encryption Key) deterministically
- *
- * Each segment gets a unique DEK derived from the video's root secret.
- * The derivation uses the video ID, rendition name, and segment index
- * to ensure uniqueness while maintaining determinism.
- *
- * @param rootSecret - Video's root secret (32 bytes, KMS-encrypted in database)
- * @param videoId - Video identifier (e.g., "vid_abc123")
- * @param rendition - Rendition name (e.g., "720p")
- * @param segmentIndex - Segment index (0-based)
- * @returns Promise resolving to 16-byte DEK for AES-128-GCM
- */
-export async function deriveSegmentDek(
-  rootSecret: Uint8Array,
-  videoId: string,
-  rendition: string,
-  segmentIndex: number
-): Promise<Uint8Array> {
-  if (rootSecret.length !== 32) {
-    throw new Error('Root secret must be 32 bytes');
-  }
-  if (!Number.isInteger(segmentIndex) || segmentIndex < -1) {
-    throw new Error('Segment index must be an integer >= -1 (-1 for init segment)');
-  }
-
-  // Create a unique salt for this segment
-  // Format: "videoId|rendition|segmentIndex"
-  const saltString = `${videoId}|${rendition}|${segmentIndex}`;
-  const salt = stringToBytes(saltString);
-
-  // Derive 16-byte (128-bit) DEK using HKDF
-  const dek = await hkdf({
-    ikm: rootSecret,
-    salt,
-    info: 'chunk-dek-v1', // Domain separation
-    length: 16, // AES-128
-  });
-
-  return dek;
-}
-
-/**
- * Derive a segment DEK as CryptoKey (for direct use with Web Crypto API)
- *
- * Same as deriveSegmentDek but returns a CryptoKey instead of raw bytes.
- *
- * @param rootSecret - Video's root secret (32 bytes)
- * @param videoId - Video identifier
- * @param rendition - Rendition name
- * @param segmentIndex - Segment index
- * @returns Promise resolving to CryptoKey for AES-128-GCM
- */
-export async function deriveSegmentDekKey(
-  rootSecret: Uint8Array,
-  videoId: string,
-  rendition: string,
-  segmentIndex: number
-): Promise<CryptoKey> {
-  if (rootSecret.length !== 32) {
-    throw new Error('Root secret must be 32 bytes');
-  }
-
-  const saltString = `${videoId}|${rendition}|${segmentIndex}`;
-  const salt = stringToBytes(saltString);
-
-  // Import root secret as key material (ensure it's a proper Uint8Array)
-  const ikmKey = await crypto.subtle.importKey(
-    'raw',
-    new Uint8Array(rootSecret),
-    { name: 'HKDF' },
-    false,
-    ['deriveKey']
-  );
-
-  // Derive DEK as CryptoKey
-  const dek = await crypto.subtle.deriveKey(
-    {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt: new Uint8Array(salt),
-      info: new Uint8Array(stringToBytes('chunk-dek-v1')),
-    },
-    ikmKey,
-    {
-      name: 'AES-GCM',
-      length: 128,
-    },
-    true, // extractable (for wrapping)
-    ['encrypt', 'decrypt']
-  );
-
-  return dek;
-}
-
-/**
- * Generate a video root secret (32 bytes)
- *
- * This should be called once when a video is uploaded.
- * The root secret must be encrypted with KMS before storing in the database.
- *
- * @returns 32 random bytes
- */
-export function generateVideoRootSecret(): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(32));
 }
 
 /**

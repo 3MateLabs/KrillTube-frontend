@@ -116,7 +116,7 @@ function UploadContent() {
   const [coinMetadataCache, setCoinMetadataCache] = useState<Record<string, CoinMetadata>>({});
   const [coinPriceCache, setCoinPriceCache] = useState<Record<string, CoinPrice>>({});
   const [storageOptionIndex, setStorageOptionIndex] = useState<number>(0); // Index into STORAGE_OPTIONS (default: 1 day) - for mainnet
-  const [testnetStorageDays, setTestnetStorageDays] = useState<number>(1); // 1-53 days for testnet
+  const [testnetStorageDays, setTestnetStorageDays] = useState<number>(7); // 1-53 days for testnet (default: 7 days)
   const [referrerSharePercent, setReferrerSharePercent] = useState<number>(30); // 0-90% (platform always takes 10%, default: 30%)
   const [isTranscoding, setIsTranscoding] = useState(false);
   const [transcodingProgress, setTranscodingProgress] = useState<number>(0);
@@ -517,7 +517,7 @@ function UploadContent() {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
         // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        // Add 20x safety buffer because cost estimator uses simplified formula:
+        // Add 50x safety buffer because cost estimator uses simplified formula:
         // - Estimator doesn't use actual Walrus SDK storageCost() calculation
         // - Each blob requires 2 transactions (register + certify)
         // - Poster, playlists, and master playlist uploads (not in estimate)
@@ -525,7 +525,7 @@ function UploadContent() {
         // - Upload relay tips (40 MIST per KiB of encoded data)
         // - Actual per-blob costs are much higher than approximation
         const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
-        const walAmountMist = estimatedWalMist * BigInt(20); // 20x buffer for inaccurate estimate
+        const walAmountMist = estimatedWalMist * BigInt(50); // 50x buffer for inaccurate estimate
 
         // Estimate gas needed based on file size (rough calculation)
         const fileSizeMB = selectedFile.size / 1024 / 1024;
@@ -534,7 +534,7 @@ function UploadContent() {
 
         console.log('[Upload V2] PTB Funding:', {
           estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
-          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (20x buffer)`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (50x buffer)`,
           gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
           segments: estimatedSegments,
         });
