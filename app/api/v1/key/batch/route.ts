@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/db';
+import { prisma, ensureDbConnected } from '@/lib/db';
 import { wrapKey } from '@/lib/crypto/primitives';
 import { deriveSessionKek as deriveSessionKekServer } from '@/lib/crypto/keyDerivation';
 import { decryptDek, loadSessionPrivateKey } from '@/lib/kms/envelope';

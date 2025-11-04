@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, ensureDbConnected } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { decryptDek, loadSessionPrivateKey } from '@/lib/kms/envelope';
 import { deriveSessionKek } from '@/lib/crypto/keyDerivation';
@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Ensure database is connected (handles Neon cold starts)
+    await ensureDbConnected();
 
     // DEMO MODE: Skip session validation for easier testing
     // Find video and segment directly

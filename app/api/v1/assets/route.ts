@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, ensureDbConnected } from '@/lib/db';
 import { generateAssetId } from '@/lib/types';
 
 /**
@@ -26,12 +26,13 @@ export async function POST(request: NextRequest) {
     // Create asset placeholder with custom ID
     const assetId = generateAssetId();
 
-    const asset = await prisma.asset.create({
+    const asset = await prisma.assets.create({
       data: {
         id: assetId,
         title,
-        creatorId,
+        creator_id: creatorId,
         status: 'uploading',
+        updated_at: new Date(),
       },
     });
 
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
         id: asset.id,
         title: asset.title,
         status: asset.status,
-        createdAt: asset.createdAt,
+        createdAt: asset.created_at,
       },
       uploadConfig: {
         // Configuration for upload process
@@ -73,49 +74,49 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {};
-    if (creatorId) where.creatorId = creatorId;
+    if (creatorId) where.creator_id = creatorId;
     if (status) where.status = status;
 
     // Query assets
     const [assets, total] = await Promise.all([
-      prisma.asset.findMany({
+      prisma.assets.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { created_at: 'desc' },
         take: limit,
         skip: offset,
         include: {
-          revisions: {
-            orderBy: { createdAt: 'desc' },
+          asset_revisions: {
+            orderBy: { created_at: 'desc' },
             take: 1, // Only latest revision
           },
         },
       }),
-      prisma.asset.count({ where }),
+      prisma.assets.count({ where }),
     ]);
 
     return NextResponse.json({
       assets: assets.map((asset) => {
-        const latestRevision = asset.revisions[0];
+        const latestRevision = asset.asset_revisions[0];
         let posterUrl = null;
 
         // Extract poster URL from manifest if available
-        if (latestRevision && latestRevision.manifestJson) {
-          const manifest = latestRevision.manifestJson as any;
+        if (latestRevision && latestRevision.manifest_json) {
+          const manifest = latestRevision.manifest_json as any;
           posterUrl = manifest.poster?.url || null;
         }
 
         return {
           id: asset.id,
           title: asset.title,
-          creatorId: asset.creatorId,
+          creatorId: asset.creator_id,
           status: asset.status,
-          createdAt: asset.createdAt,
-          updatedAt: asset.updatedAt,
+          createdAt: asset.created_at,
+          updatedAt: asset.updated_at,
           posterUrl,
           latestRevision: latestRevision
             ? {
-                walrusRootUri: latestRevision.walrusRootUri,
-                createdAt: latestRevision.createdAt,
+                walrusRootUri: latestRevision.walrus_root_uri,
+                createdAt: latestRevision.created_at,
               }
             : null,
         };

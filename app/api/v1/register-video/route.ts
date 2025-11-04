@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, ensureDbConnected } from '@/lib/db';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
 import { encryptDek } from '@/lib/kms/envelope';
@@ -84,6 +84,9 @@ export async function POST(request: NextRequest) {
 
     // Encrypt all DEKs with master key before storage
     console.log(`[API Register Video] Encrypting ${renditions.reduce((sum, r) => sum + r.segments.length, 0)} segment DEKs with KMS...`);
+
+    // Ensure database is connected (handles Neon cold starts)
+    await ensureDbConnected();
 
     // Store video metadata in database
     const video = await prisma.video.create({

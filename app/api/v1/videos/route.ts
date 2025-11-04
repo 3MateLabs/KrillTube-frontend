@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, ensureDbConnected } from '@/lib/db';
 
 /**
  * GET /v1/videos
@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '12');
     const offset = parseInt(searchParams.get('offset') || '0');
+
+    // Ensure database is connected (handles Neon cold starts)
+    await ensureDbConnected();
 
     const [videos, total] = await Promise.all([
       prisma.video.findMany({

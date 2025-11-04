@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, ensureDbConnected } from '@/lib/db';
 import { generateX25519Keypair, generateNonce } from '@/lib/crypto/primitives';
 import { toBase64, fromBase64 } from '@/lib/crypto/utils';
 import { cookies } from 'next/headers';
@@ -43,6 +43,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Session API] Creating session for video: ${videoId}`);
+
+    // Ensure database is connected (handles Neon cold starts)
+    await ensureDbConnected();
 
     // Validate video exists
     const video = await prisma.video.findUnique({

@@ -19,8 +19,6 @@ import {
 
 import {
   deriveSessionKek,
-  deriveSegmentDek,
-  generateVideoRootSecret,
 } from '../lib/crypto/keyDerivation';
 
 import { toBase64, fromBase64, toHex } from '../lib/crypto/utils';

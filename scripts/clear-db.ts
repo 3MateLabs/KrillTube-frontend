@@ -12,8 +12,8 @@ async function clearDatabase() {
 
   try {
     // Delete in order to respect foreign key constraints
-    console.log('Deleting PlaybackLog...');
-    const playbackLogs = await prisma.playbackLog.deleteMany();
+    console.log('Deleting playback_logs...');
+    const playbackLogs = await prisma.playback_logs.deleteMany();
     console.log(`  ✓ Deleted ${playbackLogs.count} playback logs`);
 
     console.log('Deleting PlaybackSession...');
@@ -32,12 +32,12 @@ async function clearDatabase() {
     const videos = await prisma.video.deleteMany();
     console.log(`  ✓ Deleted ${videos.count} videos`);
 
-    console.log('Deleting AssetRevision...');
-    const assetRevisions = await prisma.assetRevision.deleteMany();
+    console.log('Deleting asset_revisions...');
+    const assetRevisions = await prisma.asset_revisions.deleteMany();
     console.log(`  ✓ Deleted ${assetRevisions.count} asset revisions`);
 
-    console.log('Deleting Asset...');
-    const assets = await prisma.asset.deleteMany();
+    console.log('Deleting assets...');
+    const assets = await prisma.assets.deleteMany();
     console.log(`  ✓ Deleted ${assets.count} assets`);
 
     console.log('\n✅ Database cleared successfully!');
