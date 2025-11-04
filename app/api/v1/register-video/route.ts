@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       walrusMasterUri,
       posterWalrusUri,
       duration,
+      network,
       renditions,
       paymentInfo,
     }: {
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
       walrusMasterUri: string;
       posterWalrusUri?: string;
       duration: number;
+      network?: 'mainnet' | 'testnet'; // Walrus network (optional, defaults to mainnet)
       renditions: Array<{
         name: string;
         resolution: string;
@@ -91,6 +93,7 @@ export async function POST(request: NextRequest) {
         walrusMasterUri,
         posterWalrusUri: posterWalrusUri || null,
         duration,
+        network: network || 'mainnet', // Save Walrus network (defaults to mainnet)
         creatorId,
         renditions: {
           create: await Promise.all(

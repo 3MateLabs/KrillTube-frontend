@@ -129,6 +129,7 @@ export default function WatchPage() {
           <CustomVideoPlayer
             videoId={video.id}
             videoUrl={video.walrusMasterUri}
+            network={video.network || 'mainnet'}
             title={video.title}
             autoplay={false}
           />

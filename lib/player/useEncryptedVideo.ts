@@ -15,6 +15,7 @@ import { DecryptionWorkerPool } from './workerPool';
 export interface UseEncryptedVideoOptions {
   videoId: string;
   videoUrl: string; // Master playlist URL
+  network?: 'mainnet' | 'testnet'; // Walrus network for correct aggregator URLs
   autoplay?: boolean;
   apiBaseUrl?: string;
   onReady?: () => void;
@@ -127,12 +128,14 @@ export function useEncryptedVideo(
           workerPool: DecryptionWorkerPool;
           maxRetries: number;
           retryDelay: number;
+          network?: 'mainnet' | 'testnet';
           hlsInstance?: any;
         } = {
           sessionManager: sessionManagerRef.current,
           workerPool: workerPoolRef.current,
           maxRetries: 3,
           retryDelay: 1000,
+          network: options.network || 'mainnet', // Pass network to loader
         };
 
         const DecryptingLoaderClass = createDecryptingLoaderClass(loaderConfig);

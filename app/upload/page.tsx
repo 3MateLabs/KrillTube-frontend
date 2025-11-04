@@ -627,6 +627,7 @@ function UploadContent() {
           walrusMasterUri: result.walrusMasterUri,
           posterWalrusUri: result.posterWalrusUri,
           duration: result.duration,
+          network: walrusNetwork, // Save the network used for upload
           renditions: result.renditions.map((r) => ({
             name: r.quality,
             resolution: r.resolution,

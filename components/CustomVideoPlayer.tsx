@@ -12,6 +12,7 @@ import Hls from 'hls.js';
 export interface CustomVideoPlayerProps {
   videoId: string;
   videoUrl: string;
+  network?: 'mainnet' | 'testnet'; // Walrus network for correct aggregator URLs
   title?: string;
   autoplay?: boolean;
   className?: string;
@@ -20,6 +21,7 @@ export interface CustomVideoPlayerProps {
 export function CustomVideoPlayer({
   videoId,
   videoUrl,
+  network,
   title,
   autoplay = false,
   className = '',
@@ -36,6 +38,7 @@ export function CustomVideoPlayer({
   } = useEncryptedVideo({
     videoId,
     videoUrl,
+    network,
     autoplay,
     onReady: () => {
       console.log('Video ready to play');

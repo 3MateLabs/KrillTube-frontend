@@ -102,6 +102,7 @@ model Video {
   walrusMasterUri String            @map("walrus_master_uri")
   posterWalrusUri String?           @map("poster_walrus_uri")
   duration        Float?
+  network         String            @default("mainnet") // Walrus network: "mainnet" or "testnet"
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   creatorId       String            @map("creator_id")

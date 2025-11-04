@@ -21,6 +21,7 @@ export interface DecryptingLoaderConfig {
   maxRetries?: number;
   retryDelay?: number;
   hlsInstance?: any; // Reference to HLS instance for level mapping
+  network?: 'mainnet' | 'testnet'; // Walrus network for correct aggregator URLs
 }
 
 /**
@@ -29,6 +30,7 @@ export interface DecryptingLoaderConfig {
 const PATCH_ID_REGEX = /\/by-quilt-patch-id\/([^@]+)@\d+:\d+/;
 const PATCH_ID_GLOBAL_REGEX = /\/by-quilt-patch-id\/([^\s@\n]+)@\d+:\d+/g;
 const AGGREGATOR_DOMAIN = 'aggregator.walrus.space';
+const TESTNET_AGGREGATOR = 'aggregator.walrus-testnet.walrus.space';
 const AGGREGATOR_REPLACEMENT = 'aggregator.mainnet.walrus.mirai.cloud';
 
 export class DecryptingLoader {
@@ -192,8 +194,16 @@ export class DecryptingLoader {
     let fixed = url;
     let rangeHeader: string | null = null;
 
-    if (fixed.includes(AGGREGATOR_DOMAIN)) {
-      fixed = fixed.replace(AGGREGATOR_DOMAIN, AGGREGATOR_REPLACEMENT);
+    // Determine correct aggregator based on video's network
+    const targetAggregator = this.config.network === 'testnet'
+      ? 'aggregator.walrus-testnet.walrus.space'
+      : AGGREGATOR_REPLACEMENT; // mainnet uses working aggregator
+
+    // Replace any aggregator domain with the correct one for this video's network
+    if (fixed.includes(TESTNET_AGGREGATOR)) {
+      fixed = fixed.replace(TESTNET_AGGREGATOR, targetAggregator);
+    } else if (fixed.includes(AGGREGATOR_DOMAIN)) {
+      fixed = fixed.replace(AGGREGATOR_DOMAIN, targetAggregator);
     }
 
     // Match patch ID with byte range: blobId@start:end
@@ -253,8 +263,18 @@ export class DecryptingLoader {
       data = await response.text();
       let fixedPlaylist = data;
 
+      // Determine correct aggregator based on video's network
+      const targetAggregator = this.config.network === 'testnet'
+        ? 'aggregator.walrus-testnet.walrus.space'
+        : AGGREGATOR_REPLACEMENT; // mainnet uses working aggregator
+
+      // Replace testnet aggregator URLs with correct aggregator for this network
+      if (fixedPlaylist.includes(TESTNET_AGGREGATOR)) {
+        fixedPlaylist = fixedPlaylist.replace(new RegExp(TESTNET_AGGREGATOR.replace(/\./g, '\\.'), 'g'), targetAggregator);
+      }
+      // Replace mainnet aggregator URLs with correct aggregator for this network
       if (fixedPlaylist.includes(AGGREGATOR_DOMAIN)) {
-        fixedPlaylist = fixedPlaylist.replace(new RegExp(AGGREGATOR_DOMAIN.replace('.', '\\.'), 'g'), AGGREGATOR_REPLACEMENT);
+        fixedPlaylist = fixedPlaylist.replace(new RegExp(AGGREGATOR_DOMAIN.replace(/\./g, '\\.'), 'g'), targetAggregator);
       }
 
       if (PATCH_ID_GLOBAL_REGEX.test(fixedPlaylist)) {
