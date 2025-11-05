@@ -15,6 +15,7 @@ import { DecryptionWorkerPool } from './workerPool';
 export interface UseEncryptedVideoOptions {
   videoId: string;
   videoUrl: string; // Master playlist URL
+  walletAddress?: string; // User's wallet address for access tracking
   network?: 'mainnet' | 'testnet'; // Walrus network for correct aggregator URLs
   autoplay?: boolean;
   apiBaseUrl?: string;
@@ -95,6 +96,7 @@ export function useEncryptedVideo(
         // Step 1: Create session manager
         sessionManagerRef.current = new SessionManager({
           videoId: options.videoId,
+          walletAddress: options.walletAddress,
           apiBaseUrl: options.apiBaseUrl,
           onSessionExpired: () => {
             if (options.onSessionExpired) {

@@ -7,6 +7,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useEncryptedVideo } from '@/lib/player/useEncryptedVideo';
+import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useWalletAuth } from '@/lib/hooks/useWalletAuth';
+import { ConnectWallet } from './ConnectWallet';
 import Hls from 'hls.js';
 
 export interface CustomVideoPlayerProps {
@@ -26,6 +29,15 @@ export function CustomVideoPlayer({
   autoplay = false,
   className = '',
 }: CustomVideoPlayerProps) {
+  // Get current wallet account and auth state
+  const currentAccount = useCurrentAccount();
+  const walletAddress = currentAccount?.address;
+  const { isAuthenticated, requestSignature, isLoading: authLoading } = useWalletAuth();
+
+  // Track if we need signature
+  const [needsSignature, setNeedsSignature] = useState(false);
+  const [signingInProgress, setSigningInProgress] = useState(false);
+
   const {
     videoRef,
     isLoading,
@@ -38,19 +50,43 @@ export function CustomVideoPlayer({
   } = useEncryptedVideo({
     videoId,
     videoUrl,
+    walletAddress, // Pass wallet address to video hook
     network,
-    autoplay,
+    autoplay: autoplay && !!walletAddress && isAuthenticated, // Only autoplay if wallet connected and authenticated
     onReady: () => {
       console.log('Video ready to play');
+      setNeedsSignature(false);
     },
     onError: (err) => {
       console.error('Video error:', err);
+      // Check if error is about signature
+      if (err.message.includes('SIGNATURE_REQUIRED')) {
+        console.log('[CustomVideoPlayer] Signature required, showing prompt');
+        setNeedsSignature(true);
+      }
     },
     onSessionExpired: () => {
       console.error('Session expired - please refresh');
       alert('Your session has expired. Please refresh the page.');
     },
   });
+
+  // Handle signature request
+  const handleRequestSignature = async () => {
+    setSigningInProgress(true);
+    try {
+      const success = await requestSignature();
+      if (success) {
+        console.log('[CustomVideoPlayer] Signature obtained, reloading page');
+        // Reload the page to reinitialize video with signature
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Failed to get signature:', error);
+    } finally {
+      setSigningInProgress(false);
+    }
+  };
 
   // Quality switching state
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -187,11 +223,62 @@ export function CustomVideoPlayer({
           className="w-full h-full"
           playsInline
           onClick={() => (isPlaying ? pause() : play())}
-          style={{ display: isLoading || error ? 'none' : 'block' }}
+          style={{ display: isLoading || error || !walletAddress ? 'none' : 'block' }}
         />
 
+        {/* Wallet Connection Required Overlay */}
+        {!walletAddress && !isLoading && !error && (
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="text-center max-w-md">
+              <div className="w-20 h-20 bg-walrus-mint/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-walrus-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-3">Wallet Connection Required</h3>
+              <p className="text-gray-400 mb-6 text-sm leading-relaxed">
+                To watch this encrypted video, please connect your wallet. This ensures secure access tracking.
+              </p>
+              <div className="flex justify-center">
+                <ConnectWallet />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Signature Required Overlay */}
+        {walletAddress && needsSignature && !isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="text-center max-w-md">
+              <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-3">Signature Required</h3>
+              <p className="text-gray-400 mb-6 text-sm leading-relaxed">
+                Please sign a message with your wallet to verify ownership and access this video.
+              </p>
+              <button
+                onClick={handleRequestSignature}
+                disabled={signingInProgress}
+                className="px-6 py-3 bg-walrus-mint hover:bg-mint-800 text-walrus-black font-semibold rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {signingInProgress ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-walrus-black border-t-transparent rounded-full animate-spin"></div>
+                    Requesting Signature...
+                  </span>
+                ) : (
+                  'Sign Message'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Loading State Overlay */}
-        {isLoading && (
+        {walletAddress && isLoading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
               <div className="w-16 h-16 border-4 border-walrus-mint border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -212,7 +299,7 @@ export function CustomVideoPlayer({
         )}
 
         {/* Custom Controls Overlay */}
-        {!isLoading && !error && (
+        {walletAddress && !isLoading && !error && (
           <div className="absolute inset-0 bg-gradient-to-t from-walrus-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end">
             <div className="p-4 space-y-3">
               {/* Progress Bar */}

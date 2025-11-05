@@ -7,6 +7,7 @@
  * - Key caching
  * - Session refresh
  * - Error handling
+ * - Signature verification
  */
 
 'use client';
@@ -14,9 +15,11 @@
 import { generateX25519Keypair } from '../crypto/primitives';
 import { deriveClientKek, unwrapSegmentDek } from '../crypto/client';
 import { toBase64, fromBase64 } from '../crypto/utils';
+import Cookies from 'js-cookie';
 
 export interface SessionConfig {
   videoId: string;
+  walletAddress?: string; // User's wallet address for access tracking
   apiBaseUrl?: string;
   onSessionExpired?: () => void;
   onError?: (error: Error) => void;
@@ -114,6 +117,46 @@ export class SessionManager {
   }
 
   /**
+   * Check if signature exists and is valid
+   */
+  private async checkSignature(): Promise<boolean> {
+    const signature = Cookies.get('signature');
+    const message = Cookies.get('signature_message');
+    const address = Cookies.get('signature_address');
+
+    if (!signature || !message || !address) {
+      console.log('[SessionManager] No signature found in cookies');
+      return false;
+    }
+
+    // Check if signature address matches current wallet address
+    if (this.config.walletAddress && address.toLowerCase() !== this.config.walletAddress.toLowerCase()) {
+      console.log('[SessionManager] Signature address mismatch');
+      return false;
+    }
+
+    // Verify signature with backend
+    try {
+      const response = await fetch('/api/test/signature_verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.error('[SessionManager] Signature verification failed:', response.statusText);
+        return false;
+      }
+
+      const data = await response.json();
+      console.log('[SessionManager] Signature verification result:', data.verified);
+      return data.verified === true;
+    } catch (error) {
+      console.error('[SessionManager] Signature verification error:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get unwrapped DEK for a segment (DEMO MODE - no session required)
    */
   async getSegmentKey(rendition: string, segIdx: number): Promise<SegmentKey> {
@@ -127,10 +170,21 @@ export class SessionManager {
 
     console.log(`[SessionManager] Fetching key: ${rendition} segment ${segIdx}`);
 
+    // Require wallet address
+    if (!this.config.walletAddress) {
+      throw new Error('Wallet address required for video playback');
+    }
+
+    // Check signature before allowing key retrieval
+    const hasValidSignature = await this.checkSignature();
+    if (!hasValidSignature) {
+      throw new Error('SIGNATURE_REQUIRED: Please sign the authentication message to access video content');
+    }
+
     // DEMO MODE: Fetch DEK directly (no session wrapping)
     const videoId = this.config.videoId; // Use videoId from config directly
     const response = await fetch(
-      `${this.apiBaseUrl}/v1/key?videoId=${videoId}&rendition=${rendition}&segIdx=${segIdx}`,
+      `${this.apiBaseUrl}/v1/key?videoId=${videoId}&rendition=${rendition}&segIdx=${segIdx}&walletAddress=${encodeURIComponent(this.config.walletAddress)}`,
       {
         credentials: 'include',
       }

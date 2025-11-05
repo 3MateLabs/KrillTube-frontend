@@ -112,3 +112,17 @@ model Video {
   @@index([creatorId])
   @@map("videos")
 }
+
+model SegmentAccess {
+  id            String   @id @default(cuid())
+  videoId       String   @map("video_id")
+  segIdx        Int      @map("seg_idx")
+  walletAddress String   @map("wallet_address")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([videoId, segIdx, walletAddress])
+  @@index([videoId])
+  @@index([walletAddress])
+  @@index([createdAt])
+  @@map("segment_access")
+}

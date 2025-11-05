@@ -38,11 +38,19 @@ export async function GET(request: NextRequest) {
     const videoId = searchParams.get('videoId');
     const rendition = searchParams.get('rendition');
     const segIdxStr = searchParams.get('segIdx');
+    const walletAddress = searchParams.get('walletAddress');
 
     if (!videoId || !rendition || segIdxStr === null) {
       return NextResponse.json(
         { error: 'Missing required parameters: videoId, rendition, segIdx' },
         { status: 400 }
+      );
+    }
+
+    if (!walletAddress) {
+      return NextResponse.json(
+        { error: 'Wallet address required for video playback' },
+        { status: 401 }
       );
     }
 
@@ -105,6 +113,29 @@ export async function GET(request: NextRequest) {
     // DEMO MODE: Just decrypt the DEK and return it directly (no session wrapping)
     const dekBytes = await decryptDek(segment.dekEnc);
     console.log(`  ✓ Decrypted segment DEK`);
+
+    // Record segment access (upsert to handle duplicate access attempts)
+    try {
+      await prisma.segmentAccess.upsert({
+        where: {
+          videoId_segIdx_walletAddress: {
+            videoId,
+            segIdx,
+            walletAddress,
+          },
+        },
+        update: {}, // Don't update anything if already exists
+        create: {
+          videoId,
+          segIdx,
+          walletAddress,
+        },
+      });
+      console.log(`  ✓ Recorded segment access for wallet ${walletAddress.slice(0, 8)}...`);
+    } catch (error) {
+      console.error(`  ⚠ Failed to record segment access:`, error);
+      // Don't fail the request if logging fails
+    }
 
     const duration = Date.now() - startTime;
     console.log(`  ✓ Request completed in ${duration}ms`);
