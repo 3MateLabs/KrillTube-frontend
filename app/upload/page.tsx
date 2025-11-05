@@ -475,6 +475,7 @@ function UploadContent() {
           qualities: selectedQualities,
           // Cap epochs to network-specific maximums (testnet: 53, mainnet: 53)
           epochs: walrusNetwork === 'mainnet' ? storageEpochs : Math.min(storageEpochs, 53),
+          network: walrusNetwork, // Pass network to get accurate Walrus SDK pricing
         }),
       });
 

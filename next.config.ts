@@ -73,10 +73,16 @@ const nextConfig: NextConfig = {
       layers: true,
     };
 
-    // Configure WASM output path and add fix plugin for production builds
-    if (!dev && isServer) {
-      config.output.webassemblyModuleFilename = "chunks/[id].wasm";
-      config.plugins.push(new WasmChunksFixPlugin());
+    // Configure WASM output path
+    if (isServer) {
+      config.output.webassemblyModuleFilename = dev
+        ? "static/wasm/[modulehash].wasm"
+        : "chunks/[id].wasm";
+
+      // Add fix plugin for production builds
+      if (!dev) {
+        config.plugins.push(new WasmChunksFixPlugin());
+      }
     }
 
     // Ignore WASM resolution errors

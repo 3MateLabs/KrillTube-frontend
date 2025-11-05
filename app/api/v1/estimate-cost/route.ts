@@ -1,26 +1,25 @@
 /**
  * API Route: /v1/estimate-cost
- * Estimate Walrus storage costs for a video upload
+ * Estimate Walrus storage costs for a video upload using actual Walrus SDK pricing
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
-
-const WALRUS_COST_PER_MB = 0.000145; // WAL per MB (approximate mainnet cost)
-const WALRUS_WRITE_COST = 0.00001; // Fixed write cost per object
+import { calculateStorageCost } from '@/lib/server-walrus-sdk';
 
 /**
  * POST /v1/estimate-cost
- * Estimate storage costs based on file size and qualities
+ * Estimate storage costs based on file size and qualities using Walrus SDK
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { fileSizeMB, qualities, epochs = 1 } = body as {
+    const { fileSizeMB, qualities, epochs = 1, network = 'mainnet' } = body as {
       fileSizeMB: number;
       qualities: string[];
       epochs?: number;
+      network?: 'mainnet' | 'testnet';
     };
 
     if (!fileSizeMB || !qualities || qualities.length === 0) {
@@ -51,21 +50,29 @@ export async function POST(request: NextRequest) {
 
     // Add overhead for playlists, init segments, poster (~10%)
     const totalStorageMB = totalTranscodedSizeMB * 1.1;
+    const totalStorageBytes = Math.ceil(totalStorageMB * 1024 * 1024);
 
-    // Calculate costs (storage cost scales linearly with epochs)
-    const storageCost = totalStorageMB * WALRUS_COST_PER_MB * epochs;
-    const writeCost = WALRUS_WRITE_COST * (qualities.length + 2); // Playlists + master + poster
-    const totalWal = storageCost + writeCost;
+    // Use actual Walrus SDK to calculate costs
+    const cost = await calculateStorageCost(totalStorageBytes, {
+      network,
+      epochs,
+    });
+
+    // Convert from MIST to WAL
+    const totalCostWal = Number(cost.totalCost) / 1_000_000_000;
+    const storageCostWal = Number(cost.storageCost) / 1_000_000_000;
+    const writeCostWal = Number(cost.writeCost) / 1_000_000_000;
 
     // Get USD price
     const walPrice = await getCachedWalPrice();
-    const totalUsd = walToUsd(totalWal, walPrice);
-    const storageUsd = walToUsd(storageCost, walPrice);
-    const writeUsd = walToUsd(writeCost, walPrice);
+    const totalUsd = walToUsd(totalCostWal, walPrice);
+    const storageUsd = walToUsd(storageCostWal, walPrice);
+    const writeUsd = walToUsd(writeCostWal, walPrice);
 
-    console.log(`[API Estimate Cost] File: ${fileSizeMB.toFixed(2)} MB, Qualities: ${qualities.join(', ')}, Epochs: ${epochs}`);
-    console.log(`[API Estimate Cost] Estimated storage: ${totalStorageMB.toFixed(2)} MB`);
-    console.log(`[API Estimate Cost] Total cost: ${totalWal.toFixed(6)} WAL (~${formatUsd(totalUsd)})`);
+    console.log(`[API Estimate Cost] File: ${fileSizeMB.toFixed(2)} MB, Qualities: ${qualities.join(', ')}, Epochs: ${epochs}, Network: ${network}`);
+    console.log(`[API Estimate Cost] Estimated storage: ${totalStorageMB.toFixed(2)} MB (${totalStorageBytes} bytes)`);
+    console.log(`[API Estimate Cost] Walrus SDK cost: ${totalCostWal.toFixed(6)} WAL (~${formatUsd(totalUsd)})`);
+    console.log(`[API Estimate Cost] Breakdown: Storage=${storageCostWal.toFixed(6)} WAL, Write=${writeCostWal.toFixed(6)} WAL`);
 
     // Use more decimal places for very small USD amounts
     const formatSmallUsd = (usd: number) => {
@@ -81,22 +88,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       estimate: {
-        totalWal: totalWal.toFixed(6),
+        totalWal: totalCostWal.toFixed(6),
         totalUsd: formatSmallUsd(totalUsd),
-        totalMist: Math.floor(totalWal * 1_000_000_000).toString(),
+        totalMist: cost.totalCost.toString(),
         storageMB: totalStorageMB.toFixed(2),
         epochs,
+        network,
         breakdown: {
           storage: {
-            wal: storageCost.toFixed(6),
+            wal: storageCostWal.toFixed(6),
             usd: formatSmallUsd(storageUsd),
+            mist: cost.storageCost.toString(),
           },
           write: {
-            wal: writeCost.toFixed(6),
+            wal: writeCostWal.toFixed(6),
             usd: formatSmallUsd(writeUsd),
+            mist: cost.writeCost.toString(),
           },
         },
         walPriceUsd: walPrice,
+        // Note: This uses estimated transcoded size - actual size may vary
+        note: 'Cost calculated using empirical Walrus pricing formula (Jan 2025). Includes erasure coding expansion. Add 50x buffer for safety.',
       },
     });
   } catch (error) {
