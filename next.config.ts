@@ -58,6 +58,10 @@ const nextConfig: NextConfig = {
         hostname: 'aggregator.walrus.space',
         pathname: '/v1/blobs/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
     ],
     // Increase timeout for slow Walrus responses
     minimumCacheTTL: 60,
