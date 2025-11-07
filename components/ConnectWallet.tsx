@@ -16,25 +16,26 @@ export function ConnectWallet() {
 
       <style jsx global>{`
         .wallet-button-wrapper button {
-          background: linear-gradient(135deg, var(--mint-700) 0%, var(--mint-800) 100%) !important;
-          color: var(--walrus-black) !important;
-          font-weight: 600 !important;
-          font-size: 0.875rem !important;
-          padding: 0.625rem 1.25rem !important;
-          border-radius: 0.75rem !important;
-          border: none !important;
-          transition: all 0.3s ease !important;
-          box-shadow: 0 4px 12px rgba(151, 240, 229, 0.2) !important;
+          background: white !important;
+          color: black !important;
+          font-weight: 700 !important;
+          font-size: 1rem !important;
+          padding: 0.5rem 1.5rem !important;
+          border-radius: 32px !important;
+          border: 3px solid black !important;
+          outline: 3px solid black !important;
+          transition: all 0.2s ease !important;
+          box-shadow: none !important;
         }
 
         .wallet-button-wrapper button:hover {
-          transform: scale(1.05) !important;
-          box-shadow: 0 6px 20px rgba(151, 240, 229, 0.35) !important;
-          background: linear-gradient(135deg, var(--mint-600) 0%, var(--mint-700) 100%) !important;
+          transform: translate(2px, 2px) !important;
+          box-shadow: 3px 3px 0 1px rgba(0, 0, 0, 1) !important;
         }
 
         .wallet-button-wrapper button:active {
-          transform: scale(0.98) !important;
+          transform: translate(0, 0) !important;
+          box-shadow: none !important;
         }
 
         /* Disconnect button styling */

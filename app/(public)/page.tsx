@@ -3,6 +3,7 @@
 import { ChevronRight, Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ConnectWallet } from '@/components/ConnectWallet';
 
 export default function KrillTubeLanding() {
   return (
@@ -57,11 +58,9 @@ export default function KrillTubeLanding() {
               >
                 Upload
               </Link>
-              <button
-                className="hidden md:block bg-white text-black font-bold px-6 py-2 rounded-[32px] outline outline-[3px] outline-black hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all"
-              >
-                Connect Wallet
-              </button>
+              <div className="hidden md:block">
+                <ConnectWallet />
+              </div>
             </div>
           </div>
         </nav>
