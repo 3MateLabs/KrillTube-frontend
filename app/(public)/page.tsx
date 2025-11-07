@@ -119,7 +119,7 @@ export default function KrillTubeLanding() {
       <div className="relative bg-gradient-to-br from-sky-700 via-sky-700 to-cyan-500 pt-32 pb-20 rounded-tl-[80px] rounded-tr-[80px] -mt-20">
         {/* Recommendations Carousel */}
         <div className="w-full mx-auto inline-flex flex-col justify-start items-center gap-2 overflow-hidden">
-          <div className="justify-start text-[#FFF] text-[32px] font-normal font-['Fredoka_One'] leading-normal">Recommendations</div>
+          <div className="justify-start text-[#FFF] text-[32px] font-normal font-['Outfit'] leading-normal">Recommendations</div>
           <div className="relative w-full">
             <div className="overflow-x-auto scrollbar-hide">
               <div className="inline-flex justify-start items-center gap-6 px-4 animate-scroll">
@@ -186,7 +186,7 @@ export default function KrillTubeLanding() {
 
             {/* Title - Playbook */}
             <div className="left-[547px] top-[113px] absolute inline-flex justify-start items-center gap-[5px]">
-              <div className="justify-start text-black text-3xl font-normal font-['Fredoka_One']">Playbook</div>
+              <div className="justify-start text-black text-3xl font-normal font-['Outfit']">Playbook</div>
               <img className="w-16 h-16" src="/image 16.png" alt="Ship" />
             </div>
 
@@ -216,7 +216,7 @@ export default function KrillTubeLanding() {
         <section id="perks" className="relative flex justify-center items-center px-4 md:px-8 py-20">
           <div className="w-[1224px] inline-flex flex-col justify-start items-start gap-3.5">
             <div className="self-stretch inline-flex justify-center items-center gap-2.5">
-              <div className="flex-1 text-center justify-start text-white text-3xl font-normal font-['Fredoka_One']">Perks</div>
+              <div className="flex-1 text-center justify-start text-white text-3xl font-normal font-['Outfit']">Perks</div>
             </div>
             <div className="self-stretch p-6 rounded-[32px] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col justify-start items-start gap-2.5 relative">
               {/* Walrus Mascot - positioned at top right */}
