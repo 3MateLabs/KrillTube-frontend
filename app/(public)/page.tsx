@@ -70,7 +70,7 @@ export default function KrillTubeLanding() {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             {/* Left side - Text content */}
             <div className="w-full lg:w-[600px] p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-4 overflow-hidden">
-              <h1 className="self-stretch justify-start text-black text-5xl font-normal font-['Outfit'] leading-tight">
+              <h1 className="self-stretch justify-start text-black text-5xl font-normal font-['Aclonica'] leading-tight">
                 Fuel the Ocean. Empower Creators.
               </h1>
               <p className="self-stretch justify-start text-red-600 text-base font-medium font-['Outfit']">
@@ -125,7 +125,7 @@ export default function KrillTubeLanding() {
       <div className="relative bg-gradient-to-br from-sky-700 via-sky-700 to-cyan-500 pt-32 pb-20 rounded-tl-[80px] rounded-tr-[80px] -mt-20">
         {/* Recommendations Carousel */}
         <div className="w-full mx-auto inline-flex flex-col justify-start items-center gap-2 overflow-hidden">
-          <div className="justify-start text-[#FFF] text-[32px] font-normal font-['Outfit'] leading-normal">Recommendations</div>
+          <div style={{color: 'white', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Recommendations</div>
           <div className="relative w-full">
             <div className="overflow-x-auto scrollbar-hide">
               <div className="inline-flex justify-start items-center gap-6 px-4 animate-scroll">
