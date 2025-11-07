@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter_Tight } from "next/font/google";
-import "./globals.css";
-import { Providers } from "./providers";
+import "../globals.css";
 
 const interTight = Inter_Tight({
   variable: "--font-sans",
@@ -11,13 +10,10 @@ const interTight = Inter_Tight({
 
 export const metadata: Metadata = {
   title: "KrillTube - Decentralized Video Platform",
-  description: "Upload, transcode, and stream videos on Walrus storage",
-  icons: {
-    icon: "/logos/krilll.png",
-  },
+  description: "A decentralized video ocean where fans fuel creation. Powered by Walrus, driven by krill.",
 };
 
-export default function RootLayout({
+export default function PublicLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -25,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${interTight.variable} antialiased`}>
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );
