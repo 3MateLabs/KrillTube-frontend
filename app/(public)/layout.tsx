@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Inter_Tight } from "next/font/google";
+import { Outfit } from "next/font/google";
 import "../globals.css";
 
-const interTight = Inter_Tight({
+const outfit = Outfit({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -20,7 +20,7 @@ export default function PublicLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${interTight.variable} antialiased`}>
+      <body className={`${outfit.variable} antialiased`}>
         {children}
       </body>
     </html>

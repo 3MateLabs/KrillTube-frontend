@@ -21,13 +21,13 @@ export default function KrillTubeLanding() {
         />
 
         {/* Navbar */}
-        <nav className="relative top-0 left-0 right-0 bg-[#1E40AF] border-b-[6px] border-black p-3 md:px-24 z-50">
+        <nav className="relative top-0 left-0 right-0 bg-[#1AAACE] border-b-[6px] border-black p-3 md:px-24 z-50">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-8 lg:gap-16">
               <Link href="/" className="bg-black rounded-full px-6 py-2">
                 <span className="text-white font-bold text-lg">LOGO</span>
               </Link>
-              <div className="hidden md:block bg-white/20 backdrop-blur-md outline outline-[3px] outline-black rounded-[48px] p-2">
+              <div className="hidden md:block bg-black backdrop-blur-md outline outline-[3px] outline-black rounded-[48px] p-2">
                 <div className="flex gap-2">
                   {[
                     { label: 'Home', href: '/' },
@@ -41,7 +41,7 @@ export default function KrillTubeLanding() {
                       href={item.href}
                       className={`px-4 py-2 rounded-full font-medium transition-all ${
                         item.label === 'Home'
-                          ? 'bg-red-600 text-white'
+                          ? 'bg-[#CF2C2F] text-white'
                           : 'text-white hover:bg-white/20'
                       }`}
                     >
@@ -54,7 +54,7 @@ export default function KrillTubeLanding() {
             <div className="flex gap-4">
               <Link
                 href="/upload"
-                className="bg-white text-black font-bold px-4 md:px-6 py-2 rounded-[32px] outline outline-[3px] outline-black hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm md:text-base"
+                className="bg-white text-black font-bold px-6 py-2 rounded-[32px] outline outline-[3px] outline-black hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-base w-[86px] whitespace-nowrap flex items-center justify-center"
               >
                 Upload
               </Link>
@@ -84,14 +84,20 @@ export default function KrillTubeLanding() {
           <div className="absolute left-4 md:left-28 top-[420px] md:top-[516px] flex flex-wrap gap-4">
             <Link
               href="/home"
-              className="bg-red-600 text-white font-semibold px-6 py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2"
+              className="bg-[#EF4330] text-white font-semibold px-6 py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2"
             >
-              Start Watching <Play className="w-5 h-5" fill="white" />
+              Start Watching
+              <div className="w-7 h-7 p-1.5 bg-black rounded-full flex justify-center items-center">
+                <Play className="w-4 h-4 text-white" fill="white" />
+              </div>
             </Link>
             <button
               className="bg-white text-black font-semibold px-6 py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2"
             >
-              Learn More <ChevronRight className="w-5 h-5" />
+              Learn More
+              <div className="w-7 h-7 p-1.5 bg-black rounded-full flex justify-center items-center">
+                <ChevronRight className="w-4 h-4 text-white rotate-90" />
+              </div>
             </button>
           </div>
         </div>
@@ -186,7 +192,7 @@ export default function KrillTubeLanding() {
 
             {/* Title - Playbook */}
             <div className="left-[547px] top-[113px] absolute inline-flex justify-start items-center gap-[5px]">
-              <div className="justify-start text-black text-3xl font-normal font-['Outfit']">Playbook</div>
+              <div style={{color: 'var(--black, black)', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Playbook</div>
               <img className="w-16 h-16" src="/image 16.png" alt="Ship" />
             </div>
 
@@ -216,7 +222,7 @@ export default function KrillTubeLanding() {
         <section id="perks" className="relative flex justify-center items-center px-4 md:px-8 py-20">
           <div className="w-[1224px] inline-flex flex-col justify-start items-start gap-3.5">
             <div className="self-stretch inline-flex justify-center items-center gap-2.5">
-              <div className="flex-1 text-center justify-start text-white text-3xl font-normal font-['Outfit']">Perks</div>
+              <div className="flex-1 text-center" style={{color: 'white', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Perks</div>
             </div>
             <div className="self-stretch p-6 rounded-[32px] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col justify-start items-start gap-2.5 relative">
               {/* Walrus Mascot - positioned at top right */}
@@ -246,7 +252,7 @@ export default function KrillTubeLanding() {
             {/* Decorative image - positioned to the right of the title */}
             <img className="w-44 h-44 absolute -top-16 right-32" src="/47457298-c279-46a7-9d48-e0a9ed829bee 1.png" alt="Decoration" />
 
-            <div className="self-stretch text-center justify-start text-[#E63946] text-3xl font-bold font-['Outfit']">Frequently Asked Questions (FAQs)</div>
+            <div className="self-stretch text-center" style={{color: '#E63946', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Frequently Asked Questions (FAQs)</div>
             <div className="self-stretch flex flex-col justify-start items-start gap-3">
               {[
                 { q: 'What is KrillTube?', a: 'KrillTube is a decentralized video platform powered by Walrus storage and built on the Sui blockchain.' },
