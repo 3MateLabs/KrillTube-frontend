@@ -12,7 +12,7 @@ export default function KrillTubeLanding() {
       <div className="relative min-h-screen bg-sky-800">
         {/* Ocean Background Image - positioned to start from top */}
         <Image
-          src="/image 13.png"
+          src="/image 21.png"
           alt="Ocean background"
           width={1440}
           height={1024}
@@ -103,7 +103,7 @@ export default function KrillTubeLanding() {
         </div>
 
         {/* Stats Card - overlapping the bottom */}
-        <div className="absolute bottom-[-15px] left-1/2 -translate-x-1/2 z-50 px-4">
+        <div className="absolute bottom-[310px] left-1/2 -translate-x-1/2 z-50 px-4">
           <div className="w-[808px] px-8 py-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-black inline-flex justify-between items-start overflow-hidden">
             <div className="flex-1 inline-flex flex-col justify-start items-start">
               <div className="self-stretch text-center justify-start text-black text-5xl font-extrabold font-['Outfit'] leading-[66px]">+7000</div>
@@ -122,7 +122,7 @@ export default function KrillTubeLanding() {
       </div>
 
       {/* Gradient Section with rounded top */}
-      <div className="relative bg-gradient-to-br from-sky-700 via-sky-700 to-cyan-500 pt-32 pb-20 rounded-tl-[80px] rounded-tr-[80px] -mt-20">
+      <div className="relative pt-32 pb-20 rounded-tl-[80px] rounded-tr-[80px] outline outline-[4px] outline-black" style={{background: 'linear-gradient(131deg, #00579B 0%, #0B79B0 44%, #1AAACE 100%)', marginTop: '-400px'}}>
         {/* Recommendations Carousel */}
         <div className="w-full mx-auto inline-flex flex-col justify-start items-center gap-2 overflow-hidden">
           <div style={{color: 'white', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Recommendations</div>
