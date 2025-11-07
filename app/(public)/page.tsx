@@ -70,7 +70,7 @@ export default function KrillTubeLanding() {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
             {/* Left side - Text content */}
             <div className="w-full lg:w-[600px] p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-4 overflow-hidden">
-              <h1 className="self-stretch justify-start text-black text-5xl font-normal font-['Aclonica'] leading-tight">
+              <h1 className="self-stretch justify-start text-black text-5xl font-normal font-['Outfit'] leading-tight">
                 Fuel the Ocean. Empower Creators.
               </h1>
               <p className="self-stretch justify-start text-red-600 text-base font-medium font-['Outfit']">
@@ -128,7 +128,7 @@ export default function KrillTubeLanding() {
                     <div className="w-96 flex flex-col justify-start items-start gap-6">
                       <img className="self-stretch h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black" src="https://placehold.co/392x237" alt={`Video ${i + 1}`} />
                       <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                        <div className="justify-start text-black text-base font-semibold font-['Montserrat'] [text-shadow:_0px_5px_10px_rgb(0_0_0_/_0.25)]">Walrus</div>
+                        <div className="justify-start text-black text-base font-semibold font-['Outfit'] [text-shadow:_0px_5px_10px_rgb(0_0_0_/_0.25)]">Walrus</div>
                         <div className="self-stretch inline-flex justify-between items-start">
                           <div className="inline-flex flex-col justify-start items-start gap-2">
                             <div className="justify-start text-black text-2xl font-bold font-['Outfit']">Haulout Hackathon</div>
@@ -279,7 +279,7 @@ export default function KrillTubeLanding() {
         <div className="w-[1224px] inline-flex flex-col justify-start items-start gap-4">
           <div className="self-stretch h-0 outline outline-2 outline-offset-[-1px] outline-black"></div>
           <div className="self-stretch inline-flex justify-between items-center">
-            <div className="justify-start text-black text-3xl font-bold font-['Montserrat']">LOGO</div>
+            <div className="justify-start text-black text-3xl font-bold font-['Outfit']">LOGO</div>
             <div className="flex justify-start items-center gap-4">
               <div className="justify-start text-white text-xl font-medium font-['Outfit']">2025. All rights reserved.</div>
               <div className="flex justify-start items-center gap-2.5">
