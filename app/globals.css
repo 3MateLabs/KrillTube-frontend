@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Outfit:wght@100..900&display=swap');
 
 /* PP NeueBit - Walrus Brand Font for Headers */
 /* Note: PP NeueBit is a commercial font. Font files should be placed in /public/fonts/ */
@@ -96,9 +96,9 @@
   --color-text-muted: var(--text-muted);
 
   /* Fonts - Per Walrus Brand Guidelines */
-  --font-sans: 'Inter Tight', system-ui, -apple-system, sans-serif;
-  --font-display: 'PP NeueBit', 'Inter Tight', system-ui, -apple-system, sans-serif;
-  --font-heading: 'PP NeueBit', 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'PP NeueBit', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-heading: 'PP NeueBit', 'Outfit', system-ui, -apple-system, sans-serif;
 }
 
 body {
@@ -265,4 +265,31 @@ body {
 .card-elevated:hover {
   background: var(--background-hover);
   border-color: var(--border);
+}
+
+/* Carousel styles */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 40s linear infinite;
+}
+
+.animate-scroll:hover {
+  animation-play-state: paused;
 }

@@ -34,17 +34,21 @@ export interface EncryptedSegment {
 export interface ClientUploadResult {
   videoId: string;
   walrusMasterUri: string;
+  masterBlobObjectId?: string; // Mainnet only - for extend/delete operations
   posterWalrusUri?: string;
+  posterBlobObjectId?: string; // Mainnet only - for extend/delete operations
   duration: number;
   renditions: Array<{
     quality: string;
     resolution: string;
     bitrate: number;
     walrusPlaylistUri: string;
+    playlistBlobObjectId?: string; // Mainnet only - for extend/delete operations
     segmentCount: number;
     segments: Array<{
       segIdx: number;
       walrusUri: string;
+      blobObjectId?: string; // Mainnet only - for extend/delete operations
       dek: string; // base64-encoded 16-byte DEK
       iv: string; // base64-encoded 12-byte IV
       duration: number;
@@ -273,48 +277,75 @@ export async function uploadVideoClientSide(
   }> = [];
 
   try {
-    // Upload segments in batches to show progress
-    const BATCH_SIZE = 5; // Upload 5 segments at a time
-    for (let i = 0; i < blobsToUpload.length; i += BATCH_SIZE) {
-      const batch = blobsToUpload.slice(i, i + BATCH_SIZE);
-      const progress = 60 + ((i + batch.length) / blobsToUpload.length) * 25; // 60-85%
+    // Upload segments in parallel batches for 4x speed improvement
+    const PARALLEL_BATCHES = 4; // Run 4 uploads in parallel
+    const SEGMENTS_PER_BATCH = 5; // 5 segments per upload transaction
+    const TOTAL_BATCH_SIZE = PARALLEL_BATCHES * SEGMENTS_PER_BATCH; // 20 segments at a time
+
+    console.log(`[Upload] Parallel upload strategy: ${PARALLEL_BATCHES} batches × ${SEGMENTS_PER_BATCH} segments = ${TOTAL_BATCH_SIZE} segments at once`);
+
+    for (let i = 0; i < blobsToUpload.length; i += TOTAL_BATCH_SIZE) {
+      // Create 4 parallel batches
+      const parallelBatches: Array<typeof blobsToUpload> = [];
+      for (let j = 0; j < PARALLEL_BATCHES; j++) {
+        const batchStart = i + (j * SEGMENTS_PER_BATCH);
+        const batchEnd = Math.min(batchStart + SEGMENTS_PER_BATCH, blobsToUpload.length);
+
+        if (batchStart < blobsToUpload.length) {
+          parallelBatches.push(blobsToUpload.slice(batchStart, batchEnd));
+        }
+      }
+
+      const progress = 60 + ((i + parallelBatches.reduce((sum, b) => sum + b.length, 0)) / blobsToUpload.length) * 25; // 60-85%
 
       onProgress?.({
         stage: 'uploading',
         percent: progress,
-        message: `Uploading segments ${i + 1}-${Math.min(i + BATCH_SIZE, blobsToUpload.length)}/${blobsToUpload.length}...`,
+        message: `Uploading segments ${i + 1}-${Math.min(i + TOTAL_BATCH_SIZE, blobsToUpload.length)}/${blobsToUpload.length} (${parallelBatches.length}x parallel)...`,
       });
 
-      const results = await uploadMultipleBlobsWithWallet(
-        batch,
-        signAndExecute,
-        walletAddress,
-        {
-          network,
-          epochs,
-          deletable: true,
-        }
+      // Upload all batches in parallel
+      console.log(`[Upload] Starting ${parallelBatches.length} parallel uploads...`);
+      const allResults = await Promise.all(
+        parallelBatches.map((batch, idx) => {
+          console.log(`[Upload] Batch ${idx + 1}: Uploading ${batch.length} segments...`);
+          return uploadMultipleBlobsWithWallet(
+            batch,
+            signAndExecute,
+            walletAddress,
+            {
+              network,
+              epochs,
+              deletable: true,
+            }
+          );
+        })
       );
 
-      segmentUploadResults.push(...results);
+      // Flatten results from all parallel uploads
+      allResults.forEach((results) => {
+        segmentUploadResults.push(...results);
+      });
 
       // Free segment data after upload
-      for (let j = i; j < i + batch.length; j++) {
+      const uploadedCount = parallelBatches.reduce((sum, b) => sum + b.length, 0);
+      for (let j = i; j < i + uploadedCount; j++) {
         // @ts-ignore
         encryptedSegments[j].data = null;
       }
 
-      console.log(`[Upload] ✓ Uploaded batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(blobsToUpload.length / BATCH_SIZE)}`);
+      console.log(`[Upload] ✓ Uploaded ${uploadedCount} segments in parallel (${parallelBatches.length} batches)`);
 
       // Log memory every batch
       if (performance && (performance as any).memory) {
         const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
-        console.log(`[Upload Memory] After ${i + batch.length} segments uploaded: ${memMB}MB used`);
+        console.log(`[Upload Memory] After ${i + uploadedCount} segments uploaded: ${memMB}MB used`);
       }
     }
 
     // Upload poster separately if exists
     let posterBlobId: string | undefined;
+    let posterBlobObjectId: string | undefined;
     if (transcoded.poster) {
       console.log(`[Upload] Uploading poster (${(transcoded.poster.length / 1024).toFixed(2)}KB)...`);
 
@@ -326,6 +357,7 @@ export async function uploadVideoClientSide(
       );
 
       posterBlobId = posterResults[0].blobId;
+      posterBlobObjectId = posterResults[0].blobObjectId;
       console.log(`[Upload] ✓ Uploaded poster: ${posterBlobId}`);
     }
 
@@ -463,6 +495,7 @@ export async function uploadVideoClientSide(
   });
 
   const masterWalrusUri = `${aggregatorUrl}/v1/blobs/${masterResults[0].blobId}`;
+  const masterBlobObjectId = masterResults[0].blobObjectId;
   const posterWalrusUri = posterBlobId
     ? `${aggregatorUrl}/v1/blobs/${posterBlobId}`
     : undefined;
@@ -477,6 +510,17 @@ export async function uploadVideoClientSide(
     message: 'Preparing registration...',
   });
 
+  // Build blob object ID maps
+  const segmentBlobObjectIdMap = new Map<string, string>();
+  segmentUploadResults.forEach((result) => {
+    segmentBlobObjectIdMap.set(result.identifier, result.blobObjectId);
+  });
+
+  const playlistBlobObjectIdMap = new Map<string, string>();
+  playlistResults.forEach((result) => {
+    playlistBlobObjectIdMap.set(result.identifier, result.blobObjectId);
+  });
+
   const renditions = qualities.map((quality) => {
     // Include ALL segments including init segment (segIdx: -1)
     const qualitySegments = encryptedSegments.filter(
@@ -484,6 +528,7 @@ export async function uploadVideoClientSide(
     );
 
     const playlistBlobId = playlistBlobIdMap.get(`${quality}_playlist`);
+    const playlistBlobObjectId = playlistBlobObjectIdMap.get(`${quality}_playlist`);
 
     if (!playlistBlobId) {
       throw new Error(`Missing blob ID for ${quality}_playlist in rendition`);
@@ -494,17 +539,20 @@ export async function uploadVideoClientSide(
       resolution: resolutionMap[quality] || '1280x720',
       bitrate: bitrateMap[quality] || 2800000,
       walrusPlaylistUri: `${aggregatorUrl}/v1/blobs/${playlistBlobId}`,
+      playlistBlobObjectId: network === 'mainnet' ? playlistBlobObjectId : undefined,
       segmentCount: qualitySegments.length,
       segments: qualitySegments.map((seg) => {
         // Handle init segment (segIdx: -1) vs media segments (segIdx: 0+)
         const identifier = seg.segIdx === -1 ? `${quality}_init` : `${quality}_seg_${seg.segIdx}`;
         const segBlobId = blobIdMap.get(identifier);
+        const segBlobObjectId = segmentBlobObjectIdMap.get(identifier);
         if (!segBlobId) {
           throw new Error(`Missing blob ID for ${identifier}`);
         }
         return {
           segIdx: seg.segIdx,
           walrusUri: `${aggregatorUrl}/v1/blobs/${segBlobId}`, // Use individual blob ID
+          blobObjectId: network === 'mainnet' ? segBlobObjectId : undefined, // Mainnet only - for extend/delete
           dek: seg.dek, // Include DEK for backend storage
           iv: seg.iv,
           duration: seg.duration,
@@ -521,7 +569,9 @@ export async function uploadVideoClientSide(
   const result = {
     videoId: masterBlobId, // Use blob ID for clean URLs like /watch/{blobId}
     walrusMasterUri: masterWalrusUri,
+    masterBlobObjectId: network === 'mainnet' ? masterBlobObjectId : undefined, // Mainnet only
     posterWalrusUri,
+    posterBlobObjectId: network === 'mainnet' ? posterBlobObjectId : undefined, // Mainnet only
     duration: transcoded.duration,
     renditions,
     paymentInfo: {

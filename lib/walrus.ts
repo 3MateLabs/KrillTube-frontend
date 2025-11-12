@@ -24,10 +24,14 @@ export interface WalrusConfig {
 interface QuiltBlob {
   identifier: string;
   quiltPatchId: string;
+  // Note: HTTP /v1/quilts endpoint does NOT return blob object metadata
+  // For mainnet delete/extend support, use SDK writeQuilt() or fetch blob status separately
 }
 
 interface WalrusQuiltResponse {
   storedQuiltBlobs?: QuiltBlob[];
+  // Note: Quilt responses don't include blobObject.id.id or storage.end_epoch
+  // These are only available in single blob uploads via /v1/blobs
 }
 
 export class WalrusClient {
@@ -56,48 +60,74 @@ export class WalrusClient {
   }
 
   /**
-   * Upload a single blob to Walrus
+   * Upload a single blob to Walrus with retry logic
    */
-  async uploadBlob(data: Buffer | Uint8Array, filename: string): Promise<WalrusUploadResult> {
-    try {
-      console.log(`[Walrus] Uploading ${filename} (${formatBytes(data.length)})...`);
+  async uploadBlob(data: Buffer | Uint8Array, filename: string, maxRetries = 3): Promise<WalrusUploadResult> {
+    let lastError: Error | null = null;
 
-      const response = await fetch(`${this.publisherUrl}/v1/blobs`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
-        body: data as BodyInit,
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[Walrus] Uploading ${filename} (${formatBytes(data.length)})... ${attempt > 1 ? `(attempt ${attempt}/${maxRetries})` : ''}`);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Walrus upload failed: ${response.statusText} - ${errorText}`);
+        const response = await fetch(`${this.publisherUrl}/v1/blobs?epochs=${this.epochs}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+          },
+          body: data as BodyInit,
+          // Increase timeout for large uploads
+          signal: AbortSignal.timeout(300000), // 5 minutes
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Walrus upload failed: ${response.statusText} - ${errorText}`);
+        }
+
+        const result = await response.json();
+
+        // Extract blob ID from response
+        const blobId = result.newlyCreated?.blobObject?.blobId ||
+                       result.alreadyCertified?.blobId;
+
+        if (!blobId) {
+          throw new Error('No blob ID in Walrus response');
+        }
+
+        const walrusUrl = `${this.aggregatorUrl}/v1/blobs/${blobId}`;
+
+        // Extract blob object metadata for mainnet (delete/extend operations)
+        const blobObjectId = result.newlyCreated?.blobObject?.id?.id ||
+                             result.alreadyCertified?.blobObject?.id?.id;
+        const endEpoch = result.newlyCreated?.blobObject?.storage?.end_epoch ||
+                         result.alreadyCertified?.blobObject?.storage?.end_epoch;
+
+        console.log(`[Walrus] ✓ Uploaded ${filename} → ${blobId.substring(0, 12)}...`);
+        if (this.config.network === 'mainnet' && blobObjectId) {
+          console.log(`[Walrus] Blob Object ID: ${blobObjectId.substring(0, 12)}..., End Epoch: ${endEpoch}`);
+        }
+
+        return {
+          blobId,
+          url: walrusUrl,
+          size: data.length,
+          blobObjectId: this.config.network === 'mainnet' ? blobObjectId : undefined,
+          endEpoch: this.config.network === 'mainnet' ? endEpoch : undefined,
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`[Walrus] Upload attempt ${attempt}/${maxRetries} failed for ${filename}:`, lastError.message);
+
+        if (attempt < maxRetries) {
+          // Exponential backoff: 2s, 4s, 8s...
+          const delayMs = Math.min(2000 * Math.pow(2, attempt - 1), 10000);
+          console.log(`[Walrus] Retrying in ${delayMs / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
-
-      const result = await response.json();
-
-      // Extract blob ID from response
-      const blobId = result.newlyCreated?.blobObject?.blobId ||
-                     result.alreadyCertified?.blobId;
-
-      if (!blobId) {
-        throw new Error('No blob ID in Walrus response');
-      }
-
-      const walrusUrl = `${this.aggregatorUrl}/v1/blobs/${blobId}`;
-
-      console.log(`[Walrus] ✓ Uploaded ${filename} → ${blobId.substring(0, 12)}...`);
-
-      return {
-        blobId,
-        url: walrusUrl,
-        size: data.length,
-      };
-    } catch (error) {
-      console.error(`[Walrus] Upload error for ${filename}:`, error);
-      throw new Error(`Failed to upload ${filename}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+
+    throw new Error(`Failed to upload ${filename} after ${maxRetries} attempts: ${lastError?.message}`);
   }
 
   /**

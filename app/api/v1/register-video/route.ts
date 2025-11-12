@@ -8,6 +8,7 @@ import { prisma, ensureDbConnected } from '@/lib/db';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
 import { encryptDek } from '@/lib/kms/envelope';
+import { walrusSDK } from '@/lib/walrus-sdk';
 
 /**
  * POST /v1/register-video
@@ -27,7 +28,9 @@ export async function POST(request: NextRequest) {
       title,
       creatorId,
       walrusMasterUri,
+      masterBlobObjectId,
       posterWalrusUri,
+      posterBlobObjectId,
       duration,
       network,
       renditions,
@@ -37,7 +40,9 @@ export async function POST(request: NextRequest) {
       title: string;
       creatorId: string;
       walrusMasterUri: string;
+      masterBlobObjectId?: string; // Mainnet only - for extend/delete operations
       posterWalrusUri?: string;
+      posterBlobObjectId?: string; // Mainnet only - for extend/delete operations
       duration: number;
       network?: 'mainnet' | 'testnet'; // Walrus network (optional, defaults to mainnet)
       renditions: Array<{
@@ -45,9 +50,11 @@ export async function POST(request: NextRequest) {
         resolution: string;
         bitrate: number;
         walrusPlaylistUri: string;
+        playlistBlobObjectId?: string; // Mainnet only - for extend/delete operations
         segments: Array<{
           segIdx: number;
           walrusUri: string;
+          blobObjectId?: string; // Mainnet only - for extend/delete operations
           dek: string; // Base64-encoded 16-byte DEK
           iv: string; // Base64-encoded 12-byte IV
           duration: number;
@@ -87,6 +94,27 @@ export async function POST(request: NextRequest) {
 
     // Ensure database is connected (handles Neon cold starts)
     await ensureDbConnected();
+    // For mainnet videos, fetch end epochs from blob metadata
+    let masterEndEpoch: number | null = null;
+    let posterEndEpoch: number | null = null;
+
+    if (network === 'mainnet' && masterBlobObjectId) {
+      try {
+        console.log(`[API Register Video] Fetching mainnet blob metadata for extend/delete support...`);
+        const masterMetadata = await walrusSDK.getBlobMetadata(masterBlobObjectId);
+        masterEndEpoch = masterMetadata.endEpoch;
+        console.log(`[API Register Video] Master playlist end epoch: ${masterEndEpoch}`);
+
+        if (posterBlobObjectId) {
+          const posterMetadata = await walrusSDK.getBlobMetadata(posterBlobObjectId);
+          posterEndEpoch = posterMetadata.endEpoch;
+          console.log(`[API Register Video] Poster end epoch: ${posterEndEpoch}`);
+        }
+      } catch (error) {
+        console.error(`[API Register Video] Failed to fetch blob metadata:`, error);
+        // Non-fatal: Continue without end epochs (extend/delete won't work but video still registers)
+      }
+    }
 
     // Store video metadata in database
     const video = await prisma.video.create({
@@ -94,7 +122,11 @@ export async function POST(request: NextRequest) {
         id: videoId,
         title,
         walrusMasterUri,
+        masterBlobObjectId: masterBlobObjectId || null, // Mainnet only
+        masterEndEpoch: masterEndEpoch, // Mainnet only
         posterWalrusUri: posterWalrusUri || null,
+        posterBlobObjectId: posterBlobObjectId || null, // Mainnet only
+        posterEndEpoch: posterEndEpoch, // Mainnet only
         duration,
         network: network || 'mainnet', // Save Walrus network (defaults to mainnet)
         creatorId,
@@ -105,6 +137,7 @@ export async function POST(request: NextRequest) {
               resolution: rendition.resolution,
               bitrate: rendition.bitrate,
               walrusPlaylistUri: rendition.walrusPlaylistUri,
+              playlistBlobObjectId: rendition.playlistBlobObjectId || null, // Mainnet only
               segments: {
                 create: await Promise.all(
                   rendition.segments.map(async (segment) => {
@@ -118,6 +151,7 @@ export async function POST(request: NextRequest) {
                     return {
                       segIdx: segment.segIdx,
                       walrusUri: segment.walrusUri,
+                      blobObjectId: segment.blobObjectId || null, // Mainnet only
                       dekEnc: Buffer.from(dekEncrypted), // Store KMS-encrypted DEK
                       iv: Buffer.from(segment.iv, 'base64'),
                       duration: segment.duration,

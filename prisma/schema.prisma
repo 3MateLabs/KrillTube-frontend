@@ -7,44 +7,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model asset_revisions {
-  id              String   @id
-  asset_id        String
-  manifest_json   Json
-  walrus_root_uri String
-  created_at      DateTime @default(now())
-  assets          assets   @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+model AssetRevision {
+  id            String   @id
+  assetId       String   @map("asset_id")
+  manifestJson  Json     @map("manifest_json")
+  walrusRootUri String   @map("walrus_root_uri")
+  createdAt     DateTime @default(now()) @map("created_at")
+  asset         Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([asset_id])
+  @@index([assetId])
+  @@map("asset_revisions")
 }
 
-model assets {
-  id              String            @id
-  creator_id      String
-  title           String
-  status          String            @default("uploading")
-  created_at      DateTime          @default(now())
-  updated_at      DateTime
-  asset_revisions asset_revisions[]
+model Asset {
+  id        String          @id
+  creatorId String          @map("creator_id")
+  title     String
+  status    String          @default("uploading")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @map("updated_at")
+  revisions AssetRevision[]
 
-  @@index([created_at])
-  @@index([creator_id])
+  @@index([createdAt])
+  @@index([creatorId])
   @@index([status])
+  @@map("assets")
 }
 
-model playback_logs {
-  id         String   @id
-  session_id String
-  video_id   String
-  seg_idx    Int
-  rendition  String
-  timestamp  DateTime @default(now())
-  ip         String?
-  user_agent String?
+model PlaybackLog {
+  id        String   @id
+  sessionId String   @map("session_id")
+  videoId   String   @map("video_id")
+  segIdx    Int      @map("seg_idx")
+  rendition String
+  timestamp DateTime @default(now())
+  ip        String?
+  userAgent String?  @map("user_agent")
 
-  @@index([session_id])
+  @@index([sessionId])
   @@index([timestamp])
-  @@index([video_id])
+  @@index([videoId])
+  @@map("playback_logs")
 }
 
 model PlaybackSession {
@@ -67,49 +70,61 @@ model PlaybackSession {
 }
 
 model VideoRendition {
-  id                String         @id @default(cuid())
-  videoId           String         @map("video_id")
-  name              String
-  walrusPlaylistUri String         @map("walrus_playlist_uri")
-  resolution        String
-  bitrate           Int
-  video             Video          @relation("VideoToVideoRendition", fields: [videoId], references: [id], onDelete: Cascade)
-  segments          VideoSegment[] @relation("VideoRenditionToVideoSegment")
+  id                     String         @id @default(cuid())
+  videoId                String         @map("video_id")
+  name                   String
+  walrusPlaylistUri      String         @map("walrus_playlist_uri")
+  playlistBlobObjectId   String?        @map("playlist_blob_object_id") // Sui blob object ID (mainnet only)
+  playlistEndEpoch       Int?           @map("playlist_end_epoch") // Walrus storage expiry epoch (mainnet only)
+  resolution             String
+  bitrate                Int
+  video                  Video          @relation("VideoToVideoRendition", fields: [videoId], references: [id], onDelete: Cascade)
+  segments               VideoSegment[] @relation("VideoRenditionToVideoSegment")
 
   @@unique([videoId, name])
+  @@index([playlistBlobObjectId])
   @@map("video_renditions")
 }
 
 model VideoSegment {
-  id          String         @id @default(cuid())
-  renditionId String         @map("rendition_id")
-  segIdx      Int            @map("seg_idx")
-  walrusUri   String         @map("walrus_uri")
-  iv          Bytes
-  duration    Float
-  size        Int
-  dekEnc      Bytes          @map("dek_enc")
-  rendition   VideoRendition @relation("VideoRenditionToVideoSegment", fields: [renditionId], references: [id], onDelete: Cascade)
+  id           String         @id @default(cuid())
+  renditionId  String         @map("rendition_id")
+  segIdx       Int            @map("seg_idx")
+  walrusUri    String         @map("walrus_uri")
+  blobObjectId String?        @map("blob_object_id") // Sui blob object ID (mainnet only)
+  endEpoch     Int?           @map("end_epoch") // Walrus storage expiry epoch (mainnet only)
+  iv           Bytes
+  duration     Float
+  size         Int
+  dekEnc       Bytes          @map("dek_enc")
+  rendition    VideoRendition @relation("VideoRenditionToVideoSegment", fields: [renditionId], references: [id], onDelete: Cascade)
 
   @@unique([renditionId, segIdx])
   @@index([renditionId])
+  @@index([blobObjectId])
   @@map("video_segments")
 }
 
 model Video {
-  id              String            @id @default(cuid())
-  title           String
-  walrusMasterUri String            @map("walrus_master_uri")
-  posterWalrusUri String?           @map("poster_walrus_uri")
-  duration        Float?
-  network         String            @default("mainnet") // Walrus network: "mainnet" or "testnet"
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
-  creatorId       String            @map("creator_id")
-  sessions        PlaybackSession[] @relation("VideoToPlaybackSession")
-  renditions      VideoRendition[]  @relation("VideoToVideoRendition")
+  id                   String            @id @default(cuid())
+  title                String
+  walrusMasterUri      String            @map("walrus_master_uri")
+  masterBlobObjectId   String?           @map("master_blob_object_id") // Sui blob object ID for master playlist (mainnet only)
+  masterEndEpoch       Int?              @map("master_end_epoch") // Walrus storage expiry epoch for master (mainnet only)
+  posterWalrusUri      String?           @map("poster_walrus_uri")
+  posterBlobObjectId   String?           @map("poster_blob_object_id") // Sui blob object ID for poster (mainnet only)
+  posterEndEpoch       Int?              @map("poster_end_epoch") // Walrus storage expiry epoch for poster (mainnet only)
+  duration             Float?
+  network              String            @default("mainnet") // Walrus network: "mainnet" or "testnet"
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+  creatorId            String            @map("creator_id")
+  sessions             PlaybackSession[] @relation("VideoToPlaybackSession")
+  renditions           VideoRendition[]  @relation("VideoToVideoRendition")
 
   @@index([creatorId])
+  @@index([masterBlobObjectId])
+  @@index([masterEndEpoch])
   @@map("videos")
 }
 
