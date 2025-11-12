@@ -7,44 +7,47 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model asset_revisions {
-  id              String   @id
-  asset_id        String
-  manifest_json   Json
-  walrus_root_uri String
-  created_at      DateTime @default(now())
-  assets          assets   @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+model AssetRevision {
+  id            String   @id
+  assetId       String   @map("asset_id")
+  manifestJson  Json     @map("manifest_json")
+  walrusRootUri String   @map("walrus_root_uri")
+  createdAt     DateTime @default(now()) @map("created_at")
+  asset         Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([asset_id])
+  @@index([assetId])
+  @@map("asset_revisions")
 }
 
-model assets {
-  id              String            @id
-  creator_id      String
-  title           String
-  status          String            @default("uploading")
-  created_at      DateTime          @default(now())
-  updated_at      DateTime
-  asset_revisions asset_revisions[]
+model Asset {
+  id        String          @id
+  creatorId String          @map("creator_id")
+  title     String
+  status    String          @default("uploading")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @map("updated_at")
+  revisions AssetRevision[]
 
-  @@index([created_at])
-  @@index([creator_id])
+  @@index([createdAt])
+  @@index([creatorId])
   @@index([status])
+  @@map("assets")
 }
 
-model playback_logs {
-  id         String   @id
-  session_id String
-  video_id   String
-  seg_idx    Int
-  rendition  String
-  timestamp  DateTime @default(now())
-  ip         String?
-  user_agent String?
+model PlaybackLog {
+  id        String   @id
+  sessionId String   @map("session_id")
+  videoId   String   @map("video_id")
+  segIdx    Int      @map("seg_idx")
+  rendition String
+  timestamp DateTime @default(now())
+  ip        String?
+  userAgent String?  @map("user_agent")
 
-  @@index([session_id])
+  @@index([sessionId])
   @@index([timestamp])
-  @@index([video_id])
+  @@index([videoId])
+  @@map("playback_logs")
 }
 
 model PlaybackSession {
