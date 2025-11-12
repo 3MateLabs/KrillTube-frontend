@@ -518,6 +518,27 @@ export async function uploadMultipleBlobsWithWallet(
 
   for (const blob of blobs) {
     try {
+      // Check wallet balances first (both SUI for gas and WAL for storage)
+      console.log(`[Walrus SDK] Checking balances for ${ownerAddress}...`);
+      const [suiBalance, walBalance] = await Promise.all([
+        suiClient.getBalance({ owner: ownerAddress, coinType: '0x2::sui::SUI' }),
+        suiClient.getBalance({ owner: ownerAddress, coinType: WAL_TOKEN_TYPE }),
+      ]);
+
+      console.log(`[Walrus SDK] Wallet balances:`, {
+        address: ownerAddress,
+        sui: Number(suiBalance.totalBalance) / 1_000_000_000,
+        wal: Number(walBalance.totalBalance) / 1_000_000_000,
+      });
+
+      if (BigInt(suiBalance.totalBalance) === BigInt(0)) {
+        throw new Error(`Wallet ${ownerAddress} has 0 SUI balance - cannot pay for gas`);
+      }
+
+      if (BigInt(walBalance.totalBalance) === BigInt(0)) {
+        throw new Error(`Wallet ${ownerAddress} has 0 WAL balance - cannot pay for storage`);
+      }
+
       // Query WAL coins for EACH upload (coins change after each transaction)
       const walCoins = await suiClient.getCoins({
         owner: ownerAddress,

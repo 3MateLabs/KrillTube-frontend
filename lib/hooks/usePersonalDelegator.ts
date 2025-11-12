@@ -78,22 +78,38 @@ export function usePersonalDelegator() {
   }, []);
 
   // Check delegator balance
-  const checkBalance = useCallback(async (): Promise<bigint> => {
-    if (!delegatorState.address) return BigInt(0);
+  const checkBalance = useCallback(async (): Promise<{ sui: number; wal: number } | null> => {
+    if (!delegatorState.address) return null;
 
     try {
-      const balance = await suiClient.getBalance({
-        owner: delegatorState.address,
-        coinType: '0x2::sui::SUI',
-      });
+      const WAL_TOKEN_TYPE = '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
 
-      const balanceAmount = BigInt(balance.totalBalance);
-      setDelegatorState(prev => ({ ...prev, balance: balanceAmount }));
-      console.log('[Delegator] Balance:', Number(balanceAmount) / 1_000_000_000, 'SUI');
-      return balanceAmount;
+      const [suiBalance, walBalance] = await Promise.all([
+        suiClient.getBalance({
+          owner: delegatorState.address,
+          coinType: '0x2::sui::SUI',
+        }),
+        suiClient.getBalance({
+          owner: delegatorState.address,
+          coinType: WAL_TOKEN_TYPE,
+        }),
+      ]);
+
+      const suiAmount = BigInt(suiBalance.totalBalance);
+      const walAmount = BigInt(walBalance.totalBalance);
+
+      setDelegatorState(prev => ({ ...prev, balance: suiAmount }));
+
+      const result = {
+        sui: Number(suiAmount) / 1_000_000_000,
+        wal: Number(walAmount) / 1_000_000_000,
+      };
+
+      console.log('[Delegator] Balance:', result);
+      return result;
     } catch (error) {
       console.error('[Delegator] Failed to check balance:', error);
-      return BigInt(0);
+      return null;
     }
   }, [delegatorState.address, suiClient]);
 
@@ -166,6 +182,21 @@ export function usePersonalDelegator() {
     }
 
     try {
+      // Check delegator balance before executing
+      const balance = await suiClient.getBalance({
+        owner: delegatorState.address,
+        coinType: '0x2::sui::SUI',
+      });
+      console.log('[Delegator] Current SUI balance:', {
+        address: delegatorState.address,
+        balance: Number(balance.totalBalance) / 1_000_000_000,
+        balanceMist: balance.totalBalance,
+      });
+
+      if (BigInt(balance.totalBalance) === BigInt(0)) {
+        throw new Error('Delegator has 0 SUI balance - cannot pay for gas. Please fund the delegator first.');
+      }
+
       transaction.setSender(delegatorState.address);
 
       const result = await suiClient.signAndExecuteTransaction({
@@ -183,8 +214,11 @@ export function usePersonalDelegator() {
         success: result.effects?.status.status === 'success',
       };
     } catch (error) {
-      console.error('[Delegator] Failed to execute:', error);
-      throw error;
+      console.error('[Delegator] ❌ Failed to execute transaction:', error);
+      throw new Error(
+        `Delegator transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        { cause: error }
+      );
     }
   }, [delegatorState.keypair, delegatorState.address, suiClient]);
 
@@ -201,10 +235,12 @@ export function usePersonalDelegator() {
       // Check current balance
       const balance = await checkBalance();
 
-      if (balance === BigInt(0)) {
+      if (!balance || balance.sui <= 0) {
         console.log('[Delegator] Wallet is empty, nothing to reclaim');
         return { digest: '', recovered: BigInt(0) };
       }
+
+      console.log('[Delegator] Reclaiming:', balance);
 
       // Build reclaim transaction
       const tx = new Transaction();

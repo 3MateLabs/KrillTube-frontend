@@ -9,7 +9,7 @@
  */
 
 import { WalrusClient } from '@mysten/walrus';
-import { getSuiClient } from '@mysten/sui/client';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 
 const MAINNET_SYSTEM_OBJECT = '0x2134d52768ea07e8c43570ef975eb3e4c27a39fa6396bef985b5abc58d03ddd2';
 const MAINNET_PACKAGE_ID = '0x6b8c2a2cf5be98f43e04a6cd7ca9e38d0c8c8a8c8c8c8c8c8c8c8c8c8c8c8c8c'; // TODO: Update with actual mainnet package ID
@@ -40,11 +40,11 @@ export interface DeleteBlobOptions {
  */
 export class WalrusSDKClient {
   private client: WalrusClient;
-  private suiClient: ReturnType<typeof getSuiClient>;
+  private suiClient: SuiClient;
 
   constructor() {
     // Initialize Sui client for mainnet
-    this.suiClient = getSuiClient({ url: 'https://fullnode.mainnet.sui.io:443' });
+    this.suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
 
     // Initialize Walrus SDK client
     this.client = new WalrusClient({

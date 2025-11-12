@@ -8,7 +8,7 @@ import { prisma, ensureDbConnected } from '@/lib/db';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
 import { encryptDek } from '@/lib/kms/envelope';
-import { walrusSDK } from '@/lib/walrus-sdk';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 
 /**
  * POST /v1/register-video
@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Ensure database is connected (handles Neon cold starts)
     await ensureDbConnected();
+
     // For mainnet videos, fetch end epochs from blob metadata
     let masterEndEpoch: number | null = null;
     let posterEndEpoch: number | null = null;
@@ -101,14 +102,34 @@ export async function POST(request: NextRequest) {
     if (network === 'mainnet' && masterBlobObjectId) {
       try {
         console.log(`[API Register Video] Fetching mainnet blob metadata for extend/delete support...`);
-        const masterMetadata = await walrusSDK.getBlobMetadata(masterBlobObjectId);
-        masterEndEpoch = masterMetadata.endEpoch;
-        console.log(`[API Register Video] Master playlist end epoch: ${masterEndEpoch}`);
 
+        // Initialize Sui client for mainnet
+        const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+
+        // Fetch master playlist blob metadata
+        const masterBlobObject = await suiClient.getObject({
+          id: masterBlobObjectId,
+          options: { showContent: true },
+        });
+
+        if (masterBlobObject.data?.content && masterBlobObject.data.content.dataType === 'moveObject') {
+          const masterFields = masterBlobObject.data.content.fields as any;
+          masterEndEpoch = parseInt(masterFields.storage?.fields?.end_epoch || '0');
+          console.log(`[API Register Video] Master playlist end epoch: ${masterEndEpoch}`);
+        }
+
+        // Fetch poster blob metadata if provided
         if (posterBlobObjectId) {
-          const posterMetadata = await walrusSDK.getBlobMetadata(posterBlobObjectId);
-          posterEndEpoch = posterMetadata.endEpoch;
-          console.log(`[API Register Video] Poster end epoch: ${posterEndEpoch}`);
+          const posterBlobObject = await suiClient.getObject({
+            id: posterBlobObjectId,
+            options: { showContent: true },
+          });
+
+          if (posterBlobObject.data?.content && posterBlobObject.data.content.dataType === 'moveObject') {
+            const posterFields = posterBlobObject.data.content.fields as any;
+            posterEndEpoch = parseInt(posterFields.storage?.fields?.end_epoch || '0');
+            console.log(`[API Register Video] Poster end epoch: ${posterEndEpoch}`);
+          }
         }
       } catch (error) {
         console.error(`[API Register Video] Failed to fetch blob metadata:`, error);

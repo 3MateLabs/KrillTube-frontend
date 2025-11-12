@@ -96,7 +96,7 @@ function UploadContent() {
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { walrusNetwork } = useNetwork();
-  const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress } = usePersonalDelegator();
+  const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress, checkBalance } = usePersonalDelegator();
 
   // State declarations MUST come before useEffects that reference them
   const [debugMode, setDebugMode] = useState(false);
@@ -644,6 +644,23 @@ function UploadContent() {
             const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
 
             console.log('[Upload V2] ✓ PTB executed:', fundingResult.digest);
+
+            // Verify delegator was actually funded
+            console.log('[Upload V2] 🔍 Verifying delegator funding...');
+            const delegatorBalanceResult = await checkBalance();
+            if (delegatorBalanceResult) {
+              console.log('[Upload V2] ✓ Delegator balance verified:', {
+                sui: delegatorBalanceResult.sui,
+                wal: delegatorBalanceResult.wal,
+              });
+
+              if (delegatorBalanceResult.sui <= 0) {
+                throw new Error('Delegator has 0 SUI after funding - gas transfer may have failed');
+              }
+              if (delegatorBalanceResult.wal <= 0) {
+                throw new Error('Delegator has 0 WAL after funding - storage transfer may have failed');
+              }
+            }
 
             setProgress({ stage: 'funding', percent: 10, message: 'Delegator funded & config created!' });
           } catch (fundingError: any) {
