@@ -330,14 +330,38 @@ export async function uploadQuiltWithWallet(
       },
     });
 
+    console.log('[Walrus SDK] Transaction details:', {
+      status: txDetails.effects?.status,
+      objectChangesCount: txDetails.objectChanges?.length || 0,
+      objectChanges: txDetails.objectChanges?.map((obj: any) => ({
+        type: obj.type,
+        objectType: obj.objectType,
+        objectId: obj.objectId,
+      })),
+    });
+
+    // Validate transaction succeeded
+    if (txDetails.effects?.status?.status !== 'success') {
+      throw new Error(`Register transaction failed: ${txDetails.effects?.status?.error || 'Unknown error'}`);
+    }
+
     const blobType = await walrusClient.walrus.getBlobType();
+    console.log(`[Walrus SDK] Looking for blob type: ${blobType}`);
+
     const blobObjectChange = txDetails.objectChanges?.find(
       (obj: any) => obj.type === 'created' && obj.objectType === blobType
     ) as { objectId: string } | undefined;
 
     if (!blobObjectChange) {
-      throw new Error('Blob object not found in transaction result');
+      console.error('[Walrus SDK] Blob object not found in transaction result', {
+        expectedBlobType: blobType,
+        actualObjectChanges: txDetails.objectChanges,
+        txDigest: registerResult.digest,
+      });
+      throw new Error(`Blob object not found in transaction result. Expected type: ${blobType}, found ${txDetails.objectChanges?.length || 0} object changes`);
     }
+
+    console.log(`[Walrus SDK] ✓ Found blob object: ${blobObjectChange.objectId}`);
 
     console.log('[Walrus SDK] Uploading to storage nodes...');
     const confirmations = await walrusClient.walrus.writeEncodedBlobToNodes({
@@ -390,8 +414,8 @@ export async function uploadQuiltWithWallet(
       cost,
     };
   } catch (error) {
-    console.error('[Walrus] Upload error:', error);
-    throw error;
+    console.error('[Walrus] ❌ Upload quilt error:', error);
+    throw new Error(`Failed to upload quilt: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
   }
 }
 
@@ -471,8 +495,8 @@ export async function uploadMultipleBlobsWithWallet(
 
         console.log(`[HTTP Upload] ✓ ${blob.identifier}: ${result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId}`);
       } catch (err) {
-        console.error(`[HTTP Upload] Failed to upload ${blob.identifier}:`, err);
-        throw err;
+        console.error(`[HTTP Upload] ❌ Failed to upload ${blob.identifier}:`, err);
+        throw new Error(`Failed to upload ${blob.identifier} via HTTP: ${err instanceof Error ? err.message : 'Unknown error'}`, { cause: err });
       }
     }
 
@@ -524,6 +548,7 @@ export async function uploadMultipleBlobsWithWallet(
       });
 
       const registerResult = await signAndExecute({ transaction: registerTx });
+      console.log(`[Walrus SDK] Register transaction executed: ${registerResult.digest}`);
 
       const txDetails = await suiClient.waitForTransaction({
         digest: registerResult.digest,
@@ -533,14 +558,38 @@ export async function uploadMultipleBlobsWithWallet(
         },
       });
 
+      console.log(`[Walrus SDK] Transaction details for ${blob.identifier}:`, {
+        status: txDetails.effects?.status,
+        objectChangesCount: txDetails.objectChanges?.length || 0,
+        objectChanges: txDetails.objectChanges?.map((obj: any) => ({
+          type: obj.type,
+          objectType: obj.objectType,
+          objectId: obj.objectId,
+        })),
+      });
+
+      // Validate transaction succeeded
+      if (txDetails.effects?.status?.status !== 'success') {
+        throw new Error(`Register transaction failed for ${blob.identifier}: ${txDetails.effects?.status?.error || 'Unknown error'}`);
+      }
+
       const blobType = await walrusClient.walrus.getBlobType();
+      console.log(`[Walrus SDK] Looking for blob type: ${blobType}`);
+
       const blobObjectChange = txDetails.objectChanges?.find(
         (obj: any) => obj.type === 'created' && obj.objectType === blobType
       ) as { objectId: string } | undefined;
 
       if (!blobObjectChange) {
-        throw new Error(`Blob object not found for ${blob.identifier}`);
+        console.error(`[Walrus SDK] Blob object not found for ${blob.identifier}`, {
+          expectedBlobType: blobType,
+          actualObjectChanges: txDetails.objectChanges,
+          txDigest: registerResult.digest,
+        });
+        throw new Error(`Blob object not found for ${blob.identifier}. Expected type: ${blobType}, found ${txDetails.objectChanges?.length || 0} object changes`);
       }
+
+      console.log(`[Walrus SDK] ✓ Found blob object: ${blobObjectChange.objectId}`);
 
       const confirmations = await walrusClient.walrus.writeEncodedBlobToNodes({
         blobId: encoded.blobId,
@@ -577,7 +626,8 @@ export async function uploadMultipleBlobsWithWallet(
         size: blob.contents.length,
       });
     } catch (error) {
-      throw new Error(`Failed to upload ${blob.identifier}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[Walrus SDK] ❌ Failed to upload ${blob.identifier}:`, error);
+      throw new Error(`Failed to upload ${blob.identifier}: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error });
     }
   }
 

@@ -19,6 +19,7 @@ import { Step3FeeSharing } from '@/components/upload/Step3FeeSharing';
 import { TranscodingProgress } from '@/components/upload/TranscodingProgress';
 import { CostEstimateSection } from '@/components/upload/CostEstimateSection';
 import type { UploadProgress } from '@/lib/upload/clientUploadOrchestrator';
+import { Transaction } from '@mysten/sui/transactions';
 
 type RenditionQuality = '1080p' | '720p' | '480p' | '360p';
 
@@ -519,18 +520,226 @@ function UploadContent() {
         console.log('[Upload V2] Running in DEBUG mode with placeholder wallet');
       }
 
-      // STEP 1: Fund delegator wallet (mainnet only) via PTB
-      if (walrusNetwork === 'mainnet' && !debugMode && account) {
+      // STEP 0: Create creator config (ALWAYS for each video)
+      // Each video needs its own creator config for the Tunnel payment system
+      if (!debugMode && account) {
+        console.log('[Upload V2] Creating creator config for this video...');
+        setProgress({
+          stage: 'funding',
+          percent: 1,
+          message: 'Preparing payment tunnel config...'
+        });
+
+        // Get operator public key from environment
+        const { getOperatorPublicKey, addCreatorConfigToTransaction, createCreatorConfigTransaction, getCreatorConfigId } = await import('@/lib/tunnel/tunnelConfig');
+
+        const operatorAddress = process.env.NEXT_PUBLIC_SUI_OPERATOR_ADDRESS;
+        if (!operatorAddress) {
+          throw new Error('NEXT_PUBLIC_SUI_OPERATOR_ADDRESS not set in environment');
+        }
+
+        const operatorPublicKey = getOperatorPublicKey();
+
+        console.log('[Upload V2] Operator address:', operatorAddress);
+        console.log('[Upload V2] ✓ Using operator public key from environment');
+
+        const configParams = {
+          creatorAddress: account.address,
+          operatorAddress: operatorAddress, // Use operator address from env
+          platformFeeBps: 1000, // 10% platform fee
+          referrerFeeBps: referrerSharePercent * 100, // Convert % to basis points
+          metadata: `KrillTube Video ${Date.now()}`,
+        };
+
+        if (walrusNetwork === 'mainnet') {
+          // MAINNET: Add creator config to fundingTx PTB
+          console.log('[Upload V2] Building PTB with creator config + funding...');
+
+          // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
+          const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
+          const walAmountMist = estimatedWalMist * BigInt(50); // 50x buffer for inaccurate estimate
+
+          // Estimate gas needed based on file size (rough calculation)
+          const fileSizeMB = selectedFile.size / 1024 / 1024;
+          const estimatedSegments = Math.ceil(fileSizeMB / 2) * selectedQualities.length;
+          const gasNeeded = estimateGasNeeded(estimatedSegments);
+
+          console.log('[Upload V2] PTB Funding:', {
+            estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
+            walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (50x buffer)`,
+            gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
+            segments: estimatedSegments,
+          });
+
+          try {
+            // Build PTB that funds BOTH SUI and WAL in one transaction
+            const fundingTx = await buildFundingTransaction(
+              account.address,
+              gasNeeded,
+              walAmountMist
+            );
+
+            if (!fundingTx) {
+              throw new Error('Failed to build funding transaction');
+            }
+
+            // Add creator config creation to the same PTB
+            addCreatorConfigToTransaction(fundingTx, configParams, operatorPublicKey);
+            console.log('[Upload V2] ✓ Creator config added to PTB');
+
+            // Log PTB structure before signing
+            console.log('[Upload V2] 📋 PTB Structure:', {
+              sender: fundingTx.getData().sender,
+              gasConfig: fundingTx.getData().gasConfig,
+              transactionCount: fundingTx.getData().commands?.length || 0,
+              commands: fundingTx.getData().commands,
+            });
+
+            // Perform dry run to validate transaction
+            console.log('[Upload V2] 🔍 Performing dry run validation...');
+            try {
+              const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
+              const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+
+              // Build transaction for dry run
+              const dryRunTx = await fundingTx.build({ client: suiClient });
+              console.log('[Upload V2] 📦 Built transaction bytes length:', dryRunTx.length);
+
+              const dryRunResult = await suiClient.dryRunTransactionBlock({
+                transactionBlock: dryRunTx,
+              });
+
+              console.log('[Upload V2] 🧪 Dry run result:', {
+                status: dryRunResult.effects.status,
+                gasUsed: dryRunResult.effects.gasUsed,
+                error: dryRunResult.effects.status.error,
+              });
+
+              if (dryRunResult.effects.status.status !== 'success') {
+                console.error('[Upload V2] ❌ Dry run failed:', {
+                  status: dryRunResult.effects.status,
+                  error: dryRunResult.effects.status.error,
+                });
+                throw new Error(`Transaction validation failed: ${dryRunResult.effects.status.error || 'Unknown error'}`);
+              }
+
+              console.log('[Upload V2] ✅ Dry run successful!');
+            } catch (dryRunError: any) {
+              console.error('[Upload V2] ❌ Dry run error:', {
+                message: dryRunError?.message,
+                code: dryRunError?.code,
+                data: dryRunError?.data,
+                stack: dryRunError?.stack,
+                fullError: JSON.stringify(dryRunError, null, 2),
+                fundingTx: fundingTx.getData()
+              });
+              throw new Error(`Transaction validation failed: ${dryRunError?.message || 'Unknown dry run error'}`);
+            }
+
+            // User signs ONCE to fund SUI + WAL + create creator config
+            setProgress({ stage: 'funding', percent: 5, message: 'Approve funding + config transaction...' });
+            console.log('[Upload V2] ⏳ Waiting for user to approve PTB...');
+
+            const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
+
+            console.log('[Upload V2] ✓ PTB executed:', fundingResult.digest);
+
+            setProgress({ stage: 'funding', percent: 10, message: 'Delegator funded & config created!' });
+          } catch (fundingError: any) {
+            console.error('[Upload V2] ❌ PTB failed - Full error details:', {
+              name: fundingError?.name,
+              message: fundingError?.message,
+              code: fundingError?.code,
+              cause: fundingError?.cause,
+              data: fundingError?.data,
+              stack: fundingError?.stack,
+              fullError: JSON.stringify(fundingError, Object.getOwnPropertyNames(fundingError), 2),
+            });
+            throw new Error(`Failed to execute PTB: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
+          }
+        } else {
+          // TESTNET: Create separate transaction for creator config
+          console.log('[Upload V2] Creating creator config transaction (testnet)...');
+
+          let configTx: Transaction | null = null;
+          try {
+            configTx = createCreatorConfigTransaction(configParams, operatorPublicKey);
+
+            // Log transaction structure
+            console.log('[Upload V2] 📋 Transaction Structure:', {
+              sender: configTx.getData().sender,
+              commandCount: configTx.getData().commands?.length || 0,
+            });
+
+            // Perform dry run
+            console.log('[Upload V2] 🔍 Performing dry run validation...');
+            try {
+              const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
+              const suiClient = new SuiClient({ url: getFullnodeUrl(walrusNetwork) });
+
+              const dryRunTx = await configTx.build({ client: suiClient });
+              const dryRunResult = await suiClient.dryRunTransactionBlock({
+                transactionBlock: dryRunTx,
+              });
+
+              console.log('[Upload V2] 🧪 Dry run result:', {
+                status: dryRunResult.effects.status,
+                error: dryRunResult.effects.status.error,
+              });
+
+              if (dryRunResult.effects.status.status !== 'success') {
+                throw new Error(`Transaction validation failed: ${dryRunResult.effects.status.error || 'Unknown error'}`);
+              }
+
+              console.log('[Upload V2] ✅ Dry run successful!');
+            } catch (dryRunError: any) {
+              console.error('[Upload V2] ❌ Dry run error:', {
+                message: dryRunError?.message,
+                code: dryRunError?.code,
+                fullError: JSON.stringify(dryRunError, null, 2),
+              });
+              throw new Error(`Transaction validation failed: ${dryRunError?.message || 'Unknown dry run error'}`);
+            }
+
+            setProgress({ stage: 'funding', percent: 3, message: 'Approve creator config transaction...' });
+
+            const configResult = await signAndExecuteTransaction({ transaction: configTx });
+            console.log('[Upload V2] ✓ Creator config transaction:', configResult.digest);
+
+            // Wait for transaction to get object changes
+            const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
+            const suiClient = new SuiClient({ url: getFullnodeUrl(walrusNetwork) });
+
+            const txDetails = await suiClient.waitForTransaction({
+              digest: configResult.digest,
+              options: {
+                showEffects: true,
+                showObjectChanges: true,
+              },
+            });
+
+            const configId = getCreatorConfigId(txDetails);
+            console.log('[Upload V2] ✓ Creator config created:', configId);
+
+            setProgress({ stage: 'funding', percent: 5, message: 'Creator config ready!' });
+          } catch (testnetError: any) {
+            console.error('[Upload V2] ❌ Testnet config creation failed:', {
+              name: testnetError?.name,
+              message: testnetError?.message,
+              code: testnetError?.code,
+              fullError: JSON.stringify(testnetError, Object.getOwnPropertyNames(testnetError), 2),
+              configTx: configTx?.getData(),
+            });
+            throw testnetError;
+          }
+        }
+      }
+
+      // STEP 1: Fund delegator wallet (mainnet only, skipped if already funded above)
+      if (walrusNetwork === 'mainnet' && !debugMode && account && false) {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
         // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        // Add 50x safety buffer because cost estimator uses simplified formula:
-        // - Estimator doesn't use actual Walrus SDK storageCost() calculation
-        // - Each blob requires 2 transactions (register + certify)
-        // - Poster, playlists, and master playlist uploads (not in estimate)
-        // - Encoding overhead (erasure coding expands data 3-5x)
-        // - Upload relay tips (40 MIST per KiB of encoded data)
-        // - Actual per-blob costs are much higher than approximation
         const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
         const walAmountMist = estimatedWalMist * BigInt(50); // 50x buffer for inaccurate estimate
 
