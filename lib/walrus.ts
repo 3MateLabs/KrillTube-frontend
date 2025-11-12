@@ -24,10 +24,14 @@ export interface WalrusConfig {
 interface QuiltBlob {
   identifier: string;
   quiltPatchId: string;
+  // Note: HTTP /v1/quilts endpoint does NOT return blob object metadata
+  // For mainnet delete/extend support, use SDK writeQuilt() or fetch blob status separately
 }
 
 interface WalrusQuiltResponse {
   storedQuiltBlobs?: QuiltBlob[];
+  // Note: Quilt responses don't include blobObject.id.id or storage.end_epoch
+  // These are only available in single blob uploads via /v1/blobs
 }
 
 export class WalrusClient {
@@ -92,12 +96,23 @@ export class WalrusClient {
 
         const walrusUrl = `${this.aggregatorUrl}/v1/blobs/${blobId}`;
 
+        // Extract blob object metadata for mainnet (delete/extend operations)
+        const blobObjectId = result.newlyCreated?.blobObject?.id?.id ||
+                             result.alreadyCertified?.blobObject?.id?.id;
+        const endEpoch = result.newlyCreated?.blobObject?.storage?.end_epoch ||
+                         result.alreadyCertified?.blobObject?.storage?.end_epoch;
+
         console.log(`[Walrus] ✓ Uploaded ${filename} → ${blobId.substring(0, 12)}...`);
+        if (this.config.network === 'mainnet' && blobObjectId) {
+          console.log(`[Walrus] Blob Object ID: ${blobObjectId.substring(0, 12)}..., End Epoch: ${endEpoch}`);
+        }
 
         return {
           blobId,
           url: walrusUrl,
           size: data.length,
+          blobObjectId: this.config.network === 'mainnet' ? blobObjectId : undefined,
+          endEpoch: this.config.network === 'mainnet' ? endEpoch : undefined,
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));

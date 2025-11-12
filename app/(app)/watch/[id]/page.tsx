@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CustomVideoPlayer } from '@/components/CustomVideoPlayer';
+import { StorageManagement } from '@/components/StorageManagement';
 import { formatDuration, formatBytes } from '@/lib/types';
 
 /**
@@ -296,6 +297,15 @@ export default function WatchPage() {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {/* Storage Management (Mainnet Only) */}
+            <StorageManagement
+              videoId={video.id}
+              network={video.network || 'mainnet'}
+              creatorId={video.creatorId}
+              masterBlobObjectId={video.masterBlobObjectId}
+              masterEndEpoch={video.masterEndEpoch}
+            />
+
             {/* Creator */}
             <div className="p-4 bg-background-elevated rounded-lg border border-border/30">
               <div className="flex items-center gap-3">

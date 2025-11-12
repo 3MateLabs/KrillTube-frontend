@@ -66,6 +66,8 @@ export interface WalrusUploadResult {
   url: string; // Walrus URL to fetch the blob
   size: number;
   content?: string; // Optional: temporary content storage during quilt upload
+  blobObjectId?: string; // Sui blob object ID (mainnet only - for delete/extend)
+  endEpoch?: number; // Walrus storage expiry epoch (mainnet only)
 }
 
 export interface AssetManifest {
