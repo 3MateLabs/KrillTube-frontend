@@ -540,19 +540,73 @@ export async function uploadMultipleBlobsWithWallet(
       }
 
       // Query WAL coins for EACH upload (coins change after each transaction)
-      const walCoins = await suiClient.getCoins({
-        owner: ownerAddress,
-        coinType: WAL_TOKEN_TYPE,
-      });
+      // Retry up to 3 times to handle RPC node propagation delays
+      let walCoins: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          walCoins = await suiClient.getCoins({
+            owner: ownerAddress,
+            coinType: WAL_TOKEN_TYPE,
+          });
 
-      if (!walCoins.data || walCoins.data.length === 0) {
-        throw new Error('No WAL tokens found in wallet');
+          if (walCoins.data && walCoins.data.length > 0) {
+            break; // Success!
+          } else {
+            console.warn(`[Walrus SDK] ⚠️ Attempt ${attempt}/3: No WAL coins found for ${ownerAddress}`);
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+            }
+          }
+        } catch (err) {
+          console.error(`[Walrus SDK] ❌ Attempt ${attempt}/3: Failed to query coins:`, err);
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          } else {
+            throw new Error(`Failed to query WAL coins after 3 attempts: ${err instanceof Error ? err.message : 'Unknown error'}`, { cause: err });
+          }
+        }
+      }
+
+      if (!walCoins || !walCoins.data || walCoins.data.length === 0) {
+        throw new Error(`No WAL tokens found in wallet ${ownerAddress}. Please ensure funding transaction completed.`);
       }
 
       const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
       const primaryCoin = sortedCoins[0];
 
-      console.log(`[Walrus SDK] Uploading ${blob.identifier} with coin ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
+      console.log(`[Walrus SDK] Uploading ${blob.identifier}:`, {
+        ownerAddress,
+        coinObjectId: primaryCoin.coinObjectId,
+        coinBalance: `${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(6)} WAL`,
+        totalCoinsAvailable: walCoins.data.length,
+      });
+
+      // Verify coin ownership to catch potential issues early
+      try {
+        const coinOwner = await suiClient.getObject({
+          id: primaryCoin.coinObjectId,
+          options: { showOwner: true },
+        });
+
+        const owner = coinOwner.data?.owner;
+        const ownerAddress_actual = typeof owner === 'object' && 'AddressOwner' in owner ? owner.AddressOwner : null;
+
+        console.log(`[Walrus SDK] Coin ${primaryCoin.coinObjectId} ownership:`, {
+          expected: ownerAddress,
+          actual: ownerAddress_actual,
+          match: ownerAddress_actual === ownerAddress,
+        });
+
+        if (ownerAddress_actual !== ownerAddress) {
+          throw new Error(`Coin ownership mismatch! Coin ${primaryCoin.coinObjectId} is owned by ${ownerAddress_actual}, but transaction will be signed by ${ownerAddress}. This will fail.`);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('ownership mismatch')) {
+          throw err; // Re-throw ownership errors
+        }
+        console.warn(`[Walrus SDK] ⚠️ Failed to verify coin ownership (non-fatal):`, err);
+        // Continue anyway - the transaction will fail if there's an actual ownership issue
+      }
 
       const encoded = await walrusClient.walrus.encodeBlob(blob.contents);
 

@@ -556,9 +556,36 @@ function UploadContent() {
           // MAINNET: Add creator config to fundingTx PTB
           console.log('[Upload V2] Building PTB with creator config + funding...');
 
-          // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
+          // Query user's actual WAL balance
+          const { SuiClient: SuiClientImport, getFullnodeUrl: getFullnodeUrlImport } = await import('@mysten/sui/client');
+          const suiClientTemp = new SuiClientImport({ url: getFullnodeUrlImport('mainnet') });
+          const WAL_TOKEN_TYPE = '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
+
+          const userWalBalance = await suiClientTemp.getBalance({
+            owner: account.address,
+            coinType: WAL_TOKEN_TYPE,
+          });
+
+          const userWalBalanceMist = BigInt(userWalBalance.totalBalance);
+          const userWalBalanceNumber = Number(userWalBalanceMist) / 1_000_000_000;
+
+          console.log('[Upload V2] User WAL balance:', {
+            total: userWalBalanceNumber,
+            totalMist: userWalBalance.totalBalance,
+          });
+
+          // Calculate WAL amount: Send 10x estimated cost (will be refunded after upload)
           const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
-          const walAmountMist = estimatedWalMist * BigInt(50); // 50x buffer for inaccurate estimate
+          const walAmountMist = estimatedWalMist * BigInt(10); // 10x buffer
+
+          // Cap at user's balance if they don't have 10x
+          const actualWalAmountMist = walAmountMist > userWalBalanceMist
+            ? userWalBalanceMist
+            : walAmountMist;
+
+          if (actualWalAmountMist <= BigInt(0)) {
+            throw new Error('Insufficient WAL balance. Please acquire WAL tokens first.');
+          }
 
           // Estimate gas needed based on file size (rough calculation)
           const fileSizeMB = selectedFile.size / 1024 / 1024;
@@ -566,10 +593,13 @@ function UploadContent() {
           const gasNeeded = estimateGasNeeded(estimatedSegments);
 
           console.log('[Upload V2] PTB Funding:', {
-            estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
-            walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (50x buffer)`,
+            estimatedWalCost: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
+            requested10x: `${Number(walAmountMist) / 1_000_000_000} WAL (10x buffer)`,
+            userWalBalance: `${userWalBalanceNumber.toFixed(6)} WAL`,
+            sendingToDelegate: `${Number(actualWalAmountMist) / 1_000_000_000} WAL (${((Number(actualWalAmountMist) / Number(userWalBalanceMist)) * 100).toFixed(1)}% of balance)`,
             gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
             segments: estimatedSegments,
+            note: 'Unused SUI & WAL will be auto-refunded after upload',
           });
 
           try {
@@ -577,7 +607,7 @@ function UploadContent() {
             const fundingTx = await buildFundingTransaction(
               account.address,
               gasNeeded,
-              walAmountMist
+              actualWalAmountMist
             );
 
             if (!fundingTx) {
@@ -644,8 +674,23 @@ function UploadContent() {
             const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
 
             console.log('[Upload V2] ✓ PTB executed:', fundingResult.digest);
+            console.log('[Upload V2] ⏳ Waiting for transaction finalization...');
 
-            // Verify delegator was actually funded
+            // Wait for transaction to be finalized on-chain
+            const txDetails = await suiClientTemp.waitForTransaction({
+              digest: fundingResult.digest,
+              options: { showEffects: true },
+            });
+
+            console.log('[Upload V2] ✓ Transaction finalized:', {
+              status: txDetails.effects?.status,
+            });
+
+            if (txDetails.effects?.status?.status !== 'success') {
+              throw new Error(`Funding transaction failed: ${txDetails.effects?.status?.error || 'Unknown error'}`);
+            }
+
+            // Verify delegator was actually funded (after transaction is finalized)
             console.log('[Upload V2] 🔍 Verifying delegator funding...');
             const delegatorBalanceResult = await checkBalance();
             if (delegatorBalanceResult) {
@@ -660,6 +705,46 @@ function UploadContent() {
               if (delegatorBalanceResult.wal <= 0) {
                 throw new Error('Delegator has 0 WAL after funding - storage transfer may have failed');
               }
+            }
+
+            // IMPORTANT: Also verify delegator has actual WAL coin objects (not just balance)
+            // This ensures coins have propagated across RPC nodes before starting upload
+            console.log('[Upload V2] 🔍 Verifying delegator has WAL coin objects...');
+            let walCoinsVerified = false;
+            for (let attempt = 1; attempt <= 5; attempt++) {
+              try {
+                const walCoinsCheck = await suiClientTemp.getCoins({
+                  owner: delegatorAddress!,
+                  coinType: WAL_TOKEN_TYPE,
+                });
+
+                if (walCoinsCheck.data && walCoinsCheck.data.length > 0) {
+                  console.log('[Upload V2] ✓ Delegator has WAL coins:', {
+                    coinCount: walCoinsCheck.data.length,
+                    totalBalance: walCoinsCheck.data.reduce((sum, coin) => sum + Number(coin.balance), 0) / 1_000_000_000,
+                    coins: walCoinsCheck.data.map(c => ({
+                      id: c.coinObjectId,
+                      balance: Number(c.balance) / 1_000_000_000,
+                    })),
+                  });
+                  walCoinsVerified = true;
+                  break;
+                } else {
+                  console.warn(`[Upload V2] ⚠️ Attempt ${attempt}/5: No WAL coins found yet, waiting...`);
+                  if (attempt < 5) {
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                  }
+                }
+              } catch (err) {
+                console.error(`[Upload V2] ❌ Attempt ${attempt}/5: Failed to query coins:`, err);
+                if (attempt < 5) {
+                  await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                }
+              }
+            }
+
+            if (!walCoinsVerified) {
+              throw new Error('Failed to verify delegator WAL coins after 5 attempts. Please try again in a few seconds.');
             }
 
             setProgress({ stage: 'funding', percent: 10, message: 'Delegator funded & config created!' });
