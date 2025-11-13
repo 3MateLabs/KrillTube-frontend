@@ -67,17 +67,13 @@ export function Header({ onMenuClick }: HeaderProps) {
           {/* Upload Button */}
           <Link
             href="/upload"
-            className="h-14 px-6 bg-white rounded-full border-[3px] border-black text-black text-sm font-bold font-['Outfit'] hover:bg-[#FFEEE5] transition-colors whitespace-nowrap flex items-center"
+            className="bg-white text-black font-bold px-6 py-2 rounded-[32px] outline outline-[3px] outline-black hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-base w-[86px] whitespace-nowrap flex items-center justify-center"
           >
             Upload
           </Link>
 
           {/* Connect Wallet Button */}
-          <div className="h-14 px-6 bg-white rounded-full outline outline-[3px] outline-offset-[-3px] outline-black inline-flex items-center hover:bg-[#FFEEE5] transition-colors">
-            <div className="text-black text-base font-bold font-['Outfit']">
-              <ConnectWallet />
-            </div>
-          </div>
+          <ConnectWallet />
         </div>
       </div>
     </header>
