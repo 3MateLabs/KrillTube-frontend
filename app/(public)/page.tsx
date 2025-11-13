@@ -31,7 +31,7 @@ export default function KrillTubeLanding() {
                 <div className="flex gap-2">
                   {[
                     { label: 'Home', href: '/' },
-                    { label: 'Watch', href: '/home' },
+                    { label: 'Watch', href: '/watch' },
                     { label: 'Earn', href: '#perks' },
                     { label: 'Meme', href: '#playbook' },
                     { label: 'About', href: '#faq' }
@@ -83,7 +83,7 @@ export default function KrillTubeLanding() {
           {/* CTA Buttons - positioned separately below */}
           <div className="absolute left-4 md:left-28 top-[420px] md:top-[516px] flex flex-wrap gap-4">
             <Link
-              href="/home"
+              href="/watch"
               className="bg-[#EF4330] text-white font-semibold px-6 py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2"
             >
               Start Watching
