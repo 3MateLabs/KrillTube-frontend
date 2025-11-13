@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
 interface SidebarProps {
@@ -11,56 +12,12 @@ interface SidebarProps {
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
 
-  const navigationItems = [
-    {
-      label: 'Home',
-      href: '/',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: 'Library',
-      href: '/library',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-          />
-        </svg>
-      ),
-    },
-    {
-      label: 'Upload',
-      href: '/upload',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-          />
-        </svg>
-      ),
-    },
-  ];
-
-  const isActive = (href: string) => pathname === href;
-
   return (
     <>
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-walrus-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity"
           onClick={onClose}
         />
       )}
@@ -68,66 +25,173 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-[60px] left-0 bottom-0 z-40 w-64
-          bg-background/95 backdrop-blur-xl border-r border-walrus-mint
+          fixed top-0 left-0 bottom-0 z-50 w-72 h-screen
+          bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
           transition-all duration-300 ease-in-out
           lg:translate-x-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background/50 to-transparent pointer-events-none" />
+        {/* Logo */}
+        <div className="w-56 left-[29px] top-[18px] absolute inline-flex justify-start items-start gap-3">
+          <div className="w-12 h-12 px-3 py-px bg-black rounded-3xl shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white flex justify-start items-center gap-2.5">
+            <div className="w-6 h-6 relative overflow-hidden">
+              <div className="w-5 h-4 left-[2px] top-[3px] absolute bg-white" />
+            </div>
+          </div>
+          <div className="flex-1 p-2 bg-black rounded-[32px] inline-flex flex-col justify-start items-start gap-2.5">
+            <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2.5">
+              <div className="justify-start text-white text-base font-bold font-['Outfit']">LOGO</div>
+            </div>
+          </div>
+        </div>
 
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-grid-pattern-subtle opacity-20 pointer-events-none" />
+        {/* Navigation */}
+        <div className="w-56 left-[29px] top-[111px] absolute inline-flex flex-col justify-start items-start gap-4">
+          {/* Main Menu */}
+          <div className="self-stretch px-4 py-8 bg-[#FFEEE5] rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col justify-center items-center gap-2.5">
+            <div className="self-stretch flex flex-col justify-center items-start gap-4">
+              <Link
+                href="/home"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/home.svg" alt="Home" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Home</div>
+              </Link>
 
-        <div className="relative h-full overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-          <div className="px-3 pb-3 pt-6 space-y-6">
-            {/* Main Navigation */}
-            <nav className="space-y-1">
-              {navigationItems.map((item) => {
-                const active = isActive(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onClose}
-                    className={`
-                      group relative flex items-center gap-3 px-3 py-2.5 rounded-xl
-                      transition-all duration-200 font-medium text-base
-                      ${active
-                        ? 'bg-walrus-mint text-walrus-black shadow-lg shadow-mint-900/20'
-                        : 'hover:bg-background-elevated text-foreground/80 hover:text-foreground active:scale-95'
-                      }
-                    `}
-                  >
-                    {/* Active indicator */}
-                    {active && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-walrus-black rounded-r-full" />
-                    )}
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 bg-[#EF4330] rounded-[32px] outline outline-[3px] outline-offset-[-3px] outline-black inline-flex justify-start items-center gap-2.5"
+              >
+                <Image src="/logos/watch.svg" alt="Watch" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-white text-base font-semibold font-['Outfit']">Watch</div>
+              </Link>
 
-                    {/* Icon with animation */}
-                    <div className={`
-                      transition-transform duration-200
-                      ${active ? 'scale-110' : 'group-hover:scale-110'}
-                    `}>
-                      {item.icon}
-                    </div>
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/playlist.svg" alt="Playlists" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Playlists</div>
+              </Link>
 
-                    {/* Label */}
-                    <span className="flex-1">{item.label}</span>
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/about.svg" alt="About" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">About</div>
+              </Link>
 
-                    {/* Hover effect glow */}
-                    {!active && (
-                      <div className="absolute inset-0 bg-walrus-mint/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity -z-10" />
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 rounded-[32px] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors"
+              >
+                <Image src="/logos/subscriptions.svg" alt="Subscriptions" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Subscriptions</div>
+              </Link>
+            </div>
+          </div>
 
-            {/* Bottom spacing */}
-            <div className="h-4" />
+          {/* Explore Menu */}
+          <div className="self-stretch px-4 py-8 bg-[#FFEEE5] rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col justify-center items-center gap-2.5">
+            <div className="self-stretch flex flex-col justify-center items-start gap-4">
+              <div className="self-stretch px-4 pb-4 border-b-2 border-black inline-flex justify-center items-center gap-2.5">
+                <div className="flex-1 justify-start text-black text-xl font-semibold font-['Outfit']">Explore</div>
+                <div className="w-7 h-7 p-2 bg-black rounded-2xl flex justify-center items-center gap-[3px]">
+                  <Image src="/logos/Explore.svg" alt="Explore" width={16} height={16} className="w-4 h-4 invert" />
+                </div>
+              </div>
+
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Photos</div>
+              </Link>
+
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Scrolls</div>
+              </Link>
+
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/meme.svg" alt="Meme" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Meme</div>
+              </Link>
+
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/earn.svg" alt="Earn" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Earn</div>
+              </Link>
+            </div>
+          </div>
+
+          {/* User Menu */}
+          <div className="self-stretch px-4 py-8 bg-[#FFEEE5] rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col justify-center items-center gap-2.5">
+            <div className="self-stretch flex flex-col justify-center items-start gap-4">
+              <Link
+                href="/library"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/your Uploads.svg" alt="Your Uploads" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Your Uploads</div>
+              </Link>
+
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <Image src="/logos/send feedback.svg" alt="Send feedback" width={24} height={24} className="w-6 h-6" />
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Send feedback</div>
+              </Link>
+
+              <Link
+                href="#"
+                onClick={onClose}
+                className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
+              >
+                <div className="w-6 h-6 relative overflow-hidden">
+                  <div className="w-5 h-5 left-[1px] top-[1px] absolute bg-black" />
+                </div>
+                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Setting</div>
+              </Link>
+            </div>
+          </div>
+
+          {/* User Profile */}
+          <div className="self-stretch inline-flex justify-start items-start gap-3">
+            <div className="w-12 h-12 px-3 py-px bg-black rounded-3xl shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white flex justify-center items-center gap-2.5">
+              <div className="w-12 h-12 relative">
+                <img className="w-12 h-12 left-0 top-0 absolute rounded-full border-2 border-white" src="https://via.placeholder.com/50" alt="User" />
+              </div>
+            </div>
+            <div className="flex-1 p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex flex-col justify-start items-start gap-2.5">
+              <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2.5">
+                <div className="justify-start text-white text-base font-semibold font-['Montserrat']">@EasonC13</div>
+              </div>
+            </div>
           </div>
         </div>
       </aside>

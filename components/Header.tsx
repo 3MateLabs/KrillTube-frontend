@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ConnectWallet } from './ConnectWallet';
 import { useState } from 'react';
 
@@ -21,146 +22,59 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/50 to-transparent pointer-events-none" />
+    <header className="fixed top-0 left-0 right-0 z-50 w-full bg-[#0668A6]">
+      <div className="flex items-center gap-12 px-12 py-5 lg:ml-72">
+        {/* Hamburger Menu - Mobile only */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden w-10 h-10 flex items-center justify-center"
+        >
+          <Image src="/logos/hambuger.svg" alt="Menu" width={24} height={24} className="w-6 h-6 invert" />
+        </button>
 
-      {/* Subtle grid pattern */}
-      <div className="absolute inset-0 bg-grid-pattern-subtle opacity-30 pointer-events-none" />
-
-      <div className="relative">
-        <div className="flex items-center justify-between gap-3 px-4 lg:px-6 py-4 max-w-[2000px] mx-auto">
-          {/* Left section: Menu + Logo */}
-          <div className="flex items-center gap-3 lg:gap-4">
-            {/* Hamburger Menu */}
-            <button
-              onClick={onMenuClick}
-              className="group p-2 rounded-xl hover:bg-background-elevated active:scale-95 transition-all duration-200 text-foreground"
-              aria-label="Menu"
-            >
-              <svg
-                className="w-6 h-6 group-hover:scale-110 transition-transform"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-
-          {/* KrillTube Logo */}
-          <a href="/" className="flex items-center gap-3 group">
-            <div className="relative w-9 h-9">
-              <img
-                src="/logos/krilll.png"
-                alt="KrillTube Logo"
-                className="w-full h-full"
+        {/* Search Bar - Takes up most space */}
+        <div className="flex-1 min-w-0">
+          <form onSubmit={handleSearch} className="w-full">
+            <div className="w-full h-14 px-8 bg-transparent rounded-full border-[3px] border-black flex justify-between items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by handle...."
+                className="flex-1 bg-transparent text-white placeholder-white outline-none text-base font-medium font-['Outfit']"
               />
+              <Image src="/logos/search.svg" alt="Search" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
             </div>
-            <span className="text-lg font-bold text-foreground group-hover:text-walrus-mint transition-colors">
-              KrillTube
-            </span>
-          </a>
+          </form>
         </div>
 
-          {/* Center section: Search */}
-          <div className="flex-1 max-w-xl mx-2 lg:mx-8">
-            <form onSubmit={handleSearch} className="relative group">
-              <div className={`
-                absolute inset-0 bg-gradient-to-r from-walrus-mint/20 to-walrus-grape/20 rounded-full blur-md opacity-0 transition-opacity duration-300
-                ${isSearchFocused ? 'opacity-100' : 'group-hover:opacity-50'}
-              `} />
+        {/* Right Section - Compact buttons */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Bell Icon */}
+          <button className="w-14 h-14 rounded-full border-[3px] border-white bg-gradient-to-br from-[#EF4330]/70 to-[#1AAACE]/70 flex items-center justify-center hover:opacity-80 transition-opacity">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+          </button>
 
-              <div className="relative flex items-center">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
-                  placeholder="Search videos..."
-                  className={`
-                    w-full pl-12 pr-4 py-2.5
-                    border-2 rounded-full
-                    bg-background-elevated/80 backdrop-blur-sm
-                    text-foreground text-sm placeholder:text-text-muted
-                    focus:outline-none transition-all duration-300
-                    ${isSearchFocused
-                      ? 'border-walrus-mint shadow-lg shadow-mint-900/20 bg-background-elevated'
-                      : 'border-border/50 hover:border-border'
-                    }
-                  `}
-                />
-                <div className="absolute left-4 pointer-events-none">
-                  <svg
-                    className={`w-5 h-5 transition-colors ${isSearchFocused ? 'text-walrus-mint' : 'text-text-muted'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 p-1 rounded-full hover:bg-background-hover transition-colors text-text-muted hover:text-foreground"
-                    aria-label="Clear search"
-                  >
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
+          {/* History/Clock Icon */}
+          <button className="w-14 h-14 rounded-full border-[3px] border-white bg-gradient-to-br from-[#EF4330]/70 to-[#1AAACE]/70 flex items-center justify-center hover:opacity-80 transition-opacity">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
 
-          {/* Right section: Upload + Wallet */}
-          <div className="flex items-center gap-2 lg:gap-3">
-            {/* Upload Button */}
-            <Link
-              href="/upload"
-              className="group relative flex items-center gap-2 px-4 lg:px-5 py-2.5 overflow-hidden rounded-xl font-bold text-sm transition-all duration-300 hover:scale-105 active:scale-95"
-            >
-              {/* White background */}
-              <div className="absolute inset-0 bg-white group-hover:bg-gray-100 transition-all" />
+          {/* Upload Button */}
+          <Link
+            href="/upload"
+            className="h-14 px-6 bg-white rounded-full border-[3px] border-black text-black text-sm font-bold font-['Outfit'] hover:bg-[#FFEEE5] transition-colors whitespace-nowrap flex items-center"
+          >
+            Upload
+          </Link>
 
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-white blur-lg opacity-50 group-hover:opacity-75 transition-opacity" />
-
-              {/* Content */}
-              <div className="relative flex items-center gap-2 text-walrus-black">
-                <svg
-                  className="w-5 h-5 group-hover:rotate-12 transition-transform"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
-                <span className="hidden sm:inline">Upload</span>
-              </div>
-            </Link>
-
-            {/* Wallet Connection */}
-            <div className="flex items-center gap-3 pl-2 lg:pl-3 border-l border-border/30">
+          {/* Connect Wallet Button */}
+          <div className="h-14 px-6 bg-white rounded-full outline outline-[3px] outline-offset-[-3px] outline-black inline-flex items-center hover:bg-[#FFEEE5] transition-colors">
+            <div className="text-black text-base font-bold font-['Outfit']">
               <ConnectWallet />
             </div>
           </div>
