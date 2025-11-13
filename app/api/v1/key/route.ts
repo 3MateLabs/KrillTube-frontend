@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
     console.log(`  Segment: ${segIdx}`);
 
     // DEMO MODE: Just decrypt the DEK and return it directly (no session wrapping)
-    const dekBytes = await decryptDek(segment.dekEnc);
+    const dekBytes = await decryptDek((segment as any).dekEnc);
     console.log(`  ✓ Decrypted segment DEK`);
 
     // Record segment access (upsert to handle duplicate access attempts)
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Decrypt segment DEK with KMS
-      const dekBytes = await decryptDek(segment.dekEnc);
+      const dekBytes = await decryptDek((segment as any).dekEnc);
 
       // Wrap DEK bytes with session KEK
       const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);

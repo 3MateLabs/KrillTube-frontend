@@ -591,7 +591,6 @@ function UploadContent() {
             // Log PTB structure before signing
             console.log('[Upload V2] 📋 PTB Structure:', {
               sender: fundingTx.getData().sender,
-              gasConfig: fundingTx.getData().gasConfig,
               transactionCount: fundingTx.getData().commands?.length || 0,
               commands: fundingTx.getData().commands,
             });
@@ -741,16 +740,17 @@ function UploadContent() {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
         // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
+        const totalWal = costEstimate?.totalWal ?? '1';
+        const estimatedWalMist = BigInt(Math.ceil(parseFloat(totalWal) * 1_000_000_000));
         const walAmountMist = estimatedWalMist * BigInt(50); // 50x buffer for inaccurate estimate
 
         // Estimate gas needed based on file size (rough calculation)
-        const fileSizeMB = selectedFile.size / 1024 / 1024;
+        const fileSizeMB = (selectedFile?.size ?? 10 * 1024 * 1024) / 1024 / 1024; // Default to 10MB
         const estimatedSegments = Math.ceil(fileSizeMB / 2) * selectedQualities.length;
         const gasNeeded = estimateGasNeeded(estimatedSegments);
 
         console.log('[Upload V2] PTB Funding:', {
-          estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
+          estimatedWal: `${parseFloat(totalWal).toFixed(6)} WAL`,
           walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (50x buffer)`,
           gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
           segments: estimatedSegments,
@@ -759,7 +759,7 @@ function UploadContent() {
         try {
           // Build PTB that funds BOTH SUI and WAL in one transaction
           const fundingTx = await buildFundingTransaction(
-            account.address,
+            account!.address, // account is checked in the if condition above
             gasNeeded,
             walAmountMist
           );
@@ -772,13 +772,14 @@ function UploadContent() {
           setProgress({ stage: 'funding', percent: 5, message: 'Approve funding transaction...' });
           console.log('[Upload V2] ⏳ Waiting for user to approve PTB...');
 
-          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
+          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx! }); // Checked for null above
 
           console.log('[Upload V2] ✓ Delegator funded:', fundingResult.digest);
           setProgress({ stage: 'funding', percent: 10, message: 'Delegator wallet funded!' });
-        } catch (fundingError) {
+        } catch (fundingError: unknown) {
           console.error('[Upload V2] Funding failed:', fundingError);
-          throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
+          const errorMessage = fundingError instanceof Error ? (fundingError as Error).message : 'Unknown error';
+          throw new Error(`Failed to fund delegator: ${errorMessage}`);
         }
       }
 

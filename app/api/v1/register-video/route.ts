@@ -8,7 +8,6 @@ import { prisma, ensureDbConnected } from '@/lib/db';
 import { getCachedWalPrice } from '@/lib/suivision/priceCache';
 import { walToUsd, formatUsd } from '@/lib/utils/walPrice';
 import { encryptDek } from '@/lib/kms/envelope';
-import { walrusSDK } from '@/lib/walrus-sdk';
 
 /**
  * POST /v1/register-video
@@ -22,6 +21,8 @@ import { walrusSDK } from '@/lib/walrus-sdk';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Dynamic import to avoid loading WASM during build
+    const { walrusSDK } = await import('@/lib/walrus-sdk');
     const body = await request.json();
     const {
       videoId,

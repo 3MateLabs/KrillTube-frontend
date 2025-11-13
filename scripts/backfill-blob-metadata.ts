@@ -9,7 +9,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { getSuiClient } from '@mysten/sui/client';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 
 const prisma = new PrismaClient();
 
@@ -17,7 +17,7 @@ async function main() {
   console.log('Starting blob metadata backfill...\n');
 
   // Initialize Sui client for mainnet
-  const suiClient = getSuiClient({ url: 'https://fullnode.mainnet.sui.io:443' });
+  const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
 
   // Find mainnet videos without blob object IDs
   const videos = await prisma.video.findMany({

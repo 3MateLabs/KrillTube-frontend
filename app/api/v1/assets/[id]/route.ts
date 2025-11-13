@@ -18,11 +18,11 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const asset = await prisma.assets.findUnique({
+    const asset = await prisma.asset.findUnique({
       where: { id },
       include: {
-        asset_revisions: {
-          orderBy: { created_at: 'desc' },
+        revisions: {
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -35,19 +35,19 @@ export async function GET(
       );
     }
 
-    const latestRevision = asset.asset_revisions[0];
+    const latestRevision = asset.revisions[0];
 
     return NextResponse.json({
       asset: {
         id: asset.id,
         title: asset.title,
-        creatorId: asset.creator_id,
+        creatorId: asset.creatorId,
         status: asset.status,
-        createdAt: asset.created_at,
-        updatedAt: asset.updated_at,
+        createdAt: asset.createdAt,
+        updatedAt: asset.updatedAt,
       },
-      manifest: latestRevision ? latestRevision.manifest_json : null,
-      walrusRootUri: latestRevision ? latestRevision.walrus_root_uri : null,
+      manifest: latestRevision ? latestRevision.manifestJson : null,
+      walrusRootUri: latestRevision ? latestRevision.walrusRootUri : null,
     });
   } catch (error) {
     console.error('[API] Error fetching asset:', error);
@@ -79,7 +79,7 @@ export async function POST(
     }
 
     // Verify asset exists
-    const asset = await prisma.assets.findUnique({
+    const asset = await prisma.asset.findUnique({
       where: { id },
     });
 
@@ -92,21 +92,21 @@ export async function POST(
 
     // Create asset revision with manifest
     const revisionId = generateRevisionId();
-    const revision = await prisma.asset_revisions.create({
+    const revision = await prisma.assetRevision.create({
       data: {
         id: revisionId,
-        asset_id: id,
-        manifest_json: manifest,
-        walrus_root_uri: walrusRootUri,
+        assetId: id,
+        manifestJson: manifest,
+        walrusRootUri: walrusRootUri,
       },
     });
 
     // Update asset status to ready
-    await prisma.assets.update({
+    await prisma.asset.update({
       where: { id },
       data: {
         status: 'ready',
-        updated_at: new Date(),
+        updatedAt: new Date(),
       },
     });
 
@@ -124,8 +124,8 @@ export async function POST(
       },
       revision: {
         id: revision.id,
-        walrusRootUri: revision.walrus_root_uri,
-        createdAt: revision.created_at,
+        walrusRootUri: revision.walrusRootUri,
+        createdAt: revision.createdAt,
       },
       playbackUrl,
     });

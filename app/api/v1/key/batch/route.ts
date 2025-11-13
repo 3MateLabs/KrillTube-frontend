@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
             };
           }
 
-          if (!segment.dekEnc) {
+          if (!(segment as any).dekEnc) {
             return {
               rendition,
               segIdx,
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
           }
 
           // Decrypt DEK from database (encrypted with master key)
-          const dekBytes = await decryptDek(segment.dekEnc);
+          const dekBytes = await decryptDek((segment as any).dekEnc);
 
           // Wrap DEK bytes with session KEK
           const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);

@@ -16,13 +16,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { walrusSDK } from '@/lib/walrus-sdk';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Dynamic import to avoid loading WASM during build
+    const { walrusSDK } = await import('@/lib/walrus-sdk');
+
     const { id: videoId } = await params;
     const body = await request.json();
 

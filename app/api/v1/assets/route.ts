@@ -26,13 +26,13 @@ export async function POST(request: NextRequest) {
     // Create asset placeholder with custom ID
     const assetId = generateAssetId();
 
-    const asset = await prisma.assets.create({
+    const asset = await prisma.asset.create({
       data: {
         id: assetId,
         title,
-        creator_id: creatorId,
+        creatorId: creatorId,
         status: 'uploading',
-        updated_at: new Date(),
+        updatedAt: new Date(),
       },
     });
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         id: asset.id,
         title: asset.title,
         status: asset.status,
-        createdAt: asset.created_at,
+        createdAt: asset.createdAt,
       },
       uploadConfig: {
         // Configuration for upload process
@@ -74,49 +74,49 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const where: any = {};
-    if (creatorId) where.creator_id = creatorId;
+    if (creatorId) where.creatorId = creatorId;
     if (status) where.status = status;
 
     // Query assets
     const [assets, total] = await Promise.all([
-      prisma.assets.findMany({
+      prisma.asset.findMany({
         where,
-        orderBy: { created_at: 'desc' },
+        orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
         include: {
-          asset_revisions: {
-            orderBy: { created_at: 'desc' },
+          revisions: {
+            orderBy: { createdAt: 'desc' },
             take: 1, // Only latest revision
           },
         },
       }),
-      prisma.assets.count({ where }),
+      prisma.asset.count({ where }),
     ]);
 
     return NextResponse.json({
       assets: assets.map((asset) => {
-        const latestRevision = asset.asset_revisions[0];
+        const latestRevision = asset.revisions[0];
         let posterUrl = null;
 
         // Extract poster URL from manifest if available
-        if (latestRevision && latestRevision.manifest_json) {
-          const manifest = latestRevision.manifest_json as any;
+        if (latestRevision && latestRevision.manifestJson) {
+          const manifest = latestRevision.manifestJson as any;
           posterUrl = manifest.poster?.url || null;
         }
 
         return {
           id: asset.id,
           title: asset.title,
-          creatorId: asset.creator_id,
+          creatorId: asset.creatorId,
           status: asset.status,
-          createdAt: asset.created_at,
-          updatedAt: asset.updated_at,
+          createdAt: asset.createdAt,
+          updatedAt: asset.updatedAt,
           posterUrl,
           latestRevision: latestRevision
             ? {
-                walrusRootUri: latestRevision.walrus_root_uri,
-                createdAt: latestRevision.created_at,
+                walrusRootUri: latestRevision.walrusRootUri,
+                createdAt: latestRevision.createdAt,
               }
             : null,
         };

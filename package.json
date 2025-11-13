@@ -20,8 +20,11 @@
     "get-blob-ids": "tsx scripts/get-blob-ids.ts"
   },
   "dependencies": {
+    "@3mate/gas-station-sdk": "^0.3.2",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@interest-protocol/memez-fun-sdk": "^19.0.0",
+    "@interest-protocol/sui-core-sdk": "^1.0.0",
     "@mysten/dapp-kit": "^0.19.6",
     "@mysten/sui.js": "^0.54.1",
     "@mysten/walrus": "^0.8.1",
@@ -34,7 +37,8 @@
     "next": "16.0.0",
     "prisma": "^6.18.0",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
