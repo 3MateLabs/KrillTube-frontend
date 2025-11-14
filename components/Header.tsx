@@ -24,26 +24,20 @@ export function Header({ onMenuClick }: HeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 w-full bg-[#0668A6]">
       <div className="flex items-center gap-12 px-12 py-5 lg:ml-72">
-        {/* Hamburger Menu - Mobile only */}
-        <button
-          onClick={onMenuClick}
-          className="lg:hidden w-10 h-10 flex items-center justify-center"
-        >
-          <Image src="/logos/hambuger.svg" alt="Menu" width={24} height={24} className="w-6 h-6 invert" />
-        </button>
-
         {/* Search Bar - Takes up most space */}
         <div className="flex-1 min-w-0">
           <form onSubmit={handleSearch} className="w-full">
-            <div className="w-full h-14 px-8 bg-transparent rounded-full border-[3px] border-black flex justify-between items-center">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by handle...."
-                className="flex-1 bg-transparent text-white placeholder-white outline-none text-base font-medium font-['Outfit']"
-              />
-              <Image src="/logos/search.svg" alt="Search" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+            <div className="w-full h-14 p-2 bg-cyan-500/30 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-center items-center gap-2.5">
+              <div className="self-stretch px-5 py-[5px] inline-flex justify-between items-center">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by handle...."
+                  className="flex-1 bg-transparent text-white placeholder-white outline-none text-base font-medium font-['Outfit']"
+                />
+                <Image src="/logos/search.svg" alt="Search" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+              </div>
             </div>
           </form>
         </div>

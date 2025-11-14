@@ -26,17 +26,17 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       <aside
         className={`
           fixed top-0 left-0 bottom-0 z-50 w-72 h-screen
-          bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
+          bg-[#0668A6] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
           transition-all duration-300 ease-in-out
           lg:translate-x-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         {/* Logo */}
-        <div className="w-56 left-[29px] top-[18px] absolute inline-flex justify-start items-start gap-3">
-          <div className="w-12 h-12 px-3 py-px bg-black rounded-3xl shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white flex justify-start items-center gap-2.5">
-            <div className="w-6 h-6 relative overflow-hidden">
-              <div className="w-5 h-4 left-[2px] top-[3px] absolute bg-white" />
+        <div className="w-56 left-[29px] top-[18px] absolute inline-flex justify-start items-center gap-3">
+          <div className="p-2 bg-black rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
+            <div className="p-2 bg-black rounded-[32px] inline-flex justify-center items-center">
+              <Image src="/logos/hamburger-menu.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
             </div>
           </div>
           <div className="flex-1 p-2 bg-black rounded-[32px] inline-flex flex-col justify-start items-start gap-2.5">
@@ -103,8 +103,8 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             <div className="self-stretch flex flex-col justify-center items-start gap-4">
               <div className="self-stretch px-4 pb-4 border-b-2 border-black inline-flex justify-center items-center gap-2.5">
                 <div className="flex-1 justify-start text-black text-xl font-semibold font-['Outfit']">Explore</div>
-                <div className="w-7 h-7 p-2 bg-black rounded-2xl flex justify-center items-center gap-[3px]">
-                  <Image src="/logos/Explore.svg" alt="Explore" width={16} height={16} className="w-4 h-4 invert" />
+                <div className="w-10 h-10 bg-black rounded-full flex justify-center items-center">
+                  <Image src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
                 </div>
               </div>
 
