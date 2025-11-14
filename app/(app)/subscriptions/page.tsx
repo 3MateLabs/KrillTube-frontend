@@ -56,10 +56,10 @@ const SubscriptionCard = ({ subscription }: { subscription: Subscription }) => {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2.5 mt-2">
+        <div className="flex items-center justify-end gap-2.5 mt-2">
           {/* Bell Button */}
           <button className="w-10 h-10 px-2 py-2.5 bg-white rounded-[20px] shadow-[3px_3px_0_0_black] outline outline-[2px] outline-offset-[-2px] outline-black flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </button>
@@ -122,11 +122,11 @@ export default function SubscriptionsPage() {
   ]);
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-[#00579B] via-[#0B79B0] to-[#1AAACE]">
+    <div className="w-full min-h-screen bg-[#0668A6]">
       {/* Content Container */}
       <div className="max-w-[1016px] mx-auto px-4 pt-4 pb-12">
         {/* Page Title */}
-        <h1 className="text-white text-[32px] font-semibold font-['Outfit'] text-center mb-5">
+        <h1 className="text-white text-[32px] font-semibold font-['Outfit'] text-center mb-5 mt-4">
           Subscriptions
         </h1>
 
