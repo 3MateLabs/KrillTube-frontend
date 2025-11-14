@@ -1,39 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CustomVideoPlayer } from '@/components/CustomVideoPlayer';
-import { StorageManagement } from '@/components/StorageManagement';
-import { formatDuration } from '@/lib/types';
-
-// Sidebar MenuItem Component
-const MenuItem = ({ icon, text, selected = false, rounded = false, href = '#' }: { icon: React.ReactNode; text: string; selected?: boolean; rounded?: boolean; href?: string }) => (
-  <Link href={href} className={`self-stretch px-4 py-2 ${selected ? 'bg-[#EF4330] text-white' : 'text-black'} ${rounded ? 'rounded-[32px]' : ''} outline ${selected ? 'outline-[3px] outline-offset-[-3px] outline-black' : ''} flex items-center gap-2.5 hover:bg-[#EF4330]/20 transition-colors`}>
-    <div className="w-6 h-6 relative overflow-hidden">
-      {icon}
-    </div>
-    <div className="text-base font-semibold font-['Outfit']">{text}</div>
-  </Link>
-);
 
 export default function WatchPage() {
   const params = useParams();
-  const router = useRouter();
   const videoId = params.id as string;
 
   const [video, setVideo] = useState<any | null>(null);
+  const [allVideos, setAllVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchVideo = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`/api/v1/videos/${videoId}`);
+        // Fetch current video
+        const videoResponse = await fetch(`/api/v1/videos/${videoId}`);
 
-        if (!response.ok) {
-          if (response.status === 404) {
+        if (!videoResponse.ok) {
+          if (videoResponse.status === 404) {
             setError('Video not found');
           } else {
             setError('Failed to load video');
@@ -42,23 +31,32 @@ export default function WatchPage() {
           return;
         }
 
-        const data = await response.json();
+        const videoData = await videoResponse.json();
 
-        if (data.video) {
-          setVideo(data.video);
+        if (videoData.video) {
+          setVideo(videoData.video);
         } else {
           setError('Video not available');
+          setLoading(false);
+          return;
+        }
+
+        // Fetch all videos for recommendations
+        const videosResponse = await fetch('/api/v1/videos?limit=50');
+        if (videosResponse.ok) {
+          const videosData = await videosResponse.json();
+          setAllVideos(videosData.videos || []);
         }
 
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching video:', err);
+        console.error('Error fetching data:', err);
         setError('Failed to load video');
         setLoading(false);
       }
     };
 
-    fetchVideo();
+    fetchData();
   }, [videoId]);
 
   if (loading) {
@@ -98,205 +96,199 @@ export default function WatchPage() {
     );
   }
 
+  // Helper function to format time ago
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInDays === 0) return 'Today';
+    if (diffInDays === 1) return 'Yesterday';
+    if (diffInDays < 30) return `${diffInDays} days ago`;
+    if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
+    return `${Math.floor(diffInDays / 365)} years ago`;
+  };
+
+  // Filter videos by section (excluding current video)
+  const otherVideos = allVideos.filter(v => v.id !== videoId);
+
   return (
-    <div className="w-full min-h-screen relative bg-gradient-to-br from-[#00579B] via-[#0B79B0] to-[#1AAACE] overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-72 h-full fixed left-0 top-0 bg-[#1AAACE]/30 shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px] z-50">
-        <div className="w-56 absolute left-[29px] top-[18px] flex gap-3">
-          <div className="w-12 h-12 px-3 py-px bg-black rounded-3xl shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white flex items-center justify-center">
-            <div className="w-5 h-4 bg-white" />
-          </div>
-          <div className="flex-1 p-2 bg-black rounded-[32px]">
-            <div className="p-2 bg-black rounded-[32px] flex items-center justify-center">
-              <div className="text-white text-base font-bold font-['Outfit']">LOGO</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="w-56 absolute left-[29px] top-[111px] flex flex-col gap-4">
-          {/* Main Menu */}
-          <div className="self-stretch px-4 py-8 bg-white/20 rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col items-center gap-2.5">
-            <div className="self-stretch flex flex-col gap-4">
-              <MenuItem icon={<div className="w-full h-full bg-black" />} text="Home" href="/home" />
-              <MenuItem icon={<Image src="/logos/watch.svg" alt="Watch" width={24} height={24} className="w-full h-full" />} text="Watch" selected href="#" />
-              <MenuItem icon={<div className="w-full h-full bg-black" />} text="Playlists" href="#" />
-              <MenuItem icon={<Image src="/logos/about.svg" alt="About" width={24} height={24} className="w-full h-full" />} text="About" href="#" />
-              <MenuItem icon={<Image src="/logos/subscriptions.svg" alt="Subscriptions" width={24} height={24} className="w-full h-full" />} text="Subscriptions" rounded href="#" />
-            </div>
-          </div>
-
-          {/* Explore Menu */}
-          <div className="self-stretch px-4 py-8 bg-white/20 rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col items-center gap-2.5">
-            <div className="self-stretch flex flex-col gap-4">
-              <div className="self-stretch px-4 pb-4 border-b-2 border-black flex items-center justify-center gap-2.5">
-                <div className="flex-1 text-black text-xl font-semibold font-['Outfit']">Explore</div>
-              </div>
-              <MenuItem icon={<Image src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-full h-full" />} text="Photos" />
-              <MenuItem icon={<Image src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className="w-full h-full" />} text="Scrolls" />
-              <MenuItem icon={<div className="w-full h-full bg-black" />} text="Meme" />
-              <MenuItem icon={<Image src="/logos/earn.svg" alt="Earn" width={24} height={24} className="w-full h-full" />} text="Earn" />
-            </div>
-          </div>
-
-          {/* User Menu */}
-          <div className="self-stretch px-4 py-8 bg-white/20 rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col items-center gap-2.5">
-            <div className="self-stretch flex flex-col gap-4">
-              <MenuItem icon={<Image src="/logos/your Uploads.svg" alt="Your Uploads" width={24} height={24} className="w-full h-full" />} text="Your Uploads" href="/library" />
-              <MenuItem icon={<Image src="/logos/send feedback.svg" alt="Send feedback" width={24} height={24} className="w-full h-full" />} text="Send feedback" />
-              <MenuItem icon={<div className="w-full h-full bg-black" />} text="Setting" />
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="w-full min-h-screen bg-[#0668A6]">
       {/* Main Content */}
-      <div className="ml-72 min-h-screen">
-        {/* Header */}
-        <div className="w-full px-8 py-4 flex items-center justify-between gap-8 border-b-[3px] border-black">
-          {/* Search Bar */}
-          <div className="flex-1 max-w-2xl h-12 p-2 bg-[#1AAACE]/30 rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-2 outline-offset-[-2px] outline-black">
-            <div className="w-full h-full px-5 py-[5px] flex justify-between items-center">
-              <input
-                type="text"
-                placeholder="Search videos..."
-                className="flex-1 bg-transparent text-white placeholder-white/60 outline-none font-medium font-['Outfit']"
+      <div className="pl-20 pr-12 pt-12 pb-4 flex flex-col justify-start items-start gap-0">
+        {/* Top Row - Video Player and Recommended Videos */}
+        <div className="w-full flex justify-start items-start gap-6">
+          {/* Left - Video Player */}
+          <div className="flex-1">
+            <div className="w-full max-w-[970px] rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] border-[3px] border-black overflow-hidden bg-black">
+              <CustomVideoPlayer
+                videoId={video.id}
+                videoUrl={video.walrusMasterUri}
+                network={video.network || 'mainnet'}
+                title={video.title}
+                autoplay={false}
               />
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            <Link
-              href="/upload"
-              className="px-6 py-2 bg-white rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-[3px] outline-offset-[-3px] outline-black hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
-            >
-              <div className="text-black text-base font-bold font-['Outfit']">Upload</div>
-            </Link>
-            <button className="px-6 py-2 bg-white rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-[3px] outline-offset-[-3px] outline-black hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
-              <div className="text-black text-base font-bold font-['Outfit']">Connect Wallet</div>
-            </button>
+          {/* Right - Category Tabs and Recommended Videos */}
+          <div className="w-80 flex flex-col justify-start items-start gap-4">
+            {/* Category Tabs */}
+            <div className="w-full flex flex-wrap justify-start items-center gap-2">
+              <div className="px-4 py-2 bg-black rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-white flex justify-start items-center gap-2.5">
+                <div className="justify-start text-white text-base font-semibold font-['Outfit']">All</div>
+              </div>
+              <div className="px-4 py-2 bg-gradient-to-br from-sky-700 via-sky-700 to-cyan-500 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-start items-center gap-2.5">
+                <div className="justify-start text-white text-base font-semibold font-['Outfit']">Live</div>
+              </div>
+              <div className="px-4 py-2 bg-gradient-to-br from-sky-700 via-sky-700 to-cyan-500 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-start items-center gap-2.5">
+                <div className="justify-start text-white text-base font-semibold font-['Outfit']">Memes</div>
+              </div>
+              <div className="px-4 py-2 bg-gradient-to-br from-sky-700 via-sky-700 to-cyan-500 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-start items-center gap-2.5">
+                <div className="justify-start text-white text-base font-semibold font-['Outfit']">Gaming</div>
+              </div>
+            </div>
+
+            {/* Recommended Videos Container */}
+            <div className="w-full flex flex-col justify-start items-start gap-2">
+              {/* Demo Cards */}
+              {[1, 2, 3, 4, 5, 6].map((index) => (
+                <div key={index} className="w-full p-2.5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-2.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer">
+                  <div className="self-stretch inline-flex justify-center items-center gap-2">
+                    <Image
+                      className="w-32 h-24 rounded-lg shadow-[1.4795299768447876px_1.4795299768447876px_0px_0px_rgba(0,0,0,1.00)] border-1 border-black object-cover"
+                      src="/logos/theorigin.png"
+                      alt="Video thumbnail"
+                      width={136}
+                      height={96}
+                    />
+                    <div className="inline-flex flex-col justify-start items-start gap-2">
+                      <div className="self-stretch inline-flex justify-between items-start">
+                        <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_5px_rgb(0_0_0_/_0.25)]">Walrus</div>
+                        <div className="w-5 h-5 relative overflow-hidden">
+                          <div className="w-[3.20px] h-3 left-[8px] top-[3.20px] absolute bg-black" />
+                        </div>
+                      </div>
+                      <div className="self-stretch inline-flex justify-start items-end gap-4">
+                        <div className="inline-flex flex-col justify-start items-start gap-2">
+                          <div className="justify-start text-black text-base font-bold font-['Outfit']">Haulout Hackathon</div>
+                          <div className="self-stretch inline-flex justify-start items-start gap-1">
+                            <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
+                            <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
+                          </div>
+                        </div>
+                        <div className="flex justify-start items-center">
+                          <div className="inline-flex flex-col justify-start items-start gap-[2.94px]">
+                            <div className="justify-start text-black text-base font-semibold font-['Outfit']">1</div>
+                          </div>
+                          <Image className="w-4 h-4" src="/logos/sui-logo.png" alt="SUI" width={16} height={16} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Video Content */}
-        <div className="max-w-[1400px] mx-auto px-8 py-8">
-          {/* Video Player */}
-          <div className="mb-6 rounded-2xl overflow-hidden shadow-[5px_5px_0_1px_rgba(0,0,0,1)] outline outline-[3px] outline-black">
-            <CustomVideoPlayer
-              videoId={video.id}
-              videoUrl={video.walrusMasterUri}
-              network={video.network || 'mainnet'}
-              title={video.title}
-              autoplay={false}
-            />
-          </div>
-
-          {/* Video Info Grid */}
-          <div className="grid lg:grid-cols-[1fr_360px] gap-6">
-            {/* Main Column */}
-            <div className="space-y-4">
-              {/* Title Card */}
-              <div className="p-6 bg-white rounded-2xl shadow-[5px_5px_0_1px_rgba(0,0,0,1)] outline outline-[3px] outline-black">
-                <h1 className="text-2xl font-bold text-black font-['Outfit'] mb-3">
-                  {video.title}
-                </h1>
-
-                {/* Meta Info */}
-                <div className="flex items-center gap-4 text-sm text-black/70 font-['Outfit'] font-medium pb-4 border-b-2 border-black/10">
-                  <span>{formatDuration(video.duration)}</span>
-                  <span>•</span>
-                  <span>{new Date(video.createdAt).toLocaleDateString()}</span>
-                  <span>•</span>
-                  <span className="px-3 py-1 bg-[#EF4330] text-white rounded-full text-xs font-bold">
-                    🔒 Encrypted
-                  </span>
+        {/* Creator Info and Actions Row */}
+        <div className="w-full flex justify-start items-start gap-6 -mt-44">
+          <div className="flex-1 max-w-[970px]">
+            <div className="w-full inline-flex justify-between items-center">
+              <div className="flex justify-start items-center gap-4">
+                {/* Profile Picture */}
+                <div className="w-16 h-16 relative">
+                  <Image className="w-16 h-16 rounded-full border-2 border-black object-cover" src="/logos/eason.svg" alt="Creator" width={64} height={64} />
                 </div>
 
-                {/* Creator Info */}
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#00579B] to-[#1AAACE] rounded-full flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_black] outline outline-2 outline-black">
-                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-xs text-black/60 font-['Outfit']">Created by</p>
-                    <p className="text-sm text-black font-mono font-semibold">
-                      {video.creatorId.slice(0, 8)}...{video.creatorId.slice(-6)}
-                    </p>
-                  </div>
+                {/* Name and Subscribers */}
+                <div className="flex flex-col justify-start items-start gap-1">
+                  <div className="text-black text-xl font-bold font-['Outfit']">{video.title}</div>
+                  <div className="text-black text-sm font-normal font-['Outfit']">834 Subscribers</div>
+                </div>
+
+                {/* Subscribe Button */}
+                <div className="px-6 py-2.5 bg-white rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+                  <div className="text-black text-base font-bold font-['Outfit']">Subscribe</div>
                 </div>
               </div>
 
-              {/* Encryption Info Card */}
-              <div className="p-6 bg-white rounded-2xl shadow-[5px_5px_0_1px_rgba(0,0,0,1)] outline outline-[3px] outline-black">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-[#EF4330] rounded-full flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_black] outline outline-2 outline-black">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-black font-['Outfit'] mb-2">
-                      End-to-End Encrypted
-                    </h3>
-                    <p className="text-sm text-black/70 font-['Outfit'] leading-relaxed">
-                      This video is encrypted with AES-128-GCM. Segments are decrypted securely in your browser during playback. Your privacy is guaranteed by decentralized Walrus storage.
-                    </p>
-                  </div>
+              {/* Action Buttons */}
+              <div className="flex justify-start items-center gap-3">
+                {/* Like Button */}
+                <div className="w-12 h-12 bg-white rounded-full shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+                  <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                  </svg>
+                </div>
+
+                {/* Bookmark Button */}
+                <div className="w-12 h-12 bg-white rounded-full shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+                  <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                  </svg>
+                </div>
+
+                {/* Tip Button */}
+                <div className="w-12 h-12 bg-white rounded-full shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center gap-1 cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+                  <span className="text-black text-base font-semibold font-['Outfit']">5</span>
+                  <Image className="w-4 h-4" src="/logos/sui-logo.png" alt="SUI" width={16} height={16} />
                 </div>
               </div>
             </div>
+          </div>
+          <div className="w-80"></div>
+        </div>
 
-            {/* Sidebar */}
-            <div className="space-y-4">
-              {/* Storage Management (Mainnet Only) */}
-              <div className="p-6 bg-white rounded-2xl shadow-[5px_5px_0_1px_rgba(0,0,0,1)] outline outline-[3px] outline-black">
-                <StorageManagement
-                  videoId={video.id}
-                  network={video.network || 'mainnet'}
-                  creatorId={video.creatorId}
-                  masterBlobObjectId={video.masterBlobObjectId}
-                  masterEndEpoch={video.masterEndEpoch}
-                />
+        {/* Description Section - Left Side Only */}
+        <div className="w-full flex justify-start items-start gap-6 mt-6">
+          <div className="flex-1 max-w-[970px]">
+            <div className="w-full p-6 bg-[#F5F0E8] rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] border-[3px] border-black flex flex-col justify-start items-start gap-3">
+              <div className="text-black text-xl font-bold font-['Outfit']">Description</div>
+              <div className="text-black text-base font-normal font-['Outfit']">No Description was provided....</div>
+            </div>
+          </div>
+          <div className="w-80"></div>
+        </div>
+
+        {/* Black divider line */}
+        <div className="w-full h-[2px] bg-black mt-6"></div>
+
+        {/* Comments Section - Full Width */}
+        <div className="w-full mt-6">
+          <div className="w-full p-4 bg-[#F5F0E8] rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-2.5">
+              <div className="self-stretch inline-flex justify-between items-end">
+                <div className="justify-start text-black text-2xl font-semibold font-['Outfit']">Comments</div>
+                <div className="justify-start text-black text-sm font-semibold font-['Outfit']">734 comments</div>
               </div>
-
-              {/* Walrus Badge */}
-              <div className="p-6 bg-white rounded-2xl shadow-[5px_5px_0_1px_rgba(0,0,0,1)] outline outline-[3px] outline-black">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-[#1AAACE] rounded-full flex items-center justify-center shrink-0 shadow-[3px_3px_0_0_black] outline outline-2 outline-black">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-black font-['Outfit'] mb-1">
-                      Stored on Walrus
-                    </h3>
-                    <p className="text-xs text-black/70 font-['Outfit'] leading-relaxed">
-                      Decentralized storage with no central point of failure. Your content lives forever on the blockchain.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Available Quality */}
-              <div className="p-6 bg-white rounded-2xl shadow-[5px_5px_0_1px_rgba(0,0,0,1)] outline outline-[3px] outline-black">
-                <h3 className="text-base font-bold text-black font-['Outfit'] mb-3">Available Quality</h3>
-                <div className="space-y-2">
-                  {video.renditions.map((rendition: any) => (
-                    <div key={rendition.name} className="flex items-center justify-between py-2 px-3 bg-gradient-to-r from-[#1AAACE]/20 to-transparent rounded-lg">
-                      <span className="text-sm font-semibold text-black font-['Outfit']">{rendition.name}</span>
-                      <span className="text-xs text-black/60 font-['Outfit']">{rendition.resolution}</span>
+              <div className="self-stretch flex flex-col justify-start items-start gap-3">
+                {[1, 2, 3, 4, 5, 6].map((index) => (
+                  <div key={index} className="self-stretch h-32 p-4 bg-white rounded-2xl outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col justify-start items-start gap-2.5">
+                    <div className="self-stretch inline-flex justify-start items-center gap-5">
+                      <div className="w-10 inline-flex flex-col justify-start items-end gap-[5px]">
+                        <div className="self-stretch h-10 relative">
+                          <Image className="w-10 h-10 rounded-full object-cover" src="/logos/matteodotsui.svg" alt="User" width={40} height={40} />
+                        </div>
+                      </div>
+                      <div className="flex-1 inline-flex flex-col justify-start items-start gap-2.5">
+                        <div className="self-stretch justify-start text-black text-xl font-semibold font-['Outfit']">From @Matteo.sui</div>
+                        <div className="self-stretch justify-start text-black text-base font-normal font-['Outfit']">@Eason_C13 @GiveRep We are grateful for the overwhelming support from the Sui Overflow community! @GiveRep @GiveRep</div>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="self-stretch inline-flex justify-end items-center gap-2">
+                      <div className="justify-start text-black text-xs font-medium font-['Outfit']">jun 30, 2025  6:20PM</div>
+                      <div className="px-2.5 py-[5px] bg-black rounded-[5px] outline outline-[0.50px] outline-offset-[-0.50px] outline-white inline-flex flex-col justify-start items-start gap-2.5">
+                        <div className="inline-flex justify-start items-center gap-[5px]">
+                          <div className="justify-start text-white text-xs font-semibold font-['Inter']">View X</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>

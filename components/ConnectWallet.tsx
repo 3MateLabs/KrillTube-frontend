@@ -32,9 +32,9 @@ export function ConnectWallet() {
           outline: 3px solid black !important;
           outline-offset: 0px !important;
           transition: all 0.2s ease !important;
-          box-shadow: none !important;
+          box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 1.00) !important;
           width: 100% !important;
-          height: 40px !important;
+          height: 56px !important;
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
