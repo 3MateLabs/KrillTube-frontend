@@ -26,7 +26,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       <aside
         className={`
           fixed top-0 left-0 bottom-0 z-50 w-72 h-screen
-          bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
+          bg-[#0668A6] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
           transition-all duration-300 ease-in-out
           lg:translate-x-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -190,15 +190,11 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
           {/* User Profile */}
           <div className="self-stretch inline-flex justify-start items-start gap-3">
-            <div className="w-12 h-12 px-3 py-px bg-black rounded-3xl shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white flex justify-center items-center gap-2.5">
-              <div className="w-12 h-12 relative">
-                <img className="w-12 h-12 left-0 top-0 absolute rounded-full border-2 border-white" src="https://via.placeholder.com/50" alt="User" />
-              </div>
+            <div className="w-[50px] h-[50px] relative">
+              <Image className="w-[50px] h-[50px] absolute left-0 top-0 rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
             </div>
-            <div className="flex-1 p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex flex-col justify-start items-start gap-2.5">
-              <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2.5">
-                <div className="justify-start text-white text-base font-semibold font-['Montserrat']">@EasonC13</div>
-              </div>
+            <div className="w-[169px] h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
+              <div className="text-white text-base font-semibold font-['Montserrat']">@EasonC13</div>
             </div>
           </div>
         </div>
