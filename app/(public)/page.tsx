@@ -256,7 +256,7 @@ export default function KrillTubeLanding() {
             <div className="self-stretch flex flex-col justify-start items-start gap-3">
               {[
                 { q: 'What is KrillTube?', a: 'KrillTube is a decentralized video platform powered by Walrus storage and built on the Sui blockchain.' },
-                { q: 'How do I earn Krill?', a: 'You can earn Krill by uploading content, watching videos, and participating in the community.' },
+                { q: 'How do I earn Krill Points?', a: 'You can earn Krill Points by uploading content, watching videos, and participating in the community.' },
                 { q: 'What are the fees?', a: 'KrillTube offers unbeatable low fees compared to traditional platforms, with transparent pricing.' },
                 { q: 'Is my content secure?', a: 'Yes, all content is stored on decentralized Walrus storage with encryption for maximum security.' },
                 { q: 'How do I get started?', a: 'Simply connect your wallet and start watching or uploading content to join the ocean!' }
@@ -266,8 +266,8 @@ export default function KrillTubeLanding() {
                     <div className="flex-1 flex justify-center items-center gap-2.5">
                       <div className="flex-1 justify-start text-black text-2xl font-semibold font-['Outfit']">{faq.q}</div>
                     </div>
-                    <div className="w-12 h-12 px-5 py-4 bg-[#4A9FD8] rounded-[30px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-center items-center gap-2.5">
-                      <img src="/Vector 2.svg" alt="Expand" className="w-[23px] h-[14px] transition-transform group-open:rotate-180" />
+                    <div className="w-16 h-16 px-5 py-4 bg-[#4A9FD8] rounded-[30px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-center items-center gap-2.5">
+                      <img src="/Vector 2.svg" alt="Expand" className="w-[30px] h-[20px] transition-transform group-open:rotate-180" />
                     </div>
                   </summary>
                   <p className="text-black text-base font-medium font-['Outfit'] leading-relaxed">{faq.a}</p>
