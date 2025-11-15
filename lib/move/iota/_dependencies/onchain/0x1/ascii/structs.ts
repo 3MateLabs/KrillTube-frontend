@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as reified from "../../../../_framework/reified";
 import {PhantomReified, Reified, StructClass, ToField, ToTypeStr, decodeFromFields, decodeFromFieldsWithTypes, decodeFromJSONField, fieldToJSON, phantom} from "../../../../_framework/reified";
 import {FieldsWithTypes, composeIotaType, compressIotaType} from "../../../../_framework/util";

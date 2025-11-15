@@ -25,7 +25,7 @@ model Asset {
   title     String
   status    String          @default("uploading")
   createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @map("updated_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
   revisions AssetRevision[]
 
   @@index([createdAt])

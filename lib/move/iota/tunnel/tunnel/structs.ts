@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as reified from "../../_framework/reified";
 import {Option} from "../../_dependencies/onchain/0x1/option/structs";
 import {String} from "../../_dependencies/onchain/0x1/string/structs";
