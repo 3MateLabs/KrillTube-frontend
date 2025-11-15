@@ -62,12 +62,14 @@ export function useMultiChainAuth() {
     const signature = Cookies.get(SIGNATURE_COOKIE_NAME);
     const message = Cookies.get(MESSAGE_COOKIE_NAME);
     const storedChain = Cookies.get(CHAIN_COOKIE_NAME);
+    const storedAddress = Cookies.get(ADDRESS_COOKIE_NAME);
 
-    // Verify signature matches current chain
+    // Verify signature matches current chain and address
     const isAuthenticated = !!(
       signature &&
       message &&
-      storedChain === activeChain
+      storedChain === activeChain &&
+      storedAddress === address
     );
 
     setAuthState({
