@@ -40,11 +40,12 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               <Image src="/logos/hamburger-menu.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
             </div>
           </div>
-          <div className="flex-1 p-2 bg-black rounded-[32px] inline-flex flex-col justify-start items-start gap-2.5">
-            <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2.5">
-              <div className="justify-start text-white text-base font-bold font-['Outfit']">LOGO</div>
+          <Link href="/" className="flex-1 p-2 bg-black rounded-[32px] inline-flex flex-col justify-start items-start gap-2.5">
+            <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2">
+              <Image src="/logos/kril_tube_icon.png" alt="Krill Tube" width={24} height={24} className="rounded-full" />
+              <div className="justify-start text-white text-base font-bold font-['Outfit']">Krill Tube</div>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Navigation */}

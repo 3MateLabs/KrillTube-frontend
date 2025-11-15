@@ -24,8 +24,9 @@ export default function KrillTubeLanding() {
         <nav className="relative top-0 left-0 right-0 bg-[#1AAACE] border-b-[6px] border-black p-3 md:px-24 z-50">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-8 lg:gap-16">
-              <Link href="/" className="bg-black rounded-full px-6 py-2">
-                <span className="text-white font-bold text-lg">LOGO</span>
+              <Link href="/" className="bg-black rounded-full px-4 py-2 flex items-center gap-2">
+                <Image src="/logos/kril_tube_icon.png" alt="Krill Tube" width={32} height={32} className="rounded-full" />
+                <span className="text-white font-bold text-lg">Krill Tube</span>
               </Link>
               <div className="hidden md:block bg-black backdrop-blur-md outline outline-[3px] outline-black rounded-[48px] p-2">
                 <div className="flex gap-2">
@@ -285,7 +286,10 @@ export default function KrillTubeLanding() {
         <div className="w-[1224px] inline-flex flex-col justify-start items-start gap-4">
           <div className="self-stretch h-0 outline outline-2 outline-offset-[-1px] outline-black"></div>
           <div className="self-stretch inline-flex justify-between items-center">
-            <div className="justify-start text-black text-3xl font-bold font-['Outfit']">LOGO</div>
+            <div className="flex items-center gap-3">
+              <Image src="/logos/kril_tube_icon.png" alt="Krill Tube" width={40} height={40} className="rounded-full" />
+              <div className="justify-start text-white text-3xl font-bold font-['Outfit']">Krill Tube</div>
+            </div>
             <div className="flex justify-start items-center gap-4">
               <div className="justify-start text-white text-xl font-medium font-['Outfit']">2025. All rights reserved.</div>
               <div className="flex justify-start items-center gap-2.5">
