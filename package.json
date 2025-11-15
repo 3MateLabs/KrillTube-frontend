@@ -22,6 +22,8 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@iota/dapp-kit": "^0.7.0",
+    "@iota/iota-sdk": "^1.7.1",
     "@mysten/dapp-kit": "^0.19.6",
     "@mysten/sui.js": "^0.54.1",
     "@mysten/walrus": "^0.8.1",

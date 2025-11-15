@@ -54,7 +54,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           <div className="self-stretch px-4 py-8 bg-[#FFEEE5] rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col justify-center items-center gap-2.5">
             <div className="self-stretch flex flex-col justify-center items-start gap-4">
               <Link
-                href="/home"
+                href="/"
                 onClick={onClose}
                 className="self-stretch px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg"
               >
@@ -63,12 +63,16 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               </Link>
 
               <Link
-                href="#"
+                href="/watch"
                 onClick={onClose}
-                className="self-stretch px-4 py-2 bg-[#EF4330] rounded-[32px] outline outline-[3px] outline-offset-[-3px] outline-black inline-flex justify-start items-center gap-2.5"
+                className={`self-stretch px-4 py-2 rounded-[32px] inline-flex justify-start items-center gap-2.5 transition-colors ${
+                  pathname === '/watch'
+                    ? 'bg-[#EF4330] outline outline-[3px] outline-offset-[-3px] outline-black'
+                    : 'hover:bg-white/50'
+                }`}
               >
-                <Image src="/logos/watch.svg" alt="Watch" width={24} height={24} className="w-6 h-6" />
-                <div className="justify-start text-white text-base font-semibold font-['Outfit']">Watch</div>
+                <Image src="/logos/watch.svg" alt="Watch" width={24} height={24} className={`w-6 h-6 ${pathname === '/watch' ? 'brightness-0 invert' : ''}`} />
+                <div className={`justify-start text-base font-semibold font-['Outfit'] ${pathname === '/watch' ? 'text-white' : 'text-black'}`}>Watch</div>
               </Link>
 
               <Link
@@ -90,12 +94,16 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               </Link>
 
               <Link
-                href="#"
+                href="/subscriptions"
                 onClick={onClose}
-                className="self-stretch px-4 py-2 rounded-[32px] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors"
+                className={`self-stretch px-4 py-2 rounded-[32px] inline-flex justify-start items-center gap-2.5 transition-colors ${
+                  pathname === '/subscriptions'
+                    ? 'bg-[#CF2C2F] outline outline-[3px] outline-offset-[-3px] outline-black'
+                    : 'hover:bg-white/50'
+                }`}
               >
-                <Image src="/logos/subscriptions.svg" alt="Subscriptions" width={24} height={24} className="w-6 h-6" />
-                <div className="justify-start text-black text-base font-semibold font-['Outfit']">Subscriptions</div>
+                <Image src="/logos/subscriptions.svg" alt="Subscriptions" width={24} height={24} className={`w-6 h-6 ${pathname === '/subscriptions' ? 'brightness-0 invert' : ''}`} />
+                <div className={`justify-start text-base font-semibold font-['Outfit'] ${pathname === '/subscriptions' ? 'text-white' : 'text-black'}`}>Subscriptions</div>
               </Link>
             </div>
           </div>
@@ -183,14 +191,12 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           </div>
 
           {/* User Profile */}
-          <div className="self-stretch inline-flex justify-start items-center gap-3">
-            <div className="w-12 h-12 bg-black rounded-full shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white flex justify-center items-center overflow-hidden">
-              <Image className="w-full h-full object-cover" src="/logos/eason.svg" alt="User" width={50} height={50} />
+          <div className="self-stretch inline-flex justify-start items-start gap-3">
+            <div className="w-[50px] h-[50px] relative">
+              <Image className="w-[50px] h-[50px] absolute left-0 top-0 rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
             </div>
-            <div className="flex-1 p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex flex-col justify-start items-start gap-2.5">
-              <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2.5">
-                <div className="justify-start text-white text-base font-semibold font-['Montserrat']">@EasonC13</div>
-              </div>
+            <div className="w-[169px] h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
+              <div className="text-white text-base font-semibold font-['Montserrat']">@EasonC13</div>
             </div>
           </div>
         </div>
