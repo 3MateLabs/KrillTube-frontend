@@ -20,8 +20,8 @@ interface IotaProviderProps {
 
 export function IotaProvider({ children }: IotaProviderProps) {
   return (
-    <IotaClientProvider networks={networks} defaultNetwork="testnet">
-      <WalletProvider autoConnect={true}>
+    <IotaClientProvider networks={networks} defaultNetwork="mainnet">
+      <WalletProvider autoConnect={false}>
         {children}
       </WalletProvider>
     </IotaClientProvider>

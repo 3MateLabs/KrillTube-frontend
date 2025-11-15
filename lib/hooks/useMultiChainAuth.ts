@@ -95,20 +95,25 @@ export function useMultiChainAuth() {
     setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      console.log(`[MultiChainAuth] Requesting ${activeChain} signature for:`, address);
-
       let result;
+      let signature: string;
       const messageBytes = new TextEncoder().encode(AUTH_MESSAGE);
 
       if (activeChain === 'sui') {
         result = await signSuiMessage({ message: messageBytes });
+        signature = result.signature;
       } else if (activeChain === 'iota') {
-        result = await signIotaMessage({ message: messageBytes });
+        if (!iotaAccount) {
+          throw new Error('IOTA account not found');
+        }
+        result = await signIotaMessage({
+          message: messageBytes,
+          account: iotaAccount
+        });
+        signature = result.signature;
       } else {
         throw new Error(`Unsupported chain: ${activeChain}`);
       }
-
-      console.log('[MultiChainAuth] Signature received:', result.signature);
 
       // Verify signature with backend
       const verifyResponse = await fetch('/api/auth/verify-signature', {
@@ -116,7 +121,7 @@ export function useMultiChainAuth() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: AUTH_MESSAGE,
-          signature: result.signature,
+          signature: signature,
           address,
           chain: activeChain,
         }),
@@ -128,7 +133,6 @@ export function useMultiChainAuth() {
       }
 
       const verifyResult = await verifyResponse.json();
-      console.log('[MultiChainAuth] Backend verification result:', verifyResult);
 
       if (!verifyResult.valid) {
         throw new Error('Invalid signature');
@@ -141,12 +145,10 @@ export function useMultiChainAuth() {
         secure: process.env.NODE_ENV === 'production',
       };
 
-      Cookies.set(SIGNATURE_COOKIE_NAME, result.signature, cookieOptions);
+      Cookies.set(SIGNATURE_COOKIE_NAME, signature, cookieOptions);
       Cookies.set(MESSAGE_COOKIE_NAME, AUTH_MESSAGE, cookieOptions);
       Cookies.set(ADDRESS_COOKIE_NAME, address, cookieOptions);
       Cookies.set(CHAIN_COOKIE_NAME, activeChain, cookieOptions);
-
-      console.log('[MultiChainAuth] ✓ Authentication successful');
 
       setAuthState({
         isAuthenticated: true,
@@ -170,17 +172,13 @@ export function useMultiChainAuth() {
 
   // Main authentication effect
   useEffect(() => {
-    console.log('[MultiChainAuth] useEffect triggered, address:', address);
-
     if (isFirstRenderRef.current) {
       isFirstRenderRef.current = false;
-      console.log('[MultiChainAuth] First render, wallet initializing...');
       setAuthState(prev => ({ ...prev, isLoading: true }));
       return;
     }
 
     if (!address) {
-      console.log('[MultiChainAuth] No wallet connected');
       setAuthState({
         isAuthenticated: false,
         isLoading: false,
@@ -196,8 +194,6 @@ export function useMultiChainAuth() {
     const isAuth = checkAuthentication();
 
     if (isAuth) {
-      console.log('[MultiChainAuth] Found existing signature, verifying with backend...');
-
       // Verify existing signature with backend
       const signature = Cookies.get(SIGNATURE_COOKIE_NAME);
       const message = Cookies.get(MESSAGE_COOKIE_NAME);
@@ -214,11 +210,7 @@ export function useMultiChainAuth() {
       })
         .then(res => res.json())
         .then(result => {
-          console.log('[MultiChainAuth] Backend verification result for existing signature:', result);
-          if (result.valid) {
-            console.log('[MultiChainAuth] ✓✓ Existing signature verified successfully!');
-          } else {
-            console.log('[MultiChainAuth] Existing signature invalid, requesting new one...');
+          if (!result.valid) {
             requestSignature();
           }
         })
@@ -231,7 +223,6 @@ export function useMultiChainAuth() {
 
     // Request new signature
     if (signatureRequestedRef.current !== address) {
-      console.log('[MultiChainAuth] No existing signature, requesting new one...');
       signatureRequestedRef.current = address;
       requestSignature();
     }

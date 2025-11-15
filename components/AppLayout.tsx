@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { useWalletAuth } from '@/lib/hooks/useWalletAuth';
+import { useMultiChainAuth } from '@/lib/hooks/useMultiChainAuth';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -12,16 +12,8 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Initialize wallet authentication
-  const walletAuth = useWalletAuth();
-
-  // Debug logging
-  console.log('[AppLayout] Wallet Auth State:', {
-    isAuthenticated: walletAuth.isAuthenticated,
-    isLoading: walletAuth.isLoading,
-    address: walletAuth.address,
-    error: walletAuth.error,
-  });
+  // Initialize multi-chain wallet authentication
+  const walletAuth = useMultiChainAuth();
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const closeSidebar = () => setIsSidebarOpen(false);
