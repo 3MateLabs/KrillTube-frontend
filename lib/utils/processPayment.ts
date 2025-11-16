@@ -15,6 +15,7 @@ export interface ProcessPaymentParams {
   paymentAmount: number; // In smallest unit (e.g., 0.01 dKRILL = 10_000 with 6 decimals)
   signAndExecuteTransaction: (args: { transaction: SuiTransaction | IotaTransaction }) => Promise<any>;
   userAddress: string;
+  coinType?: string; // Optional: Override default coin type (e.g., '0x2::iota::IOTA' for native IOTA)
 }
 
 export async function processPayment({
@@ -24,6 +25,7 @@ export async function processPayment({
   paymentAmount,
   signAndExecuteTransaction,
   userAddress,
+  coinType: customCoinType,
 }: ProcessPaymentParams): Promise<string> {
   console.log('[processPayment] Starting payment process', {
     network,
@@ -37,9 +39,10 @@ export async function processPayment({
     ? process.env.NEXT_PUBLIC_SUI_TUNNEL_PACKAGE_ID!
     : process.env.NEXT_PUBLIC_IOTA_TUNNEL_PACKAGE_ID!;
 
-  const coinType = network === 'sui'
+  // Use custom coin type if provided, otherwise default to dKRILL
+  const coinType = customCoinType || (network === 'sui'
     ? process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN!
-    : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
+    : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!);
 
   const rpcUrl = network === 'sui'
     ? process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.testnet.sui.io:443'
@@ -87,11 +90,55 @@ export async function processPayment({
   const tx = network === 'sui' ? new SuiTransaction() : new IotaTransaction();
   tx.setSender(userAddress);
 
-  // Use the first dKRILL coin and split the payment amount from it
-  const [paymentCoin] = tx.splitCoins(
-    tx.object(coins[0].coinObjectId),
-    [tx.pure.u64(paymentAmount)]
-  );
+  let paymentCoin;
+
+  // Check if paying with native IOTA coin (use tx.gas to avoid gas coin issues)
+  const isNativeIota = coinType === '0x2::iota::IOTA';
+
+  if (isNativeIota) {
+    // For native IOTA tokens, split from tx.gas (which automatically handles gas + payment)
+    console.log('[processPayment] Using native IOTA for payment, splitting from tx.gas');
+    [paymentCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(paymentAmount)]);
+  } else {
+    // For custom tokens (like dKRILL), fetch user's coin objects
+    const client = new IotaClient({ url: rpcUrl });
+
+    console.log('[processPayment] Fetching custom token coins for user:', userAddress);
+    console.log('[processPayment] Network:', network);
+    console.log('[processPayment] Coin type:', coinType);
+    console.log('[processPayment] RPC URL:', rpcUrl);
+
+    const coinsResponse = await client.getCoins({
+      owner: userAddress,
+      coinType: coinType,
+    });
+
+    console.log('[processPayment] getCoins response:', JSON.stringify(coinsResponse, null, 2));
+
+    const coins = coinsResponse.data;
+
+    if (!coins || coins.length === 0) {
+      console.error('[processPayment] No coins found with specific coinType!');
+
+      // Try fetching ALL coins to see what the user has
+      console.log('[processPayment] Fetching ALL coins to debug...');
+      const allCoinsResponse = await client.getCoins({
+        owner: userAddress,
+      });
+      console.log('[processPayment] All coins:', JSON.stringify(allCoinsResponse, null, 2));
+
+      throw new Error(`No ${coinType} coins found. Please mint tokens first.\n\nSearched for: ${coinType}\n\nYou have ${allCoinsResponse.data?.length || 0} total coin(s)`);
+    }
+
+    console.log('[processPayment] Found', coins.length, 'coin(s)');
+    console.log('[processPayment] Using coin:', coins[0].coinObjectId, 'with balance:', coins[0].balance);
+
+    // Use the first coin and split the payment amount from it
+    [paymentCoin] = tx.splitCoins(
+      tx.object(coins[0].coinObjectId),
+      [tx.pure.u64(paymentAmount)]
+    );
+  }
 
   // Call process_payment function
   // public fun process_payment<T>(
