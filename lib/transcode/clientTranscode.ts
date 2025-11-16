@@ -22,6 +22,7 @@ export interface TranscodeProgress {
 export interface TranscodeOptions {
   qualities: string[]; // e.g., ['720p', '480p', '360p']
   segmentDuration: number; // seconds (default 4)
+  customPoster?: Uint8Array; // Optional custom thumbnail to use instead of auto-generated
   onProgress?: (progress: TranscodeProgress) => void;
 }
 
@@ -159,7 +160,7 @@ export async function transcodeVideo(
   file: File,
   options: TranscodeOptions
 ): Promise<TranscodeResult> {
-  const { qualities, segmentDuration = 4, onProgress } = options;
+  const { qualities, segmentDuration = 4, customPoster, onProgress } = options;
 
   console.log('[Client Transcode] Starting transcoding...');
   console.log(`  File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
@@ -225,23 +226,31 @@ export async function transcodeVideo(
     videoDuration = Math.max(10, file.size / 1024 / 1024);
   }
 
-  // Generate poster using browser's video element (avoid FFmpeg memory issues)
-  console.log('Generating poster...');
+  // Use custom poster if provided, otherwise generate from video
+  let posterData: Uint8Array;
 
-  if (onProgress) {
-    onProgress({
-      overall: 12,
-      currentQuality: '',
-      currentQualityIndex: 0,
-      totalQualities: qualities.length,
-      qualityProgress: 0,
-      stage: 'loading',
-      message: 'Generating thumbnail...',
-    });
+  if (customPoster) {
+    console.log('Using custom thumbnail...');
+    posterData = customPoster;
+    console.log(`Custom thumbnail: ${(posterData.length / 1024).toFixed(2)} KB`);
+  } else {
+    console.log('Generating poster from video...');
+
+    if (onProgress) {
+      onProgress({
+        overall: 12,
+        currentQuality: '',
+        currentQualityIndex: 0,
+        totalQualities: qualities.length,
+        qualityProgress: 0,
+        stage: 'loading',
+        message: 'Generating thumbnail...',
+      });
+    }
+
+    posterData = await generatePosterFromVideo(file);
+    console.log(`Poster generated: ${(posterData.length / 1024).toFixed(2)} KB`);
   }
-
-  const posterData = await generatePosterFromVideo(file);
-  console.log(`Poster generated: ${(posterData.length / 1024).toFixed(2)} KB`);
 
   // Transcode each quality
   const startTime = Date.now();

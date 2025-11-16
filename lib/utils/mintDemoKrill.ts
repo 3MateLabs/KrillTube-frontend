@@ -40,7 +40,7 @@ export async function mintDemoKrill({
     target: `${packageId}::demo_krill_coin::mint`,
     arguments: [
       tx.object(treasuryCapId),
-      tx.pure.u64(1000_000_000), // 1000 dKRILL tokens (assuming 6 decimals)
+      tx.pure.u64(1000_000_000_000), // 1000 dKRILL tokens (assuming 9 decimals)
     ],
   });
 

@@ -132,6 +132,8 @@ function UploadContent() {
   const [debugMode, setDebugMode] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [customThumbnail, setCustomThumbnail] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [selectedQualities, setSelectedQualities] = useState<RenditionQuality[]>([
     '1080p',
@@ -144,6 +146,21 @@ function UploadContent() {
       inputMode: 'coin',
     },
   ]);
+
+  // Update default amount based on network
+  useEffect(() => {
+    if (network === 'iota') {
+      setFeeConfigs((prev) => {
+        const updated = prev.map((config, index) => {
+          if (index === 0 && config.tokenType === process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN) {
+            return { ...config, amountPer1000Views: '10000' };
+          }
+          return config;
+        });
+        return updated;
+      });
+    }
+  }, [network]);
   const [coinMetadataCache, setCoinMetadataCache] = useState<Record<string, CoinMetadata>>({});
   const [coinPriceCache, setCoinPriceCache] = useState<Record<string, CoinPrice>>({});
   const [storageOptionIndex, setStorageOptionIndex] = useState<number>(0); // Index into STORAGE_OPTIONS (default: 1 day) - for mainnet
@@ -199,11 +216,16 @@ function UploadContent() {
             config.tokenType === process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN ||
             config.tokenType === process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN;
 
+          let amountPer1000Views = config.amountPer1000Views;
+          if (index === 0) {
+            amountPer1000Views = '10000';
+          }
           if (isDefaultToken) {
             console.log('[Upload] Updating token type from', config.tokenType, 'to', newTokenType, 'for index', index);
             return {
               ...config,
               tokenType: newTokenType,
+              amountPer1000Views: amountPer1000Views,
             };
           }
           return config;
@@ -239,6 +261,30 @@ function UploadContent() {
         setTitle(file.name.replace(/\.[^/.]+$/, ''));
       }
       setError(null);
+    }
+  };
+
+  const handleThumbnailSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate that it's an image
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file for thumbnail');
+        return;
+      }
+      setCustomThumbnail(file);
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(file);
+      setThumbnailPreview(previewUrl);
+      setError(null);
+    }
+  };
+
+  const handleRemoveThumbnail = () => {
+    setCustomThumbnail(null);
+    if (thumbnailPreview) {
+      URL.revokeObjectURL(thumbnailPreview);
+      setThumbnailPreview(null);
     }
   };
 
@@ -500,6 +546,14 @@ function UploadContent() {
     try {
       console.log('[Upload] Starting background transcoding...');
 
+      // Convert custom thumbnail to Uint8Array if provided
+      let customPosterData: Uint8Array | undefined;
+      if (customThumbnail) {
+        console.log('[Upload] Using custom thumbnail:', customThumbnail.name);
+        const arrayBuffer = await customThumbnail.arrayBuffer();
+        customPosterData = new Uint8Array(arrayBuffer);
+      }
+
       // Dynamically import transcode function
       const { transcodeVideo } = await import('@/lib/transcode/clientTranscode');
 
@@ -507,6 +561,7 @@ function UploadContent() {
       const transcoded = await transcodeVideo(selectedFile, {
         qualities: selectedQualities,
         segmentDuration: 4,
+        customPoster: customPosterData, // Pass custom thumbnail
         onProgress: (p) => {
           setTranscodingProgress(p.overall);
         },
@@ -1067,6 +1122,73 @@ function UploadContent() {
                   transition-all
                   disabled:opacity-50"
               />
+            </div>
+
+            {/* Custom Thumbnail Upload */}
+            <div>
+              <label className="block text-base font-semibold font-['Outfit'] text-black mb-3">
+                Custom Thumbnail (Optional)
+              </label>
+              <p className="text-sm font-medium font-['Outfit'] text-black/70 mb-3">
+                Upload your own thumbnail or we'll automatically generate one from your video
+              </p>
+              {!customThumbnail ? (
+                <div className="relative">
+                  <input
+                    id="thumbnail-file"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailSelect}
+                    disabled={isUploading}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="thumbnail-file"
+                    className={`w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex items-center justify-between cursor-pointer hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span className="text-base font-medium font-['Outfit'] text-black/70">
+                      Choose a thumbnail image...
+                    </span>
+                    <div className="px-4 py-2 bg-black rounded-[32px] shadow-[2px_2px_0_0_black] outline outline-2 outline-white flex items-center gap-2">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-base font-bold font-['Outfit'] text-white">Browse</span>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                  <div className="flex gap-4">
+                    {/* Thumbnail Preview */}
+                    {thumbnailPreview && (
+                      <div className="w-40 h-24 rounded-xl overflow-hidden border-2 border-black flex-shrink-0">
+                        <img
+                          src={thumbnailPreview}
+                          alt="Thumbnail preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    {/* Thumbnail Info */}
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className="text-base font-semibold font-['Outfit'] text-black">{customThumbnail.name}</p>
+                        <p className="text-sm font-medium font-['Outfit'] text-black/70 mt-1">
+                          {(customThumbnail.size / 1024).toFixed(2)} KB
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleRemoveThumbnail}
+                        disabled={isUploading}
+                        className="self-start px-4 py-2 bg-[#EF4330] text-white rounded-2xl font-semibold font-['Outfit'] text-sm shadow-[2px_2px_0_0_black] outline outline-2 outline-offset-[-2px] outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quality Selection */}
