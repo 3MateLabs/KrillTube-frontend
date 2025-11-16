@@ -102,12 +102,15 @@ function UploadContent() {
   const getDefaultTokenType = () => {
     if (currentWallet?.name) {
       const walletName = currentWallet.name.toLowerCase();
-      // Check if it's an IOTA wallet
+      console.log('[Upload] Checking wallet name for token type:', walletName);
+      // Check if it's an IOTA wallet (check for common IOTA wallet names)
       if (walletName.includes('iota')) {
+        console.log('[Upload] Detected IOTA wallet, using IOTA token type');
         return '0x2::iota::IOTA';
       }
     }
     // Default to SUI for all other wallets (including Sui Wallet, Suiet, Ethos, etc.)
+    console.log('[Upload] Using default SUI token type');
     return '0x2::sui::SUI';
   };
 
@@ -165,20 +168,23 @@ function UploadContent() {
   useEffect(() => {
     if (currentWallet) {
       const defaultTokenType = getDefaultTokenType();
-      console.log('[Upload] Detected wallet:', currentWallet.name, '-> Default token type:', defaultTokenType);
+      console.log('[Upload] Wallet changed - Name:', currentWallet.name, '-> Default token type:', defaultTokenType);
 
-      // Update the first fee config if it's still using the default SUI token
+      // Update ALL fee configs that are using default SUI or IOTA tokens
       setFeeConfigs((prev) => {
-        if (prev.length > 0 && (prev[0].tokenType === '0x2::sui::SUI' || prev[0].tokenType === '0x2::iota::IOTA')) {
-          return [
-            {
-              ...prev[0],
+        console.log('[Upload] Current fee configs:', prev);
+        const updated = prev.map((config) => {
+          // Update if it's using a default token type
+          if (config.tokenType === '0x2::sui::SUI' || config.tokenType === '0x2::iota::IOTA') {
+            console.log('[Upload] Updating token type from', config.tokenType, 'to', defaultTokenType);
+            return {
+              ...config,
               tokenType: defaultTokenType,
-            },
-            ...prev.slice(1),
-          ];
-        }
-        return prev;
+            };
+          }
+          return config;
+        });
+        return updated;
       });
     }
   }, [currentWallet]);
