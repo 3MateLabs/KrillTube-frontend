@@ -44,6 +44,11 @@
   --mandarin: #F97946;
   --almond: #4A3B2B;
 
+  /* KrillTube Specific Colors */
+  --krill-orange: #EF4330;
+  --krill-peach: #FFEEE5;
+  --krill-gray: #6B7280;
+
   /* UI Colors - Dark Theme */
   --background: #000000;
   --foreground: #F7F7F7;
@@ -84,6 +89,11 @@
   --color-pears: var(--pears);
   --color-mandarin: var(--mandarin);
   --color-almond: var(--almond);
+
+  /* KrillTube Colors */
+  --color-krill-orange: var(--krill-orange);
+  --color-krill-peach: var(--krill-peach);
+  --color-krill-gray: var(--krill-gray);
 
   /* Base Colors */
   --color-background: var(--background);
@@ -292,4 +302,66 @@ body {
 
 .animate-scroll:hover {
   animation-play-state: paused;
+}
+
+/* Custom Orange Slider Styles */
+.slider-orange::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--krill-orange);
+  cursor: pointer;
+  border: 3px solid #000000;
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 1);
+}
+
+.slider-orange::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--krill-orange);
+  cursor: pointer;
+  border: 3px solid #000000;
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 1);
+}
+
+.slider-orange::-webkit-slider-thumb:hover {
+  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 1);
+}
+
+.slider-orange::-moz-range-thumb:hover {
+  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 1);
+}
+
+/* Custom Mint Slider Styles */
+.slider-mint::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--walrus-mint);
+  cursor: pointer;
+  border: 3px solid #000000;
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 1);
+}
+
+.slider-mint::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--walrus-mint);
+  cursor: pointer;
+  border: 3px solid #000000;
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 1);
+}
+
+.slider-mint::-webkit-slider-thumb:hover {
+  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 1);
+}
+
+.slider-mint::-moz-range-thumb:hover {
+  box-shadow: 3px 3px 0 0 rgba(0, 0, 0, 1);
 }

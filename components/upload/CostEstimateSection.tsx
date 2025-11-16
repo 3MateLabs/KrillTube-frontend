@@ -54,19 +54,19 @@ export function CostEstimateSection({
     : selectedStorageOption.label;
 
   return (
-    <div className="p-5 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg relative">
+    <div className="p-5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black relative">
       {/* Loading overlay */}
       {isEstimating && (
-        <div className="absolute inset-0 bg-background-elevated/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+        <div className="absolute inset-0 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center z-10">
           <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-walrus-mint"></div>
-            <span className="text-text-muted text-sm">Calculating...</span>
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-krill-orange"></div>
+            <span className="text-black/70 text-sm font-medium font-['Outfit']">Calculating...</span>
           </div>
         </div>
       )}
 
       <div className="flex items-start justify-between mb-4">
-        <h3 className="text-lg font-semibold text-foreground">
+        <h3 className="text-lg font-bold font-['Outfit'] text-black">
           Estimated Storage Cost
         </h3>
         <div className="ml-4">
@@ -77,11 +77,11 @@ export function CostEstimateSection({
       <div className="space-y-3">
         {/* Storage Duration */}
         <div>
-          <div className="flex items-baseline justify-between mb-2">
-            <label className="text-sm font-medium text-text-muted">
+          <div className="flex items-baseline justify-between mb-3">
+            <label className="text-sm font-semibold font-['Outfit'] text-black/70">
               Storage Duration:
             </label>
-            <span className="text-foreground font-bold text-xl">
+            <span className="text-black font-bold text-xl font-['Outfit']">
               {displayLabel}
             </span>
           </div>
@@ -96,59 +96,72 @@ export function CostEstimateSection({
                   max={storageOptions.length - 1}
                   value={storageOptionIndex}
                   onChange={(e) => onStorageOptionChange(parseInt(e.target.value))}
-                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
+                  className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-orange"
                   style={{
                     background: `linear-gradient(to right,
-                      var(--walrus-mint) 0%,
-                      var(--walrus-mint) ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
-                      #4b5563 ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
-                      #4b5563 100%)`
+                      var(--krill-orange) 0%,
+                      var(--krill-orange) ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
+                      #000000 ${(storageOptionIndex / (storageOptions.length - 1)) * 100}%,
+                      #000000 100%)`
                   }}
                 />
 
                 {/* Category Markers */}
-                <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
-                  <span className="font-medium">Days</span>
-                  <span className="font-medium">Months</span>
-                  <span className="font-medium">Years</span>
+                <div className="flex justify-between text-xs text-black/70 font-medium font-['Outfit'] mt-2 px-1">
+                  <span>Days</span>
+                  <span>Months</span>
+                  <span>Years</span>
                 </div>
               </div>
 
               {/* Quick Presets */}
-              <div className="flex gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => onStorageOptionChange(6)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  7 days
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStorageOptionChange(30)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  1 month
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStorageOptionChange(35)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  6 months
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onStorageOptionChange(42)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  1 year
-                </button>
+              <div className="flex items-start justify-between mt-3">
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => onStorageOptionChange(6)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      7 days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onStorageOptionChange(30)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      1 month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onStorageOptionChange(35)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      6 months
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onStorageOptionChange(42)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      1 year
+                    </button>
+                  </div>
+                  <p className="text-xs text-krill-orange font-medium font-['Outfit']">
+                    💡 You can extend storage later or delete early to receive rebates
+                  </p>
+                </div>
+                {costEstimate && (
+                  <div className="text-right">
+                    <div className="text-5xl font-bold font-['Outfit'] text-black">
+                      {costEstimate.totalWal} <span className="text-3xl">WAL</span>
+                    </div>
+                    <div className="text-sm text-krill-orange font-medium font-['Outfit']">
+                      (~${costEstimate.totalUsd} USD)
+                    </div>
+                  </div>
+                )}
               </div>
-
-              <p className="text-xs text-walrus-mint mt-3">
-                💡 You can extend storage later or delete early to receive rebates
-              </p>
             </>
           ) : (
             <>
@@ -160,112 +173,101 @@ export function CostEstimateSection({
                   max="53"
                   value={testnetStorageDays}
                   onChange={(e) => onTestnetStorageDaysChange(parseInt(e.target.value))}
-                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-walrus-mint"
+                  className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-orange"
                   style={{
                     background: `linear-gradient(to right,
-                      var(--walrus-mint) 0%,
-                      var(--walrus-mint) ${((testnetStorageDays - 1) / 52) * 100}%,
-                      #4b5563 ${((testnetStorageDays - 1) / 52) * 100}%,
-                      #4b5563 100%)`
+                      var(--krill-orange) 0%,
+                      var(--krill-orange) ${((testnetStorageDays - 1) / 52) * 100}%,
+                      #000000 ${((testnetStorageDays - 1) / 52) * 100}%,
+                      #000000 100%)`
                   }}
                 />
 
                 {/* Range Markers */}
-                <div className="flex justify-between text-xs text-text-muted mt-2 px-1">
-                  <span className="font-medium">1 day</span>
-                  <span className="font-medium">53 days</span>
+                <div className="flex justify-between text-xs text-black/70 font-medium font-['Outfit'] mt-2 px-1">
+                  <span>1 day</span>
+                  <span>53 days</span>
                 </div>
               </div>
 
               {/* Quick Presets for Testnet */}
-              <div className="flex gap-2 mt-3">
-                <button
-                  type="button"
-                  onClick={() => onTestnetStorageDaysChange(1)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  1 day
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTestnetStorageDaysChange(7)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  7 days
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTestnetStorageDaysChange(30)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  30 days
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTestnetStorageDaysChange(53)}
-                  className="px-3 py-1.5 text-xs bg-background-hover text-text-muted rounded-lg hover:bg-walrus-mint/20 hover:text-walrus-mint transition-colors"
-                >
-                  53 days
-                </button>
+              <div className="flex items-start justify-between mt-3">
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => onTestnetStorageDaysChange(1)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      1 day
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onTestnetStorageDaysChange(7)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      7 days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onTestnetStorageDaysChange(30)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      30 days
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onTestnetStorageDaysChange(53)}
+                      className="px-3 py-1.5 text-xs font-semibold font-['Outfit'] bg-krill-peach text-black rounded-xl shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      53 days
+                    </button>
+                  </div>
+                  <p className="text-xs text-krill-orange font-medium font-['Outfit']">
+                    ℹ️ Testnet maximum: 53 days (free storage)
+                  </p>
+                </div>
+                {costEstimate && (
+                  <div className="text-5xl font-bold font-['Outfit'] text-krill-orange">
+                    Free
+                  </div>
+                )}
               </div>
-
-              <p className="text-xs text-walrus-mint mt-3">
-                ℹ️ Testnet maximum: 53 days (free storage)
-              </p>
             </>
           )}
         </div>
 
-        {/* Total Cost */}
+        {/* Storage Size */}
         {costEstimate && (
           <>
-            <div className="flex items-baseline justify-between pt-3 border-t border-border">
-              <span className="text-text-muted">Total Cost:</span>
-              {walrusNetwork === 'testnet' ? (
-                <span className="text-walrus-mint font-bold text-lg">
-                  Free
-                </span>
-              ) : (
-                <div className="flex items-baseline gap-3">
-                  <span className="text-foreground font-mono font-bold text-lg">
-                    {costEstimate.totalWal} WAL
-                  </span>
-                  <span className="text-walrus-mint font-medium">
-                    (~${costEstimate.totalUsd} USD)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Storage Size */}
-            <div className="flex items-baseline justify-between">
-              <span className="text-text-muted">Estimated Storage:</span>
-              <span className="text-foreground font-mono">
+            <div className="flex items-baseline justify-between pt-3 border-t-2 border-black">
+              <span className="text-black/70 font-semibold font-['Outfit']">Estimated Storage:</span>
+              <span className="text-black font-mono font-semibold">
                 {costEstimate.storageMB} MB
               </span>
             </div>
 
             {/* Breakdown - Only show for mainnet */}
             {walrusNetwork === 'mainnet' && (
-              <div className="pt-3 border-t border-border space-y-2">
+              <div className="pt-3 border-t-2 border-black space-y-2">
                 <div className="flex items-baseline justify-between text-sm">
-                  <span className="text-text-muted">Storage Cost:</span>
+                  <span className="text-black/70 font-semibold font-['Outfit']">Storage Cost:</span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-foreground font-mono">
+                    <span className="text-black font-mono font-semibold">
                       {costEstimate.breakdown.storage.wal} WAL
                     </span>
-                    <span className="text-text-muted">
+                    <span className="text-black/70 font-['Outfit']">
                       (~${costEstimate.breakdown.storage.usd})
                     </span>
                   </div>
                 </div>
                 <div className="flex items-baseline justify-between text-sm">
-                  <span className="text-text-muted">Write Cost:</span>
+                  <span className="text-black/70 font-semibold font-['Outfit']">Write Cost:</span>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-foreground font-mono">
+                    <span className="text-black font-mono font-semibold">
                       {costEstimate.breakdown.write.wal} WAL
                     </span>
-                    <span className="text-text-muted">
+                    <span className="text-black/70 font-['Outfit']">
                       (~${costEstimate.breakdown.write.usd})
                     </span>
                   </div>
@@ -273,7 +275,7 @@ export function CostEstimateSection({
               </div>
             )}
 
-            <p className="text-xs text-text-muted mt-3">
+            <p className="text-xs text-black/70 font-medium font-['Outfit'] mt-3">
               {walrusNetwork === 'testnet'
                 ? 'Testnet storage is free. No payment required.'
                 : 'This is an estimate. Actual cost may vary slightly based on final file size.'}

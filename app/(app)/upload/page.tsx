@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction, useCurrentWallet } from '@mysten/dapp-kit';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
@@ -93,9 +93,23 @@ function UploadContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const account = useCurrentAccount();
+  const { currentWallet } = useCurrentWallet();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { walrusNetwork } = useNetwork();
   const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress } = usePersonalDelegator();
+
+  // Helper: Get default token type based on connected wallet
+  const getDefaultTokenType = () => {
+    if (currentWallet?.name) {
+      const walletName = currentWallet.name.toLowerCase();
+      // Check if it's an IOTA wallet
+      if (walletName.includes('iota')) {
+        return '0x2::iota::IOTA';
+      }
+    }
+    // Default to SUI for all other wallets (including Sui Wallet, Suiet, Ethos, etc.)
+    return '0x2::sui::SUI';
+  };
 
   // State declarations MUST come before useEffects that reference them
   const [debugMode, setDebugMode] = useState(false);
@@ -147,6 +161,28 @@ function UploadContent() {
     }
   }, [searchParams]);
 
+  // Update default token type when wallet changes
+  useEffect(() => {
+    if (currentWallet) {
+      const defaultTokenType = getDefaultTokenType();
+      console.log('[Upload] Detected wallet:', currentWallet.name, '-> Default token type:', defaultTokenType);
+
+      // Update the first fee config if it's still using the default SUI token
+      setFeeConfigs((prev) => {
+        if (prev.length > 0 && (prev[0].tokenType === '0x2::sui::SUI' || prev[0].tokenType === '0x2::iota::IOTA')) {
+          return [
+            {
+              ...prev[0],
+              tokenType: defaultTokenType,
+            },
+            ...prev.slice(1),
+          ];
+        }
+        return prev;
+      });
+    }
+  }, [currentWallet]);
+
   const [costEstimate, setCostEstimate] = useState<{
     totalWal: string;
     totalUsd: string;
@@ -185,7 +221,7 @@ function UploadContent() {
       ...prev,
       {
         id: crypto.randomUUID(),
-        tokenType: '0x2::sui::SUI',
+        tokenType: getDefaultTokenType(),
         amountPer1000Views: '10',
         inputMode: 'coin',
       },
@@ -673,13 +709,13 @@ function UploadContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-6 py-16">
-        <div className="max-w-2xl">
-          <h1 ref={titleRef} className="text-3xl font-bold text-foreground mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE]">
+      <div className="pl-20 pr-12 pt-12 pb-6">
+        <div className="max-w-4xl">
+          <h1 ref={titleRef} className="text-3xl font-bold font-['Outfit'] text-white mb-2">
             Upload Video
           </h1>
-          <p className="text-text-muted mb-6">
+          <p className="text-white/80 text-base font-medium font-['Outfit'] mb-8">
             {currentStep === 1
               ? 'Select your video and configure quality settings'
               : currentStep === 2
@@ -692,34 +728,34 @@ function UploadContent() {
           {/* Step Indicator */}
           <div className="flex items-center gap-4 mb-8">
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                currentStep === 1 ? 'bg-walrus-mint text-walrus-black' : 'bg-walrus-mint/30 text-walrus-mint'
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-['Outfit'] shadow-[3px_3px_0_0_black] outline outline-2 outline-offset-[-2px] ${
+                currentStep === 1 ? 'bg-[#EF4330] text-white outline-white' : 'bg-white text-black outline-black'
               }`}>
                 1
               </div>
-              <span className={`text-sm font-medium ${currentStep === 1 ? 'text-foreground' : 'text-text-muted'}`}>
+              <span className={`text-base font-semibold font-['Outfit'] ${currentStep === 1 ? 'text-white' : 'text-white/70'}`}>
                 Video Details
               </span>
             </div>
-            <div className="flex-1 h-0.5 bg-border" />
+            <div className="flex-1 h-[2px] bg-black" />
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                currentStep === 2 ? 'bg-walrus-mint text-walrus-black' : currentStep > 2 ? 'bg-walrus-mint/30 text-walrus-mint' : 'bg-background-elevated text-text-muted border-2 border-border'
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-['Outfit'] shadow-[3px_3px_0_0_black] outline outline-2 outline-offset-[-2px] ${
+                currentStep === 2 ? 'bg-[#EF4330] text-white outline-white' : 'bg-white text-black outline-black'
               }`}>
                 2
               </div>
-              <span className={`text-sm font-medium ${currentStep === 2 ? 'text-foreground' : 'text-text-muted'}`}>
+              <span className={`text-base font-semibold font-['Outfit'] ${currentStep === 2 ? 'text-white' : 'text-white/70'}`}>
                 Monetization
               </span>
             </div>
-            <div className="flex-1 h-0.5 bg-border" />
+            <div className="flex-1 h-[2px] bg-black" />
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                currentStep === 3 ? 'bg-walrus-mint text-walrus-black' : 'bg-background-elevated text-text-muted border-2 border-border'
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-['Outfit'] shadow-[3px_3px_0_0_black] outline outline-2 outline-offset-[-2px] ${
+                currentStep === 3 ? 'bg-[#EF4330] text-white outline-white' : 'bg-white text-black outline-black'
               }`}>
                 3
               </div>
-              <span className={`text-sm font-medium ${currentStep === 3 ? 'text-foreground' : 'text-text-muted'}`}>
+              <span className={`text-base font-semibold font-['Outfit'] ${currentStep === 3 ? 'text-white' : 'text-white/70'}`}>
                 Fee Sharing
               </span>
             </div>
@@ -727,40 +763,56 @@ function UploadContent() {
 
           {/* Step 1: Video Details */}
           {currentStep === 1 && (
-            <div className="space-y-6">
+            <div className="p-6 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-6">
             {/* File Upload */}
             <div>
-              <label htmlFor="video-file" className="block text-sm font-medium text-foreground mb-2">
+              <label className="block text-base font-semibold font-['Outfit'] text-black mb-3">
                 Video File
               </label>
-              <input
-                id="video-file"
-                type="file"
-                accept="video/*"
-                onChange={handleFileSelect}
-                disabled={isUploading}
-                className="block w-full text-sm text-text-muted/80
-                  file:mr-4 file:py-3 file:px-6
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-walrus-mint file:text-walrus-black
-                  hover:file:bg-mint-800
-                  file:transition-colors file:cursor-pointer
-                  disabled:opacity-50 disabled:cursor-not-allowed"
-              />
+              <div className="relative">
+                <input
+                  id="video-file"
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="video-file"
+                  className={`w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex items-center justify-between cursor-pointer hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <span className="text-base font-medium font-['Outfit'] text-black/70">
+                    {selectedFile ? selectedFile.name : 'Choose a video file...'}
+                  </span>
+                  <div className="px-4 py-2 bg-black rounded-[32px] shadow-[2px_2px_0_0_black] outline outline-2 outline-white flex items-center gap-2">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="text-base font-bold font-['Outfit'] text-white">Browse</span>
+                  </div>
+                </label>
+              </div>
               {selectedFile && (
-                <div className="mt-3 p-4 bg-background-elevated border border-border rounded-lg">
-                  <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
-                  <p className="text-xs text-text-muted mt-1">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
+                <div className="mt-4 p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-base font-semibold font-['Outfit'] text-black">{selectedFile.name}</p>
+                      <p className="text-sm font-medium font-['Outfit'] text-black/70 mt-1">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                    <svg className="w-6 h-6 text-[#EF4330]" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Title */}
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="title" className="block text-base font-semibold font-['Outfit'] text-black mb-3">
                 Title
               </label>
               <input
@@ -770,26 +822,33 @@ function UploadContent() {
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isUploading}
                 placeholder="My awesome video"
-                className="w-full px-4 py-3 bg-background-elevated border border-border rounded-lg
-                  text-foreground placeholder-text-muted/50
-                  focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+                className="w-full px-5 py-3.5 bg-white rounded-2xl
+                  shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                  outline outline-2 outline-offset-[-2px] outline-black
+                  text-black placeholder-black/40 text-base font-medium font-['Outfit']
+                  focus:outline-[#EF4330] focus:outline-[3px]
+                  transition-all
+                  disabled:opacity-50"
               />
             </div>
 
             {/* Quality Selection */}
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Quality</label>
+              <label className="block text-base font-semibold font-['Outfit'] text-black mb-3">Quality</label>
               <div className="grid grid-cols-4 gap-3">
                 {(['1080p', '720p', '480p', '360p'] as RenditionQuality[]).map((quality) => (
                   <label
                     key={quality}
                     className={`
-                      flex items-center justify-center py-3.5 px-4 rounded-lg border-2 cursor-pointer
+                      flex items-center justify-center py-3.5 px-4 rounded-2xl cursor-pointer
+                      font-bold font-['Outfit'] text-base
+                      shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                      outline outline-2 outline-offset-[-2px]
                       transition-all
                       ${
                         selectedQualities.includes(quality)
-                          ? 'bg-walrus-mint text-walrus-black border-walrus-mint'
-                          : 'bg-background-elevated text-foreground border-border hover:border-walrus-mint/50'
+                          ? 'bg-[#EF4330] text-white outline-white'
+                          : 'bg-white text-black outline-black hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px]'
                       }
                       ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
@@ -823,9 +882,13 @@ function UploadContent() {
               <button
                 onClick={handleNextStep}
                 disabled={!selectedFile || !title || selectedQualities.length === 0 || !costEstimate}
-                className="w-full bg-walrus-mint text-walrus-black py-4 px-6 rounded-lg font-semibold
-                  hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed
-                  transition-colors"
+                className="w-full bg-krill-orange text-white py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                  shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                  outline outline-[3px] outline-white
+                  hover:shadow-[2px_2px_0_0_black]
+                  hover:translate-x-[1px] hover:translate-y-[1px]
+                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0_0_black] disabled:hover:translate-x-0 disabled:hover:translate-y-0
+                  transition-all"
               >
                 Next: Set Monetization
               </button>
@@ -834,7 +897,7 @@ function UploadContent() {
 
           {/* Step 2: Monetization Settings */}
           {currentStep === 2 && (
-            <div className="space-y-6">
+            <div className="p-6 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-6">
               <Step2Monetization
                 feeConfigs={feeConfigs}
                 coinMetadataCache={coinMetadataCache}
@@ -850,25 +913,25 @@ function UploadContent() {
 
               {/* Error */}
               {error && (
-                <div className="p-4 border-2 border-red-500/30 bg-red-500/10 rounded-lg">
-                  <p className="text-sm text-red-300">{error}</p>
+                <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-[#EF4330]">
+                  <p className="text-base font-semibold font-['Outfit'] text-[#EF4330]">{error}</p>
                 </div>
               )}
 
               {/* Progress */}
               {isUploading && (
-                <div className="p-5 bg-background-elevated border-2 border-walrus-mint/20 rounded-lg">
+                <div className="p-5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
                   <div className="flex justify-between mb-3">
-                    <span className="text-foreground font-medium">{progress.message}</span>
-                    <span className="text-walrus-mint font-bold">{Math.round(progress.percent)}%</span>
+                    <span className="text-black font-semibold font-['Outfit']">{progress.message}</span>
+                    <span className="text-[#EF4330] font-bold font-['Outfit']">{Math.round(progress.percent)}%</span>
                   </div>
-                  <div className="w-full bg-background-hover rounded-full h-2.5">
+                  <div className="w-full bg-black/10 rounded-full h-3">
                     <div
-                      className="bg-walrus-mint h-2.5 rounded-full transition-all duration-500"
+                      className="bg-[#EF4330] h-3 rounded-full transition-all duration-500"
                       style={{ width: `${progress.percent}%` }}
                     />
                   </div>
-                  <div className="mt-3 text-xs text-text-muted">
+                  <div className="mt-3 text-sm text-black/70 font-medium font-['Outfit']">
                     Stage: {progress.stage}
                   </div>
                 </div>
@@ -879,18 +942,26 @@ function UploadContent() {
                 <button
                   onClick={handleBackStep}
                   disabled={isUploading}
-                  className="flex-1 bg-background-elevated text-foreground py-4 px-6 rounded-lg font-semibold
-                    border-2 border-border hover:border-walrus-mint/50 disabled:opacity-50 disabled:cursor-not-allowed
-                    transition-colors"
+                  className="flex-1 bg-white text-black py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                    shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                    outline outline-[3px] outline-black
+                    hover:shadow-[2px_2px_0_0_black]
+                    hover:translate-x-[1px] hover:translate-y-[1px]
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0_0_black] disabled:hover:translate-x-0 disabled:hover:translate-y-0
+                    transition-all"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleNextStep}
                   disabled={feeConfigs.length === 0}
-                  className="flex-1 bg-walrus-mint text-walrus-black py-4 px-6 rounded-lg font-semibold
-                    hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed
-                    transition-colors"
+                  className="flex-1 bg-[#EF4330] text-white py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                    shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                    outline outline-[3px] outline-white
+                    hover:shadow-[2px_2px_0_0_black]
+                    hover:translate-x-[1px] hover:translate-y-[1px]
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0_0_black] disabled:hover:translate-x-0 disabled:hover:translate-y-0
+                    transition-all"
                 >
                   Next: Fee Sharing
                 </button>
@@ -900,12 +971,12 @@ function UploadContent() {
               <TranscodingProgress isTranscoding={isTranscoding} progress={transcodingProgress} />
 
               {transcodedData && !isTranscoding && (
-                <div className="p-4 bg-walrus-mint/10 border-2 border-walrus-mint/30 rounded-lg">
+                <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-walrus-mint" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-6 h-6 text-[#EF4330]" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-sm font-medium text-foreground">Video processing complete!</span>
+                    <span className="text-base font-semibold font-['Outfit'] text-black">Video processing complete!</span>
                   </div>
                 </div>
               )}
@@ -914,7 +985,7 @@ function UploadContent() {
 
           {/* Step 3: Fee Sharing */}
           {currentStep === 3 && (
-            <div className="space-y-6">
+            <div className="p-6 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-6">
               <Step3FeeSharing
                 referrerSharePercent={referrerSharePercent}
                 onReferrerShareChange={setReferrerSharePercent}
@@ -923,40 +994,40 @@ function UploadContent() {
 
               {/* Error */}
               {error && (
-                <div className="p-4 border-2 border-red-500/30 bg-red-500/10 rounded-lg">
-                  <p className="text-sm text-red-300">{error}</p>
+                <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-[#EF4330]">
+                  <p className="text-base font-semibold font-['Outfit'] text-[#EF4330]">{error}</p>
                 </div>
               )}
 
               {/* Progress */}
               {isUploading && (
-                <div className="p-5 bg-background-elevated border-2 border-walrus-mint/20 rounded-lg">
+                <div className="p-5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
                   <div className="flex justify-between mb-3">
-                    <span className="text-foreground font-medium">{progress.message}</span>
-                    <span className="text-walrus-mint font-bold">{Math.round(progress.percent)}%</span>
+                    <span className="text-black font-semibold font-['Outfit']">{progress.message}</span>
+                    <span className="text-[#EF4330] font-bold font-['Outfit']">{Math.round(progress.percent)}%</span>
                   </div>
-                  <div className="w-full bg-background-hover rounded-full h-2.5">
+                  <div className="w-full bg-black/10 rounded-full h-3">
                     <div
-                      className="bg-walrus-mint h-2.5 rounded-full transition-all duration-500"
+                      className="bg-[#EF4330] h-3 rounded-full transition-all duration-500"
                       style={{ width: `${progress.percent}%` }}
                     />
                   </div>
-                  <div className="mt-3 text-xs text-text-muted">
+                  <div className="mt-3 text-sm text-black/70 font-medium font-['Outfit']">
                     Stage: {progress.stage}
                   </div>
                 </div>
               )}
 
               {/* Network Info (Read-only on step 3) */}
-              <div className="p-4 bg-background-elevated border-2 border-border rounded-lg">
+              <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-text-muted">Storage Network:</span>
-                  <span className="text-sm font-semibold text-foreground">{walrusNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
+                  <span className="text-sm font-medium font-['Outfit'] text-black/70">Storage Network:</span>
+                  <span className="text-base font-bold font-['Outfit'] text-black">{walrusNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
                 </div>
                 {costEstimate && (
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm text-text-muted">Estimated Cost:</span>
-                    <span className="text-sm font-semibold text-walrus-mint">
+                    <span className="text-sm font-medium font-['Outfit'] text-black/70">Estimated Cost:</span>
+                    <span className="text-base font-bold font-['Outfit'] text-[#EF4330]">
                       {walrusNetwork === 'testnet' ? 'Free' : `${costEstimate.totalWal} WAL (~$${costEstimate.totalUsd})`}
                     </span>
                   </div>
@@ -968,9 +1039,13 @@ function UploadContent() {
                 <button
                   onClick={handleBackStep}
                   disabled={isUploading}
-                  className="flex-1 bg-background-elevated text-foreground py-4 px-6 rounded-lg font-semibold
-                    border-2 border-border hover:border-walrus-mint/50 disabled:opacity-50 disabled:cursor-not-allowed
-                    transition-colors"
+                  className="flex-1 bg-white text-black py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                    shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                    outline outline-[3px] outline-black
+                    hover:shadow-[2px_2px_0_0_black]
+                    hover:translate-x-[1px] hover:translate-y-[1px]
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0_0_black] disabled:hover:translate-x-0 disabled:hover:translate-y-0
+                    transition-all"
                 >
                   Back
                 </button>
@@ -985,9 +1060,13 @@ function UploadContent() {
                     selectedQualities.length === 0 ||
                     !costEstimate
                   }
-                  className="flex-1 bg-walrus-mint text-walrus-black py-4 px-6 rounded-lg font-semibold
-                    hover:bg-mint-800 disabled:opacity-50 disabled:cursor-not-allowed
-                    transition-colors"
+                  className="flex-1 bg-[#EF4330] text-white py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                    shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                    outline outline-[3px] outline-white
+                    hover:shadow-[2px_2px_0_0_black]
+                    hover:translate-x-[1px] hover:translate-y-[1px]
+                    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0_0_black] disabled:hover:translate-x-0 disabled:hover:translate-y-0
+                    transition-all"
                 >
                   {!effectiveAccount
                     ? 'Connect Wallet to Upload'
@@ -1007,12 +1086,12 @@ function UploadContent() {
               <TranscodingProgress isTranscoding={isTranscoding} progress={transcodingProgress} />
 
               {transcodedData && !isTranscoding && (
-                <div className="p-4 bg-walrus-mint/10 border-2 border-walrus-mint/30 rounded-lg">
+                <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
                   <div className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-walrus-mint" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-6 h-6 text-[#EF4330]" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-sm font-medium text-foreground">Video ready for upload!</span>
+                    <span className="text-base font-semibold font-['Outfit'] text-black">Video ready for upload!</span>
                   </div>
                 </div>
               )}
@@ -1021,38 +1100,38 @@ function UploadContent() {
 
           {/* Step 4: Summary & Upload Progress */}
           {currentStep === 4 && (
-            <div className="space-y-6">
+            <div className="p-6 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-6">
               {/* Configuration Summary */}
-              <div className="p-6 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Upload Summary</h3>
+              <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                <h3 className="text-xl font-bold font-['Outfit'] text-black mb-4">Upload Summary</h3>
 
                 {/* Video Details */}
-                <div className="mb-4 pb-4 border-b border-border">
-                  <h4 className="text-sm font-semibold text-walrus-mint mb-2">Video Details</h4>
-                  <div className="space-y-1 text-sm text-text-muted">
-                    <p><span className="font-medium">Title:</span> {title}</p>
-                    <p><span className="font-medium">File:</span> {selectedFile?.name}</p>
-                    <p><span className="font-medium">Size:</span> {selectedFile && (selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                    <p><span className="font-medium">Quality:</span> {selectedQualities.join(', ')}</p>
+                <div className="mb-4 pb-4 border-b-2 border-black">
+                  <h4 className="text-base font-bold font-['Outfit'] text-[#EF4330] mb-3">Video Details</h4>
+                  <div className="space-y-2 text-sm">
+                    <p className="font-['Outfit']"><span className="font-semibold text-black">Title:</span> <span className="text-black/70">{title}</span></p>
+                    <p className="font-['Outfit']"><span className="font-semibold text-black">File:</span> <span className="text-black/70">{selectedFile?.name}</span></p>
+                    <p className="font-['Outfit']"><span className="font-semibold text-black">Size:</span> <span className="text-black/70">{selectedFile && (selectedFile.size / 1024 / 1024).toFixed(2)} MB</span></p>
+                    <p className="font-['Outfit']"><span className="font-semibold text-black">Quality:</span> <span className="text-black/70">{selectedQualities.join(', ')}</span></p>
                   </div>
                 </div>
 
                 {/* Monetization */}
-                <div className="mb-4 pb-4 border-b border-border">
-                  <h4 className="text-sm font-semibold text-walrus-mint mb-2">Monetization</h4>
+                <div className="mb-4 pb-4 border-b-2 border-black">
+                  <h4 className="text-base font-bold font-['Outfit'] text-[#EF4330] mb-3">Monetization</h4>
                   <div className="space-y-2">
                     {feeConfigs.map((config) => {
                       const metadata = coinMetadataCache[config.tokenType];
                       const priceData = coinPriceCache[config.tokenType];
                       return (
-                        <div key={config.id} className="flex items-center justify-between text-sm">
-                          <span className="text-text-muted">
+                        <div key={config.id} className="flex items-center justify-between text-sm font-['Outfit']">
+                          <span className="text-black/70">
                             {metadata?.symbol || config.tokenType.split('::').pop()}:
                           </span>
-                          <span className="text-foreground font-medium">
+                          <span className="text-black font-semibold">
                             {config.amountPer1000Views} per 1,000 views
                             {priceData && config.amountPer1000Views && (
-                              <span className="text-walrus-mint ml-2">
+                              <span className="text-[#EF4330] ml-2">
                                 (~${(parseFloat(config.amountPer1000Views) * priceData.usdPrice).toFixed(2)})
                               </span>
                             )}
@@ -1064,20 +1143,20 @@ function UploadContent() {
                 </div>
 
                 {/* Fee Sharing */}
-                <div className="mb-4 pb-4 border-b border-border">
-                  <h4 className="text-sm font-semibold text-walrus-mint mb-2">Revenue Sharing</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-text-muted">Creator (You):</span>
-                      <span className="text-foreground font-medium">{100 - referrerSharePercent - 10}%</span>
+                <div className="mb-4 pb-4 border-b-2 border-black">
+                  <h4 className="text-base font-bold font-['Outfit'] text-[#EF4330] mb-3">Revenue Sharing</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between font-['Outfit']">
+                      <span className="text-black/70">Creator (You):</span>
+                      <span className="text-black font-semibold">{100 - referrerSharePercent - 10}%</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-text-muted">Referrer:</span>
-                      <span className="text-foreground font-medium">{referrerSharePercent}%</span>
+                    <div className="flex justify-between font-['Outfit']">
+                      <span className="text-black/70">Referrer:</span>
+                      <span className="text-black font-semibold">{referrerSharePercent}%</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-text-muted">Platform:</span>
-                      <span className="text-foreground font-medium">10%</span>
+                    <div className="flex justify-between font-['Outfit']">
+                      <span className="text-black/70">Platform:</span>
+                      <span className="text-black font-semibold">10%</span>
                     </div>
                   </div>
                 </div>
@@ -1085,23 +1164,23 @@ function UploadContent() {
                 {/* Storage Info */}
                 {costEstimate && (
                   <div>
-                    <h4 className="text-sm font-semibold text-walrus-mint mb-2">Storage</h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Network:</span>
-                        <span className="text-foreground font-medium">{walrusNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
+                    <h4 className="text-base font-bold font-['Outfit'] text-[#EF4330] mb-3">Storage</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between font-['Outfit']">
+                        <span className="text-black/70">Network:</span>
+                        <span className="text-black font-semibold">{walrusNetwork === 'mainnet' ? 'Mainnet' : 'Testnet'}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Duration:</span>
-                        <span className="text-foreground font-medium">
+                      <div className="flex justify-between font-['Outfit']">
+                        <span className="text-black/70">Duration:</span>
+                        <span className="text-black font-semibold">
                           {walrusNetwork === 'testnet'
                             ? `${testnetStorageDays} ${testnetStorageDays === 1 ? 'day' : 'days'}`
                             : STORAGE_OPTIONS[storageOptionIndex].label}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-text-muted">Cost:</span>
-                        <span className="text-foreground font-medium">
+                      <div className="flex justify-between font-['Outfit']">
+                        <span className="text-black/70">Cost:</span>
+                        <span className="text-black font-semibold">
                           {walrusNetwork === 'testnet' ? 'Free' : `${costEstimate.totalWal} WAL (~$${costEstimate.totalUsd})`}
                         </span>
                       </div>
@@ -1112,18 +1191,18 @@ function UploadContent() {
 
               {/* Upload Progress */}
               {isUploading && (
-                <div className="p-6 bg-background-elevated border-2 border-walrus-mint/20 rounded-lg">
+                <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
                   <div className="flex justify-between mb-3">
-                    <span className="text-foreground font-medium">{progress.message}</span>
-                    <span className="text-walrus-mint font-bold">{Math.round(progress.percent)}%</span>
+                    <span className="text-black font-semibold font-['Outfit']">{progress.message}</span>
+                    <span className="text-[#EF4330] font-bold font-['Outfit']">{Math.round(progress.percent)}%</span>
                   </div>
-                  <div className="w-full bg-background-hover rounded-full h-3">
+                  <div className="w-full bg-black/10 rounded-full h-4">
                     <div
-                      className="bg-walrus-mint h-3 rounded-full transition-all duration-500"
+                      className="bg-[#EF4330] h-4 rounded-full transition-all duration-500"
                       style={{ width: `${progress.percent}%` }}
                     />
                   </div>
-                  <div className="mt-3 text-sm text-text-muted">
+                  <div className="mt-3 text-sm text-black/70 font-medium font-['Outfit']">
                     Stage: {progress.stage}
                   </div>
                 </div>
@@ -1131,27 +1210,31 @@ function UploadContent() {
 
               {/* Error */}
               {error && (
-                <div className="p-4 border-2 border-red-500/30 bg-red-500/10 rounded-lg">
-                  <p className="text-sm text-red-300">{error}</p>
+                <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-[#EF4330]">
+                  <p className="text-base font-semibold font-['Outfit'] text-[#EF4330]">{error}</p>
                 </div>
               )}
 
               {/* Success Message */}
               {!isUploading && !error && (
-                <div className="p-6 bg-walrus-mint/10 border-2 border-walrus-mint/30 rounded-lg">
-                  <div className="flex items-center gap-3 mb-3">
-                    <svg className="w-6 h-6 text-walrus-mint" fill="currentColor" viewBox="0 0 20 20">
+                <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                  <div className="flex items-center gap-3 mb-4">
+                    <svg className="w-8 h-8 text-[#EF4330]" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-lg font-semibold text-foreground">Upload Complete!</span>
+                    <span className="text-xl font-bold font-['Outfit'] text-black">Upload Complete!</span>
                   </div>
-                  <p className="text-sm text-text-muted mb-4">
+                  <p className="text-base font-medium font-['Outfit'] text-black/70 mb-6">
                     Your video has been successfully uploaded and is now available.
                   </p>
                   <button
                     onClick={() => router.push('/')}
-                    className="w-full bg-walrus-mint text-walrus-black py-3 px-6 rounded-lg font-semibold
-                      hover:bg-mint-800 transition-colors"
+                    className="w-full bg-[#EF4330] text-white py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                      shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                      outline outline-[3px] outline-white
+                      hover:shadow-[2px_2px_0_0_black]
+                      hover:translate-x-[1px] hover:translate-y-[1px]
+                      transition-all"
                   >
                     Go to Homepage
                   </button>
