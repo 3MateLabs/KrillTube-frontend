@@ -31,7 +31,7 @@ export function RevenuePieChart({
 
   // Calculate pie slices
   const slices = [
-    { label: 'Creator', percent: creatorPercent, color: '#EF4330' }, // krill-orange
+    { label: 'Creator (You)', percent: creatorPercent, color: '#EF4330' }, // krill-orange
     { label: 'Referrer', percent: referrerSharePercent, color: '#C584F6' }, // walrus-grape
     { label: 'Platform', percent: platformPercent, color: '#6B7280' }, // krill-gray
   ];

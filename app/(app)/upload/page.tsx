@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from '@iota/dapp-kit';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
@@ -96,21 +97,35 @@ function UploadContent() {
   const account = useCurrentAccount();
   const { network, suiWallet, iotaWallet } = useCurrentWalletMultiChain();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+  const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
   const { walrusNetwork } = useNetwork();
   const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress } = usePersonalDelegator();
 
-  // Helper: Get default token type based on connected network
-  const getDefaultTokenType = () => {
-    console.log('[Upload] Checking network for token type:', network);
+  // Helper: Get default token type based on connected network and fee config index
+  const getDefaultTokenType = (index: number = 0) => {
+    console.log('[Upload] Checking network for token type:', network, 'index:', index);
 
     if (network === 'iota') {
-      console.log('[Upload] Detected IOTA network, using IOTA token type');
-      return '0x2::iota::IOTA';
+      // First fee config uses demo Krill coin, subsequent ones use native IOTA
+      if (index === 0) {
+        const demoCoin = process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN;
+        console.log('[Upload] First IOTA fee config, using demo Krill coin:', demoCoin);
+        return demoCoin || '0x2::iota::IOTA';
+      } else {
+        console.log('[Upload] Subsequent IOTA fee config, using native IOTA');
+        return '0x2::iota::IOTA';
+      }
     }
 
-    // Default to SUI for Sui network or when no network is detected
-    console.log('[Upload] Using default SUI token type');
-    return '0x2::sui::SUI';
+    // Sui network
+    if (index === 0) {
+      const demoCoin = process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN;
+      console.log('[Upload] First Sui fee config, using demo Krill coin:', demoCoin);
+      return demoCoin || '0x2::sui::SUI';
+    } else {
+      console.log('[Upload] Subsequent Sui fee config, using native SUI');
+      return '0x2::sui::SUI';
+    }
   };
 
   // State declarations MUST come before useEffects that reference them
@@ -166,22 +181,29 @@ function UploadContent() {
   // Update default token type when network changes
   useEffect(() => {
     if (network) {
-      const defaultTokenType = getDefaultTokenType();
       const currentWallet = network === 'sui' ? suiWallet : iotaWallet;
       const walletName = currentWallet?.name || 'Unknown';
 
-      console.log('[Upload] Network changed - Network:', network, 'Wallet:', walletName, '-> Default token type:', defaultTokenType);
+      console.log('[Upload] Network changed - Network:', network, 'Wallet:', walletName);
 
-      // Update ALL fee configs that are using default SUI or IOTA tokens
+      // Update ALL fee configs that are using default tokens to match the new network
       setFeeConfigs((prev) => {
         console.log('[Upload] Current fee configs:', prev);
-        const updated = prev.map((config) => {
-          // Update if it's using a default token type
-          if (config.tokenType === '0x2::sui::SUI' || config.tokenType === '0x2::iota::IOTA') {
-            console.log('[Upload] Updating token type from', config.tokenType, 'to', defaultTokenType);
+        const updated = prev.map((config, index) => {
+          const newTokenType = getDefaultTokenType(index);
+
+          // Update if it's using a default token type (native or demo)
+          const isDefaultToken =
+            config.tokenType === '0x2::sui::SUI' ||
+            config.tokenType === '0x2::iota::IOTA' ||
+            config.tokenType === process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN ||
+            config.tokenType === process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN;
+
+          if (isDefaultToken) {
+            console.log('[Upload] Updating token type from', config.tokenType, 'to', newTokenType, 'for index', index);
             return {
               ...config,
-              tokenType: defaultTokenType,
+              tokenType: newTokenType,
             };
           }
           return config;
@@ -202,9 +224,11 @@ function UploadContent() {
   } | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
 
-  // Use real account or debug placeholder
+  // Use real account or debug placeholder - support both Sui and IOTA wallets
   const effectiveAccount = debugMode
     ? { address: '0x0000000000000000000000000000000000000000000000000000000000000000' }
+    : network === 'iota' && iotaWallet
+    ? { address: iotaWallet.accounts[0]?.address || '' }
     : account;
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,15 +249,18 @@ function UploadContent() {
   };
 
   const handleAddFeeConfig = () => {
-    setFeeConfigs((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        tokenType: getDefaultTokenType(),
-        amountPer1000Views: '10',
-        inputMode: 'coin',
-      },
-    ]);
+    setFeeConfigs((prev) => {
+      const newIndex = prev.length; // Index of the new fee config
+      return [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          tokenType: getDefaultTokenType(newIndex),
+          amountPer1000Views: '10',
+          inputMode: 'coin',
+        },
+      ];
+    });
   };
 
   const handleRemoveFeeConfig = (id: string) => {
@@ -341,10 +368,11 @@ function UploadContent() {
     }
 
     try {
-      // Determine if this is an IOTA token
-      const isIotaToken = tokenType.includes('::iota::') || tokenType.startsWith('0x2::iota::');
+      // Determine based on connected network (not token type string)
+      // Custom tokens won't have ::iota:: or ::sui:: in them, so check network instead
+      const isIotaNetwork = network === 'iota';
 
-      if (isIotaToken) {
+      if (isIotaNetwork) {
         // Use IOTA metadata API
         console.log(`[Coin Metadata] Fetching IOTA metadata for: ${tokenType}`);
         const response = await fetch(`/api/v1/iota/coin-metadata/${encodeURIComponent(tokenType)}`);
@@ -413,14 +441,14 @@ function UploadContent() {
     }
 
     try {
-      // Determine which API to use based on token type
-      // IOTA tokens use the Blockberry API, Sui tokens use the BlockVision API
-      const isIotaToken = tokenType.includes('::iota::') || tokenType.startsWith('0x2::iota::');
-      const apiEndpoint = isIotaToken
+      // Determine which API to use based on connected network (not token type string)
+      // Custom tokens won't have ::iota:: or ::sui:: in them, so check network instead
+      const isIotaNetwork = network === 'iota';
+      const apiEndpoint = isIotaNetwork
         ? `/api/v1/iota/coin-price/${encodeURIComponent(tokenType)}`
         : `/api/v1/coin-price/${encodeURIComponent(tokenType)}`;
 
-      console.log(`[Coin Price] Fetching price for ${tokenType} using ${isIotaToken ? 'IOTA' : 'Sui'} API`);
+      console.log(`[Coin Price] Fetching price for ${tokenType} using ${isIotaNetwork ? 'IOTA' : 'Sui'} API`);
 
       const response = await fetch(apiEndpoint);
       if (response.ok) {
@@ -603,7 +631,147 @@ function UploadContent() {
         console.log('[Upload V2] Running in DEBUG mode with placeholder wallet');
       }
 
-      // STEP 1: Fund delegator wallet (mainnet only) via PTB
+      // Generate unique video ID upfront (for creator config)
+      const videoId = crypto.randomUUID();
+      console.log('[Upload V2] Generated video ID:', videoId);
+
+      // STEP 1: Create creator config FIRST if monetization is enabled
+      const creatorConfigs: Array<{
+        objectId: string;
+        chain: string;
+        coinType: string;
+        pricePerView: string;
+        decimals: number;
+        metadata?: string;
+      }> = [];
+
+      if (feeConfigs.length > 0 && !debugMode && network) {
+        console.log(`[Upload V2] Creating ${network.toUpperCase()} creator config...`);
+        setProgress({ stage: 'registering', percent: 2, message: 'Creating monetization config...' });
+
+        try {
+          console.log('[Upload V2] Fee configs:', feeConfigs);
+
+          // Get the first fee config for this network
+          const feeConfig = feeConfigs[0];
+          if (!feeConfig) {
+            throw new Error('No fee config found');
+          }
+
+          // Get coin metadata to extract decimals - fetch live if not in cache
+          let metadata: CoinMetadata | null = coinMetadataCache[feeConfig.tokenType] || null;
+          if (!metadata) {
+            console.log('[Upload V2] Metadata not in cache, fetching live for:', feeConfig.tokenType);
+            metadata = await fetchCoinMetadata(feeConfig.tokenType);
+            if (!metadata) {
+              throw new Error(`Failed to fetch coin metadata for ${feeConfig.tokenType}`);
+            }
+          }
+
+          // Calculate price per view from amount per 1000 views
+          // Parse the amount (in whole units) and convert to raw units with decimals
+          const amountPer1000Views = parseFloat(feeConfig.amountPer1000Views);
+          const rawAmountPer1000Views = BigInt(Math.floor(amountPer1000Views * Math.pow(10, metadata.decimals)));
+          const rawPricePerView = rawAmountPer1000Views / BigInt(1000);
+
+          console.log('[Upload V2] Pricing:', {
+            tokenType: feeConfig.tokenType,
+            amountPer1000Views: feeConfig.amountPer1000Views,
+            decimals: metadata.decimals,
+            rawPricePerView: rawPricePerView.toString(),
+          });
+
+          // Dynamically import tunnel config
+          const { createIotaCreatorConfigTransaction, createSuiCreatorConfigTransaction, getCreatorConfigId } = await import(
+            '@/lib/tunnel/tunnelConfig'
+          );
+
+          // Get operator address from environment
+          const operatorAddress = network === 'iota'
+            ? process.env.NEXT_PUBLIC_IOTA_OPERATOR_ADDRESS
+            : process.env.NEXT_PUBLIC_SUI_OPERATOR_ADDRESS;
+
+          if (!operatorAddress) {
+            throw new Error(`NEXT_PUBLIC_${network.toUpperCase()}_OPERATOR_ADDRESS not set in environment`);
+          }
+
+          // Create creator config transaction
+          const configParams = {
+            creatorAddress: effectiveAccount.address,
+            operatorAddress,
+            metadata: `KrillTube Video - ${videoId}`,
+            platformFeeBps: 1000, // 10% platform fee
+            referrerFeeBps: referrerSharePercent * 100, // Convert % to basis points (e.g., 30% -> 3000 bps)
+            gracePeriodMs: 3600000, // 60 minutes
+          };
+
+          console.log('[Upload V2] Config params:', configParams);
+
+          // Execute the transaction using the appropriate wallet
+          console.log('[Upload V2] ⏳ Please approve creator config transaction in your wallet...');
+
+          let txResult;
+          if (network === 'iota') {
+            const iotaTx = createIotaCreatorConfigTransaction(configParams);
+            txResult = await iotaSignAndExecuteTransaction({ transaction: iotaTx });
+          } else {
+            const suiTx = createSuiCreatorConfigTransaction(configParams);
+            txResult = await signAndExecuteTransaction({ transaction: suiTx });
+          }
+
+          console.log('[Upload V2] ✓ Transaction executed:', txResult.digest);
+
+          // Wait for transaction to get object changes
+          const { SuiClient, getFullnodeUrl } = await import('@mysten/sui/client');
+          const { IotaClient, getFullnodeUrl: getIotaFullnodeUrl } = await import('@iota/iota-sdk/client');
+
+          const client = network === 'iota'
+            ? new IotaClient({ url: getIotaFullnodeUrl('mainnet') })
+            : new SuiClient({ url: getFullnodeUrl('mainnet') });
+
+          const txDetails = await client.waitForTransaction({
+            digest: txResult.digest,
+            options: {
+              showEffects: true,
+              showObjectChanges: true,
+            },
+          });
+
+          const creatorConfigId = getCreatorConfigId(txDetails);
+
+          if (creatorConfigId) {
+            console.log('[Upload V2] ✓ Creator config created:', creatorConfigId);
+
+            // Add to configs array with pricing info
+            creatorConfigs.push({
+              objectId: creatorConfigId,
+              chain: network,
+              coinType: feeConfig.tokenType,
+              pricePerView: rawPricePerView.toString(),
+              decimals: metadata.decimals,
+              metadata: `KrillTube Video - ${videoId}`,
+            });
+
+            setProgress({ stage: 'registering', percent: 5, message: 'Monetization config created!' });
+          } else {
+            console.warn('[Upload V2] Creator config created but ID not found');
+          }
+        } catch (configError) {
+          console.error('[Upload V2] Failed to create creator config:', configError);
+
+          // Stop upload and show error - user can retry
+          const errorMessage = configError instanceof Error ? configError.message : 'Unknown error';
+
+          // Check if user rejected the transaction
+          if (errorMessage.includes('rejected') || errorMessage.includes('denied') || errorMessage.includes('cancelled')) {
+            throw new Error('Transaction rejected. Please approve the creator config transaction to continue.');
+          } else {
+            throw new Error(`Creator config creation failed: ${errorMessage}`);
+          }
+        }
+      }
+
+      // STEP 2: Fund delegator wallet (mainnet only) via PTB
       if (walrusNetwork === 'mainnet' && !debugMode && account) {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
@@ -643,20 +811,20 @@ function UploadContent() {
           }
 
           // User signs ONCE to fund both SUI gas + WAL storage
-          setProgress({ stage: 'funding', percent: 5, message: 'Approve funding transaction...' });
+          setProgress({ stage: 'funding', percent: 8, message: 'Approve funding transaction...' });
           console.log('[Upload V2] ⏳ Waiting for user to approve PTB...');
 
           const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
 
           console.log('[Upload V2] ✓ Delegator funded:', fundingResult.digest);
-          setProgress({ stage: 'funding', percent: 10, message: 'Delegator wallet funded!' });
+          setProgress({ stage: 'funding', percent: 12, message: 'Delegator wallet funded!' });
         } catch (fundingError) {
           console.error('[Upload V2] Funding failed:', fundingError);
           throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
         }
       }
 
-      // STEP 2: Dynamically import the upload orchestrator to avoid loading WASM during build
+      // STEP 3: Dynamically import the upload orchestrator to avoid loading WASM during build
       const { uploadVideoClientSide } = await import('@/lib/upload/clientUploadOrchestrator');
 
       // Determine signer and address based on network
@@ -705,14 +873,17 @@ function UploadContent() {
       );
 
       console.log('[Upload V2] ✓ Client-side processing complete');
+
       console.log('[Upload V2] Registering with server...');
+      setProgress({ stage: 'registering', percent: 96, message: 'Registering video...' });
 
       // Register video with server (server stores encrypted root secret)
       const registerResponse = await fetch('/api/v1/register-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videoId: result.videoId,
+          videoId: videoId, // Use pre-generated video ID
+          walrusBlobId: result.videoId, // Store the Walrus blob ID separately
           title,
           creatorId: effectiveAccount.address,
           walrusMasterUri: result.walrusMasterUri,
@@ -727,6 +898,7 @@ function UploadContent() {
             segments: r.segments,
           })),
           paymentInfo: result.paymentInfo,
+          creatorConfigs, // Include creator configs array
         }),
       });
 
@@ -1044,6 +1216,7 @@ function UploadContent() {
                 referrerSharePercent={referrerSharePercent}
                 onReferrerShareChange={setReferrerSharePercent}
                 onShowPlatformFeeDialog={() => setShowPlatformFeeDialog(true)}
+                network={network}
               />
 
               {/* Error */}
@@ -1131,8 +1304,12 @@ function UploadContent() {
                     : debugMode
                     ? '[DEBUG MODE] Start Upload'
                     : walrusNetwork === 'mainnet'
-                    ? `Fund & Upload (${costEstimate?.totalWal} WAL + Gas)`
-                    : 'Approve & Start Upload'}
+                    ? `Approve & Upload (Sui Mainnet) - ${costEstimate?.totalWal} WAL`
+                    : feeConfigs.length > 0
+                    ? network === 'iota'
+                      ? 'Approve & Start Upload (IOTA Mainnet)'
+                      : 'Approve & Start Upload (Sui Mainnet)'
+                    : 'Start Upload (Walrus Testnet)'}
                 </button>
               </div>
 
@@ -1266,6 +1443,47 @@ function UploadContent() {
               {error && (
                 <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-[#EF4330]">
                   <p className="text-base font-semibold font-['Outfit'] text-[#EF4330]">{error}</p>
+                </div>
+              )}
+
+              {/* Retry Buttons - Show when there's an error */}
+              {error && (
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      setCurrentStep(3);
+                    }}
+                    className="flex-1 bg-white text-black py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                      shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                      outline outline-[3px] outline-black
+                      hover:shadow-[2px_2px_0_0_black]
+                      hover:translate-x-[1px] hover:translate-y-[1px]
+                      transition-all"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleUpload}
+                    disabled={!selectedFile || !effectiveAccount || !title}
+                    className="flex-1 bg-[#EF4330] text-white py-4 px-6 rounded-[32px] font-bold font-['Outfit'] text-lg
+                      shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                      outline outline-[3px] outline-white
+                      hover:shadow-[2px_2px_0_0_black]
+                      hover:translate-x-[1px] hover:translate-y-[1px]
+                      disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0_0_black] disabled:hover:translate-x-0 disabled:hover:translate-y-0
+                      transition-all"
+                  >
+                    {!effectiveAccount
+                      ? 'Connect Wallet to Upload'
+                      : walrusNetwork === 'mainnet'
+                      ? `Retry Upload (Sui Mainnet) - ${costEstimate?.totalWal} WAL`
+                      : feeConfigs.length > 0
+                      ? network === 'iota'
+                        ? 'Retry Upload (IOTA Mainnet)'
+                        : 'Retry Upload (Sui Mainnet)'
+                      : 'Retry Upload (Walrus Testnet)'}
+                  </button>
                 </div>
               )}
 

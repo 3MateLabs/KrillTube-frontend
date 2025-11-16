@@ -484,3 +484,18 @@ The current upload page uses a **different, older design system**:
 - Neomorphic cards with shadows and outlines
 - Peach hover states
 - Consistent spacing and typography
+
+## Database Migrations
+
+When making changes to the Prisma schema (`prisma/schema.prisma`), use the following command to sync the database:
+
+```bash
+npx prisma db push
+```
+
+This command:
+- Pushes schema changes directly to the database
+- Automatically generates Prisma Client
+- Does not create migration files (use `npx prisma migrate dev` for production migrations)
+
+**Note**: Use `npx prisma db push` for development. For production, use `npx prisma migrate dev` to create migration files that can be version controlled.

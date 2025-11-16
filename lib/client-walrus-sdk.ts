@@ -431,7 +431,8 @@ export async function uploadMultipleBlobsWithWallet(
   const epochs = validateEpochs(requestedEpochs, network);
   const deletable = options?.deletable ?? true;
 
-  // For testnet, use free HTTP uploads instead of wallet-based uploads
+  // For testnet, use free HTTP uploads (no wallet signatures needed)
+  // Note: Walrus runs on Sui, so IOTA wallets don't sign Walrus transactions
   if (network === 'testnet') {
     console.log('[Upload] Using free HTTP uploads for testnet');
     const publisherUrl = process.env.NEXT_PUBLIC_WALRUS_PUBLISHER || 'https://publisher.walrus-testnet.walrus.space';

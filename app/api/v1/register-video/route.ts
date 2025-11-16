@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       videoId,
+      walrusBlobId,
       title,
       creatorId,
       walrusMasterUri,
@@ -35,8 +36,10 @@ export async function POST(request: NextRequest) {
       network,
       renditions,
       paymentInfo,
+      creatorConfigs,
     }: {
-      videoId: string;
+      videoId: string; // Pre-generated UUID from frontend
+      walrusBlobId?: string; // Optional: Walrus blob ID (for backwards compatibility)
       title: string;
       creatorId: string;
       walrusMasterUri: string;
@@ -45,6 +48,14 @@ export async function POST(request: NextRequest) {
       posterBlobObjectId?: string; // Mainnet only - for extend/delete operations
       duration: number;
       network?: 'mainnet' | 'testnet'; // Walrus network (optional, defaults to mainnet)
+      creatorConfigs?: Array<{
+        objectId: string; // On-chain creator config object ID
+        chain: string; // "iota", "sui", etc.
+        coinType: string; // Coin type (e.g., "0x2::sui::SUI")
+        pricePerView: string; // Raw price per view (in smallest unit with decimals)
+        decimals: number; // Coin decimals for display/calculation
+        metadata?: string;
+      }>; // Multiple creator configs for different payment methods
       renditions: Array<{
         name: string;
         resolution: string;
@@ -81,6 +92,18 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[API Register Video] Registering video: ${videoId}`);
+    if (walrusBlobId && walrusBlobId !== videoId) {
+      console.log(`[API Register Video] Walrus blob ID: ${walrusBlobId}`);
+    }
+    if (creatorConfigs && creatorConfigs.length > 0) {
+      console.log(`[API Register Video] Creator configs (${creatorConfigs.length}):`);
+      creatorConfigs.forEach((config) => {
+        const pricePerView = parseFloat(config.pricePerView) / Math.pow(10, config.decimals);
+        console.log(`  - ${config.chain}: ${config.objectId}`);
+        console.log(`    Coin: ${config.coinType}`);
+        console.log(`    Price per view: ${pricePerView.toFixed(config.decimals)} (${config.pricePerView} raw)`);
+      });
+    }
 
     // Fetch WAL price and calculate USD value
     const walPrice = await getCachedWalPrice();
@@ -128,6 +151,16 @@ export async function POST(request: NextRequest) {
         duration,
         network: network || 'mainnet', // Save Walrus network (defaults to mainnet)
         creatorId,
+        creatorConfigs: {
+          create: creatorConfigs?.map((config) => ({
+            objectId: config.objectId,
+            chain: config.chain,
+            coinType: config.coinType,
+            pricePerView: config.pricePerView,
+            decimals: config.decimals,
+            metadata: config.metadata || null,
+          })) || [],
+        },
         renditions: {
           create: await Promise.all(
             renditions.map(async (rendition) => ({
@@ -168,6 +201,7 @@ export async function POST(request: NextRequest) {
             segments: true,
           },
         },
+        creatorConfigs: true,
       },
     });
 

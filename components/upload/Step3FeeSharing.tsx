@@ -12,12 +12,14 @@ interface Step3FeeSharingProps {
   referrerSharePercent: number;
   onReferrerShareChange: (value: number) => void;
   onShowPlatformFeeDialog: () => void;
+  network?: 'sui' | 'iota' | null;
 }
 
 export function Step3FeeSharing({
   referrerSharePercent,
   onReferrerShareChange,
   onShowPlatformFeeDialog,
+  network,
 }: Step3FeeSharingProps) {
   const creatorPercent = 100 - referrerSharePercent - 10; // 10% is platform fee
   const platformPercent = 10;
@@ -88,6 +90,7 @@ export function Step3FeeSharing({
           <RevenueExamples
             referrerSharePercent={referrerSharePercent}
             onShowPlatformFeeDialog={onShowPlatformFeeDialog}
+            network={network}
           />
         </div>
       </div>

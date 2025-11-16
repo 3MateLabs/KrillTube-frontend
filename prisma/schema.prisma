@@ -105,6 +105,24 @@ model VideoSegment {
   @@map("video_segments")
 }
 
+model CreatorConfig {
+  id           String   @id @default(cuid())
+  videoId      String   @map("video_id")
+  objectId     String   @map("object_id") // On-chain creator config object ID
+  chain        String   // Blockchain: "iota", "sui", etc.
+  coinType     String   @map("coin_type") // Coin type (e.g., "0x2::sui::SUI")
+  pricePerView String   @map("price_per_view") // Raw price per single view (in smallest unit with decimals)
+  decimals     Int      // Coin decimals for display/calculation
+  metadata     String?  // Optional metadata about this config
+  createdAt    DateTime @default(now()) @map("created_at")
+  video        Video    @relation("VideoToCreatorConfig", fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, chain]) // One config per chain per video
+  @@index([videoId])
+  @@index([objectId])
+  @@map("creator_configs")
+}
+
 model Video {
   id                   String            @id @default(cuid())
   title                String
@@ -121,6 +139,7 @@ model Video {
   creatorId            String            @map("creator_id")
   sessions             PlaybackSession[] @relation("VideoToPlaybackSession")
   renditions           VideoRendition[]  @relation("VideoToVideoRendition")
+  creatorConfigs       CreatorConfig[]   @relation("VideoToCreatorConfig")
 
   @@index([creatorId])
   @@index([masterBlobObjectId])
