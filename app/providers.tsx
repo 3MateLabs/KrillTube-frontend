@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NetworkProvider } from '@/contexts/NetworkContext';
 import { IotaProvider } from '@/lib/providers/iota-provider';
 import { WalletContextProvider } from '@/lib/context/WalletContext';
+import { safeLocalStorage } from '@/lib/utils/storage';
 import '@mysten/dapp-kit/dist/index.css';
 import '@iota/dapp-kit/dist/index.css';
 
@@ -25,7 +26,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <NetworkProvider>
         <SuiClientProvider networks={suiNetworks} defaultNetwork="mainnet">
-          <SuiWalletProvider autoConnect={false} storage={localStorage} storageKey="sui-wallet">
+          <SuiWalletProvider autoConnect={true} storage={safeLocalStorage} storageKey="sui-wallet">
             <IotaProvider>
               <WalletContextProvider>
                 {children}
