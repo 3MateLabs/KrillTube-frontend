@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
+import { useWalletContext } from '@/lib/context/WalletContext';
+import { ConnectWalletModal } from './modals/ConnectWalletModal';
 
 interface VideoPlayerProps {
   src: string;
@@ -16,9 +18,27 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
+  const { isConnected } = useWalletContext();
+  const [showConnectModal, setShowConnectModal] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // Monitor wallet disconnection during playback
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    console.log('[VideoPlayer] Wallet status changed:', { isConnected, isPlaying });
+
+    // If wallet disconnects while video is playing, pause and show modal
+    if (!isConnected && isPlaying) {
+      console.log('[VideoPlayer] Wallet disconnected during playback, pausing video');
+      video.pause();
+      setShowConnectModal(true);
+    }
+  }, [isConnected, isPlaying]);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -165,6 +185,13 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
+
+    // Check if wallet is connected before playing
+    if (!isPlaying && !isConnected) {
+      setShowConnectModal(true);
+      return;
+    }
+
     if (isPlaying) {
       video.pause();
     } else {
@@ -378,6 +405,12 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
           </button>
         </div>
       </div>
+
+      {/* Connect Wallet Modal */}
+      <ConnectWalletModal
+        isOpen={showConnectModal}
+        onClose={() => setShowConnectModal(false)}
+      />
     </div>
   );
 }
