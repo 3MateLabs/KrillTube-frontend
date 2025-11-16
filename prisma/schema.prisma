@@ -117,9 +117,10 @@ model CreatorConfig {
   createdAt    DateTime @default(now()) @map("created_at")
   video        Video    @relation("VideoToCreatorConfig", fields: [videoId], references: [id], onDelete: Cascade)
 
-  @@unique([videoId, chain]) // One config per chain per video
+  @@unique([videoId, coinType]) // One config per coin type per video
   @@index([videoId])
   @@index([objectId])
+  @@index([chain])
   @@map("creator_configs")
 }
 

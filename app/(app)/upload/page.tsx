@@ -652,7 +652,7 @@ function UploadContent() {
         try {
           console.log('[Upload V2] Fee configs:', feeConfigs);
 
-          // Get the first fee config for this network
+          // Get the first fee config for this network (one config per chain, not per payment method)
           const feeConfig = feeConfigs[0];
           if (!feeConfig) {
             throw new Error('No fee config found');
@@ -742,17 +742,28 @@ function UploadContent() {
           if (creatorConfigId) {
             console.log('[Upload V2] ✓ Creator config created:', creatorConfigId);
 
-            // Add to configs array with pricing info
-            creatorConfigs.push({
-              objectId: creatorConfigId,
-              chain: network,
-              coinType: feeConfig.tokenType,
-              pricePerView: rawPricePerView.toString(),
-              decimals: metadata.decimals,
-              metadata: `KrillTube Video - ${videoId}`,
-            });
+            // Store all payment methods with the same creator config ID
+            // Backend will handle mapping payment methods to creator config
+            for (const paymentMethod of feeConfigs) {
+              const paymentMetadata = coinMetadataCache[paymentMethod.tokenType] || await fetchCoinMetadata(paymentMethod.tokenType);
+              if (!paymentMetadata) {
+                console.warn(`[Upload V2] Could not fetch metadata for ${paymentMethod.tokenType}`);
+                continue;
+              }
 
-            setProgress({ stage: 'registering', percent: 5, message: 'Monetization config created!' });
+              const paymentAmountPer1000Views = parseFloat(paymentMethod.amountPer1000Views);
+              const paymentRawAmountPer1000Views = BigInt(Math.floor(paymentAmountPer1000Views * Math.pow(10, paymentMetadata.decimals)));
+              const paymentRawPricePerView = paymentRawAmountPer1000Views / BigInt(1000);
+
+              creatorConfigs.push({
+                objectId: creatorConfigId, // Same objectId for all payment methods on this chain
+                chain: network,
+                coinType: paymentMethod.tokenType,
+                pricePerView: paymentRawPricePerView.toString(),
+                decimals: paymentMetadata.decimals,
+                metadata: `KrillTube Video - ${videoId} - ${paymentMetadata.symbol}`,
+              });
+            }
           } else {
             console.warn('[Upload V2] Creator config created but ID not found');
           }
