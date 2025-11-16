@@ -151,7 +151,7 @@ export default function WatchPage() {
             </div>
 
             {/* Recommended Videos Container */}
-            <div className="w-full flex flex-col justify-start items-start gap-2">
+            <div className="w-full flex flex-col justify-start items-start gap-3 pt-4">
               {/* Demo Cards */}
               {[1, 2, 3, 4, 5, 6].map((index) => (
                 <div key={index} className="w-full p-2.5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-2.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer">
@@ -194,7 +194,7 @@ export default function WatchPage() {
         </div>
 
         {/* Creator Info and Actions Row */}
-        <div className="w-full flex justify-start items-start gap-6 -mt-44">
+        <div className="w-full flex justify-start items-start gap-6 -mt-53">
           <div className="flex-1 max-w-[970px]">
             <div className="w-full inline-flex justify-between items-center">
               <div className="flex justify-start items-center gap-4">
