@@ -25,15 +25,15 @@ export function Step3FeeSharing({
   return (
     <div className="space-y-6">
       {/* Referrer Share Configuration */}
-      <div className="p-6 bg-background-elevated border-2 border-border rounded-lg">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Revenue Sharing</h3>
-        <p className="text-sm text-text-muted mb-6">
+      <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+        <h3 className="text-lg font-bold font-['Outfit'] text-black mb-4">Revenue Sharing</h3>
+        <p className="text-sm text-black/70 font-medium font-['Outfit'] mb-6">
           Configure how your video revenue will be shared. The platform automatically takes 10% to
           maintain the service.{' '}
           <button
             type="button"
             onClick={onShowPlatformFeeDialog}
-            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-background-hover hover:bg-border text-walrus-mint transition-colors cursor-help"
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-krill-peach text-krill-orange font-bold shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-help"
             title="Compare with other platforms"
           >
             <span className="text-xs font-bold">?</span>
@@ -43,8 +43,8 @@ export function Step3FeeSharing({
         {/* Referrer Share Slider */}
         <div className="mb-8">
           <div className="flex items-baseline justify-between mb-3">
-            <label className="text-sm font-medium text-foreground">Referrer Share</label>
-            <span className="text-2xl font-bold text-walrus-mint">{referrerSharePercent}%</span>
+            <label className="text-sm font-semibold font-['Outfit'] text-black/70">Referrer Share</label>
+            <span className="text-2xl font-bold font-['Outfit'] text-krill-orange">{referrerSharePercent}%</span>
           </div>
           <input
             type="range"
@@ -53,35 +53,28 @@ export function Step3FeeSharing({
             step="5"
             value={referrerSharePercent}
             onChange={(e) => onReferrerShareChange(parseInt(e.target.value))}
-            className="w-full h-2 bg-background-hover rounded-lg appearance-none cursor-pointer
-              [&::-webkit-slider-thumb]:appearance-none
-              [&::-webkit-slider-thumb]:w-5
-              [&::-webkit-slider-thumb]:h-5
-              [&::-webkit-slider-thumb]:rounded-full
-              [&::-webkit-slider-thumb]:bg-walrus-mint
-              [&::-webkit-slider-thumb]:cursor-pointer
-              [&::-webkit-slider-thumb]:shadow-lg
-              [&::-moz-range-thumb]:w-5
-              [&::-moz-range-thumb]:h-5
-              [&::-moz-range-thumb]:rounded-full
-              [&::-moz-range-thumb]:bg-walrus-mint
-              [&::-moz-range-thumb]:cursor-pointer
-              [&::-moz-range-thumb]:border-0
-              [&::-moz-range-thumb]:shadow-lg"
+            className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-orange"
+            style={{
+              background: `linear-gradient(to right,
+                var(--krill-orange) 0%,
+                var(--krill-orange) ${(referrerSharePercent / 90) * 100}%,
+                #000000 ${(referrerSharePercent / 90) * 100}%,
+                #000000 100%)`
+            }}
           />
-          <div className="flex justify-between text-xs text-text-muted mt-2">
+          <div className="flex justify-between text-xs text-black/70 font-medium font-['Outfit'] mt-2">
             <span>0%</span>
             <span>45%</span>
             <span>90%</span>
           </div>
-          <p className="text-xs text-text-muted mt-3">
+          <p className="text-xs text-black/70 font-medium font-['Outfit'] mt-3">
             Set how much of your revenue goes to referrers who bring viewers to your content
           </p>
         </div>
 
         {/* Revenue Distribution */}
         <div className="mb-6">
-          <h4 className="text-sm font-semibold text-foreground mb-4">Revenue Distribution</h4>
+          <h4 className="text-sm font-bold font-['Outfit'] text-black mb-4">Revenue Distribution</h4>
           <RevenuePieChart
             creatorPercent={creatorPercent}
             referrerSharePercent={referrerSharePercent}
@@ -91,7 +84,7 @@ export function Step3FeeSharing({
 
         {/* Revenue Examples */}
         <div>
-          <h4 className="text-sm font-semibold text-foreground mb-3">Example Scenarios</h4>
+          <h4 className="text-sm font-bold font-['Outfit'] text-black mb-3">Example Scenarios</h4>
           <RevenueExamples
             referrerSharePercent={referrerSharePercent}
             onShowPlatformFeeDialog={onShowPlatformFeeDialog}

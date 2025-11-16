@@ -55,13 +55,13 @@ export function Step2Monetization({
 }: Step2MonetizationProps) {
   return (
     <div className="space-y-6">
-      <div className="p-6 bg-background-elevated border-2 border-border rounded-lg">
+      <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-foreground">Payment Methods</h3>
+          <h3 className="text-lg font-bold font-['Outfit'] text-black">Payment Methods</h3>
           <button
             type="button"
             onClick={onAddFeeConfig}
-            className="text-sm text-walrus-mint hover:text-mint-800 font-medium transition-colors flex items-center gap-1"
+            className="px-4 py-2 bg-krill-orange text-white rounded-[32px] font-semibold font-['Outfit'] text-sm shadow-[2px_2px_0_0_black] outline outline-2 outline-white hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all flex items-center gap-1"
           >
             <span className="text-lg">+</span> Add Payment Method
           </button>
@@ -88,23 +88,23 @@ export function Step2Monetization({
       </div>
 
       {/* Monetization Summary */}
-      <div className="p-6 bg-background-elevated border-2 border-walrus-mint/30 rounded-lg">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Monetization Summary</h3>
+      <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+        <h3 className="text-lg font-bold font-['Outfit'] text-black mb-4">Monetization Summary</h3>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-text-muted">Total Payment Methods:</span>
-            <span className="text-foreground font-semibold">{feeConfigs.length}</span>
+            <span className="text-black/70 font-semibold font-['Outfit']">Total Payment Methods:</span>
+            <span className="text-black font-bold font-['Outfit']">{feeConfigs.length}</span>
           </div>
           {feeConfigs.map((config, index) => (
-            <div key={config.id} className="flex justify-between text-sm py-2 border-t border-border">
-              <span className="text-text-muted">Method {index + 1}:</span>
+            <div key={config.id} className="flex justify-between text-sm py-2 border-t-2 border-black">
+              <span className="text-black/70 font-semibold font-['Outfit']">Method {index + 1}:</span>
               <div className="text-right">
-                <div className="inline-flex items-center gap-1.5 text-foreground font-medium">
+                <div className="inline-flex items-center gap-1.5 text-black font-semibold font-['Outfit']">
                   {coinMetadataCache[config.tokenType]?.iconUrl && (
                     <img
                       src={coinMetadataCache[config.tokenType].iconUrl!}
                       alt={coinMetadataCache[config.tokenType]?.symbol || 'Token'}
-                      className="w-3.5 h-3.5 rounded-full"
+                      className="w-4 h-4 rounded-full"
                       onError={(e) => {
                         e.currentTarget.style.display = 'none';
                       }}
@@ -122,7 +122,7 @@ export function Step2Monetization({
                 {coinPriceCache[config.tokenType] &&
                   config.amountPer1000Views &&
                   parseFloat(config.amountPer1000Views) > 0 && (
-                    <div className="text-xs text-walrus-mint font-medium">
+                    <div className="text-xs text-krill-orange font-semibold font-['Outfit']">
                       ~$
                       {formatNumber(
                         parseFloat(config.amountPer1000Views) *
@@ -131,7 +131,7 @@ export function Step2Monetization({
                       USD
                     </div>
                   )}
-                <div className="text-xs text-text-muted">per 1,000 views</div>
+                <div className="text-xs text-black/70 font-medium font-['Outfit']">per 1,000 views</div>
               </div>
             </div>
           ))}

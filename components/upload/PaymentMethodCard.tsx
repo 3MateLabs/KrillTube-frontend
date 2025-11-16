@@ -56,14 +56,14 @@ export function PaymentMethodCard({
   const symbol = coinMetadata?.symbol || config.tokenType.split('::').pop() || 'TOKEN';
 
   return (
-    <div className="p-5 bg-background-elevated border-2 border-border rounded-lg">
+    <div className="p-5 bg-black rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-white">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-foreground">Payment Method {index + 1}</h4>
+        <h4 className="text-base font-bold font-['Outfit'] text-white">Payment Method {index + 1}</h4>
         {canRemove && (
           <button
             type="button"
             onClick={onRemove}
-            className="text-sm text-red-400 hover:text-red-300 font-medium transition-colors"
+            className="text-sm text-krill-orange hover:opacity-80 font-semibold font-['Outfit'] transition-opacity"
           >
             Remove
           </button>
@@ -74,7 +74,7 @@ export function PaymentMethodCard({
         {/* Token Type */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <label className="text-sm font-medium text-text-muted">Token Type</label>
+            <label className="text-sm font-semibold font-['Outfit'] text-white/70">Token Type</label>
             {coinMetadata?.iconUrl && (
               <img
                 src={coinMetadata.iconUrl}
@@ -86,7 +86,7 @@ export function PaymentMethodCard({
               />
             )}
             {coinMetadata && (
-              <span className="text-xs text-walrus-mint font-medium">{symbol}</span>
+              <span className="text-xs text-krill-orange font-semibold font-['Outfit']">{symbol}</span>
             )}
           </div>
           <input
@@ -94,11 +94,11 @@ export function PaymentMethodCard({
             value={config.tokenType}
             onChange={(e) => onUpdateTokenType(e.target.value)}
             placeholder="0x2::sui::SUI"
-            className="w-full px-4 py-3 bg-background border border-border rounded-lg
-              text-foreground placeholder-text-muted/50 font-mono text-sm
-              focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+            className="w-full px-4 py-3 bg-white rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] outline outline-1 outline-black
+              text-black placeholder-black/40 font-mono text-sm font-medium
+              focus:outline-krill-orange focus:outline-2 transition-all"
           />
-          <p className="text-xs text-text-muted mt-1">
+          <p className="text-xs text-white/50 font-medium font-['Outfit'] mt-1">
             Enter the full token type (e.g., 0x2::sui::SUI)
           </p>
         </div>
@@ -106,13 +106,14 @@ export function PaymentMethodCard({
         {/* Amount per 1000 views */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-text-muted">
-              Amount per 1,000 Views{config.inputMode === 'usd' ? ' (in USD)' : ''}
+            <label className="text-sm font-semibold font-['Outfit'] text-white/70">
+              Amount per 1,000 Views
+              <span className="text-krill-orange">{config.inputMode === 'usd' ? ' (in USD)' : ''}</span>
             </label>
             <button
               type="button"
               onClick={onToggleInputMode}
-              className="text-xs px-2 py-1 rounded bg-background-hover hover:bg-border text-walrus-mint font-medium transition-colors"
+              className="text-xs px-3 py-1.5 rounded-xl bg-krill-peach text-black font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
             >
               {config.inputMode === 'coin' ? 'USD' : symbol}
             </button>
@@ -127,9 +128,9 @@ export function PaymentMethodCard({
               placeholder="0"
               min="0"
               step="0.000001"
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg
-                text-foreground placeholder-text-muted/50
-                focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+              className="w-full px-4 py-3 bg-white rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] outline outline-1 outline-black
+                text-black placeholder-black/40 font-medium font-['Outfit']
+                focus:outline-krill-orange focus:outline-2 transition-all"
             />
           ) : (
             <input
@@ -139,9 +140,9 @@ export function PaymentMethodCard({
               placeholder="0"
               min="0"
               step="0.01"
-              className="w-full px-4 py-3 bg-background border border-border rounded-lg
-                text-foreground placeholder-text-muted/50
-                focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+              className="w-full px-4 py-3 bg-white rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] outline outline-1 outline-black
+                text-black placeholder-black/40 font-medium font-['Outfit']
+                focus:outline-krill-orange focus:outline-2 transition-all"
             />
           )}
 
@@ -150,7 +151,7 @@ export function PaymentMethodCard({
             config.usdAmountPer1000Views &&
             parseFloat(config.usdAmountPer1000Views) > 0 &&
             coinPrice && (
-              <p className="text-xs text-text-muted mt-2">
+              <p className="text-xs text-white/50 font-medium font-['Outfit'] mt-2">
                 ≈{' '}
                 {coinMetadata?.iconUrl && (
                   <img
@@ -162,7 +163,7 @@ export function PaymentMethodCard({
                     }}
                   />
                 )}{' '}
-                <span className="font-semibold text-walrus-mint">
+                <span className="font-semibold text-krill-orange">
                   {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
                     ? formatNumber(parseFloat(config.amountPer1000Views))
                     : '0'}{' '}
@@ -175,15 +176,15 @@ export function PaymentMethodCard({
             config.amountPer1000Views &&
             parseFloat(config.amountPer1000Views) > 0 &&
             coinPrice && (
-              <p className="text-xs text-text-muted mt-2">
+              <p className="text-xs text-white/50 font-medium font-['Outfit'] mt-2">
                 ≈{' '}
-                <span className="font-semibold text-walrus-mint">
+                <span className="font-semibold text-krill-orange">
                   ${formatNumber(parseFloat(config.amountPer1000Views) * coinPrice.usdPrice)} USD
                 </span>
               </p>
             )}
 
-          <p className="text-xs text-text-muted mt-3">
+          <p className="text-xs text-white/50 font-medium font-['Outfit'] mt-3">
             You will get{' '}
             {coinMetadata?.iconUrl && (
               <img
@@ -195,14 +196,14 @@ export function PaymentMethodCard({
                 }}
               />
             )}{' '}
-            <span className="font-semibold text-foreground">
+            <span className="font-semibold text-white">
               {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
                 ? formatNumber(parseFloat(config.amountPer1000Views))
                 : '0'}{' '}
               {symbol}
             </span>
             {coinPrice && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
-              <span className="text-walrus-mint font-medium">
+              <span className="text-krill-orange font-medium">
                 {' '}
                 (~${formatNumber(parseFloat(config.amountPer1000Views) * coinPrice.usdPrice)} USD)
               </span>
@@ -218,14 +219,14 @@ export function PaymentMethodCard({
                 }}
               />
             )}{' '}
-            <span className="font-semibold text-foreground">
+            <span className="font-semibold text-white">
               {config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0
                 ? formatNumber(parseFloat(config.amountPer1000Views) / 1000)
                 : '0'}{' '}
               {symbol}
             </span>
             {coinPrice && config.amountPer1000Views && parseFloat(config.amountPer1000Views) > 0 && (
-              <span className="text-walrus-mint font-medium">
+              <span className="text-krill-orange font-medium">
                 {' '}
                 (~$
                 {formatNumber((parseFloat(config.amountPer1000Views) / 1000) * coinPrice.usdPrice)}{' '}

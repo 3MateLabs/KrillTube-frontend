@@ -38,11 +38,6 @@ export function UploadNetworkSwitcher() {
 
         {/* Cost Estimation */}
         <div className="flex items-center gap-2">
-          <span className="text-sm text-text-muted">Cost:</span>
-          <span className="text-sm font-semibold text-foreground">
-            {isMainnet ? 'User Paid' : 'Free'}
-          </span>
-
           {/* Info Icon */}
           <button
             onClick={() => setShowInfo(true)}

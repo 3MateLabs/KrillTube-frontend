@@ -31,9 +31,9 @@ export function RevenuePieChart({
 
   // Calculate pie slices
   const slices = [
-    { label: 'Creator', percent: creatorPercent, color: '#83FFE6' }, // walrus-mint
-    { label: 'Referrer', percent: referrerSharePercent, color: '#A78BFA' }, // purple
-    { label: 'Platform', percent: platformPercent, color: '#6B7280' }, // gray
+    { label: 'Creator', percent: creatorPercent, color: '#EF4330' }, // krill-orange
+    { label: 'Referrer', percent: referrerSharePercent, color: '#C584F6' }, // walrus-grape
+    { label: 'Platform', percent: platformPercent, color: '#6B7280' }, // krill-gray
   ];
 
   let cumulative = 0;
@@ -69,9 +69,12 @@ export function RevenuePieChart({
       <div className="space-y-3">
         {slices.map((slice) => (
           <div key={slice.label} className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: slice.color }} />
-            <span className="text-sm text-foreground">
-              {slice.label}: <span className="font-semibold">{slice.percent}%</span>
+            <div
+              className="w-4 h-4 rounded shadow-[1px_1px_0_0_rgba(0,0,0,1)] outline outline-1 outline-black"
+              style={{ backgroundColor: slice.color }}
+            />
+            <span className="text-sm text-black font-medium font-['Outfit']">
+              {slice.label}: <span className="font-bold">{slice.percent}%</span>
             </span>
           </div>
         ))}

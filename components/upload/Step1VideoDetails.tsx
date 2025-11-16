@@ -31,7 +31,7 @@ export function Step1VideoDetails({
   return (
     <div className="space-y-6">
       {/* File Upload */}
-      <div className="p-6 bg-background-elevated border-2 border-dashed border-border rounded-lg hover:border-walrus-mint transition-colors">
+      <div className="p-6 bg-white border-2 border-dashed border-black/20 rounded-2xl hover:border-krill-orange shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black transition-colors">
         <label className="block cursor-pointer">
           <input
             type="file"
@@ -41,7 +41,7 @@ export function Step1VideoDetails({
           />
           <div className="text-center">
             <svg
-              className="mx-auto h-12 w-12 text-text-muted"
+              className="mx-auto h-12 w-12 text-black/40"
               stroke="currentColor"
               fill="none"
               viewBox="0 0 48 48"
@@ -53,10 +53,10 @@ export function Step1VideoDetails({
                 strokeLinejoin="round"
               />
             </svg>
-            <p className="mt-2 text-sm text-foreground font-medium">
+            <p className="mt-2 text-sm text-black font-semibold font-['Outfit']">
               {selectedFile ? selectedFile.name : 'Click to select video'}
             </p>
-            <p className="mt-1 text-xs text-text-muted">
+            <p className="mt-1 text-xs text-black/70 font-medium font-['Outfit']">
               {selectedFile
                 ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
                 : 'MP4, WebM, or other video formats'}
@@ -67,7 +67,7 @@ export function Step1VideoDetails({
 
       {/* Title */}
       <div>
-        <label className="block text-sm font-medium text-text-muted mb-2">
+        <label className="block text-sm font-semibold font-['Outfit'] text-black/70 mb-2">
           Video Title
         </label>
         <input
@@ -75,18 +75,18 @@ export function Step1VideoDetails({
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder="Enter a descriptive title"
-          className="w-full px-4 py-3 bg-background border border-border rounded-lg
-            text-foreground placeholder-text-muted/50
-            focus:outline-none focus:ring-2 focus:ring-walrus-mint"
+          className="w-full px-4 py-3 bg-white rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] outline outline-1 outline-black
+            text-black placeholder-black/40 font-medium font-['Outfit']
+            focus:outline-krill-orange focus:outline-2 transition-all"
         />
       </div>
 
       {/* Quality Selection */}
       <div>
-        <label className="block text-sm font-medium text-text-muted mb-2">
+        <label className="block text-sm font-semibold font-['Outfit'] text-black/70 mb-2">
           Video Quality
         </label>
-        <p className="text-xs text-text-muted mb-3">
+        <p className="text-xs text-black/70 font-medium font-['Outfit'] mb-3">
           Select quality levels to generate (higher quality = larger file size)
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -95,10 +95,10 @@ export function Step1VideoDetails({
               key={quality}
               type="button"
               onClick={() => onQualityToggle(quality)}
-              className={`px-4 py-3 rounded-lg border-2 transition-all font-medium text-sm ${
+              className={`px-4 py-3 rounded-xl transition-all font-bold font-['Outfit'] text-sm shadow-[2px_2px_0_0_black] outline outline-1 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] ${
                 selectedQualities.includes(quality)
-                  ? 'bg-walrus-mint/10 border-walrus-mint text-walrus-mint'
-                  : 'bg-background border-border text-text-muted hover:border-walrus-mint/50'
+                  ? 'bg-krill-orange text-white'
+                  : 'bg-krill-peach text-black'
               }`}
             >
               {quality}
