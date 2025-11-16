@@ -3,10 +3,12 @@
 /**
  * Chain Selector Component
  * Shows both Sui and IOTA wallet options in one modal
+ * Uses useCurrentWalletMultiChain for consistent multi-chain wallet handling
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWalletContext } from '@/lib/context/WalletContext';
+import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
 import { ConnectButton as SuiConnectButton } from '@mysten/dapp-kit';
 import { ConnectButton as IotaConnectButton } from '@iota/dapp-kit';
 import { useDisconnectWallet as useIotaDisconnect } from '@iota/dapp-kit';
@@ -16,14 +18,40 @@ export function ChainSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
   const { chain, address, isConnected } = useWalletContext();
+  const { network, suiWallet, iotaWallet } = useCurrentWalletMultiChain();
 
   const { mutate: disconnectSui } = useSuiDisconnect();
   const { mutate: disconnectIota } = useIotaDisconnect();
 
+  // Get current wallet based on network
+  const currentWallet = network === 'sui' ? suiWallet : network === 'iota' ? iotaWallet : null;
+  const walletName = currentWallet?.name || 'Unknown Wallet';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[ChainSelector] Wallet state:', {
+      network,
+      chain,
+      address,
+      isConnected,
+      suiWallet: suiWallet?.name,
+      iotaWallet: iotaWallet?.name,
+      currentWallet: walletName,
+    });
+  }, [network, chain, address, isConnected, suiWallet, iotaWallet, walletName]);
+
   const handleDisconnect = () => {
-    if (chain === 'sui') {
+    console.log('[ChainSelector] Disconnecting wallet:', {
+      network,
+      chain,
+      walletName,
+    });
+
+    if (chain === 'sui' || network === 'sui') {
+      console.log('[ChainSelector] Disconnecting Sui wallet');
       disconnectSui();
-    } else if (chain === 'iota') {
+    } else if (chain === 'iota' || network === 'iota') {
+      console.log('[ChainSelector] Disconnecting IOTA wallet');
       disconnectIota();
     }
     setIsOpen(false);
@@ -82,8 +110,18 @@ export function ChainSelector() {
             />
 
             {/* Dropdown */}
-            <div className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
+            <div className="absolute right-0 mt-4 w-64 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
               <div className="p-3">
+                {/* Wallet Name */}
+                <div className="px-2 py-1 mb-2">
+                  <div className="text-xs text-gray-500 mb-0.5">Connected Wallet</div>
+                  <div className="text-sm font-bold text-black flex items-center gap-2">
+                    {getChainIcon(chain!)}
+                    {walletName}
+                  </div>
+                </div>
+
+                {/* Address (Click to Copy) */}
                 <button
                   onClick={handleCopyAddress}
                   className="w-full text-left hover:bg-gray-50 rounded-lg p-2 transition-colors group flex items-center justify-between"
@@ -91,7 +129,7 @@ export function ChainSelector() {
                 >
                   <div className="flex-1">
                     <div className="text-xs text-gray-500 mb-1">
-                      {getChainDisplayName(chain!)}
+                      {getChainDisplayName(chain!)} Address
                     </div>
                     <div className="font-mono text-xs text-black group-hover:text-blue-600">
                       {formatAddress(address)}

@@ -1,13 +1,29 @@
 'use client';
 
 import { useNetwork } from '@/contexts/NetworkContext';
-import { useState } from 'react';
+import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
+import { useState, useEffect } from 'react';
 
 export function UploadNetworkSwitcher() {
   const { walrusNetwork, setWalrusNetwork } = useNetwork();
+  const { network } = useCurrentWalletMultiChain();
   const [showInfo, setShowInfo] = useState(false);
 
+  // Force testnet when IOTA wallet is connected
+  const isIotaWallet = network === 'iota';
+
+  useEffect(() => {
+    if (isIotaWallet && walrusNetwork !== 'testnet') {
+      console.log('[UploadNetworkSwitcher] IOTA wallet detected, forcing testnet');
+      setWalrusNetwork('testnet');
+    }
+  }, [isIotaWallet, walrusNetwork, setWalrusNetwork]);
+
   const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // Prevent changing network if IOTA wallet is connected
+    if (isIotaWallet) {
+      return;
+    }
     setWalrusNetwork(e.target.value as 'mainnet' | 'testnet');
   };
 
@@ -26,23 +42,34 @@ export function UploadNetworkSwitcher() {
               id="network-select"
               value={walrusNetwork}
               onChange={handleNetworkChange}
-              className="pl-4 pr-10 py-2.5 bg-black rounded-[32px]
+              disabled={isIotaWallet}
+              className={`pl-4 pr-10 py-2.5 bg-black rounded-[32px]
                 shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
                 outline outline-2 outline-offset-[-2px]
                 text-white text-base font-semibold font-['Outfit']
-                focus:outline-[3px] focus:outline-krill-orange
-                hover:shadow-[2px_2px_0_0_black]
-                hover:translate-x-[1px] hover:translate-y-[1px]
                 transition-all
-                cursor-pointer appearance-none bg-no-repeat bg-right"
+                appearance-none bg-no-repeat bg-right
+                ${isIotaWallet
+                  ? 'opacity-70 cursor-not-allowed'
+                  : 'cursor-pointer focus:outline-[3px] focus:outline-krill-orange hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px]'
+                }`}
               style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FFF' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundImage: isIotaWallet
+                  ? 'none'  // Hide dropdown arrow when disabled
+                  : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23FFF' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
                 backgroundPosition: 'right 1rem center'
               }}
             >
-              <option value="mainnet">Mainnet</option>
+              {!isIotaWallet && <option value="mainnet">Mainnet</option>}
               <option value="testnet">Testnet</option>
             </select>
+            {isIotaWallet && (
+              <div className="absolute -right-2 -top-2 px-2 py-0.5 bg-[#1AAACE] rounded-full
+                shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)]
+                outline outline-1 outline-offset-[-1px] outline-black">
+                <span className="text-white text-xs font-bold font-['Outfit']">IOTA</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -106,6 +133,21 @@ export function UploadNetworkSwitcher() {
 
               {/* Content */}
               <div className="space-y-4 text-sm font-['Outfit']">
+                {/* IOTA Notice */}
+                {isIotaWallet && (
+                  <div className="p-4 bg-[#1AAACE]/10 rounded-2xl
+                    shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
+                    outline outline-2 outline-offset-[-2px] outline-[#1AAACE]">
+                    <h4 className="font-bold text-black mb-2 text-base flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-[#1AAACE] rounded-full text-white text-xs">IOTA</span>
+                      Testnet Only
+                    </h4>
+                    <p className="text-black/70">
+                      IOTA wallets currently only support Walrus testnet. Mainnet support coming soon!
+                    </p>
+                  </div>
+                )}
+
                 {/* Mainnet */}
                 <div className="p-4 bg-white rounded-2xl
                   shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)]
@@ -115,6 +157,7 @@ export function UploadNetworkSwitcher() {
                     <li>• Permanent storage on Walrus</li>
                     <li>• Production-ready reliability</li>
                     <li>• User pays with WAL from their wallet</li>
+                    {isIotaWallet && <li className="text-[#1AAACE] font-semibold">• Not available for IOTA wallets yet</li>}
                   </ul>
                 </div>
 
@@ -127,6 +170,7 @@ export function UploadNetworkSwitcher() {
                     <li>• Completely free to use</li>
                     <li>• Perfect for testing uploads</li>
                     <li>• Files may be wiped after some time (~100 days)</li>
+                    {isIotaWallet && <li className="text-[#1AAACE] font-semibold">• Available for IOTA wallets ✓</li>}
                   </ul>
                 </div>
               </div>

@@ -8,11 +8,12 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCurrentAccount, useSignAndExecuteTransaction, useCurrentWallet } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
 import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
+import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
 import { PlatformFeeComparisonDialog } from '@/components/PlatformFeeComparisonDialog';
 import { Step2Monetization } from '@/components/upload/Step2Monetization';
 import { Step3FeeSharing } from '@/components/upload/Step3FeeSharing';
@@ -93,23 +94,21 @@ function UploadContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const account = useCurrentAccount();
-  const { currentWallet } = useCurrentWallet();
+  const { network, suiWallet, iotaWallet } = useCurrentWalletMultiChain();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { walrusNetwork } = useNetwork();
   const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress } = usePersonalDelegator();
 
-  // Helper: Get default token type based on connected wallet
+  // Helper: Get default token type based on connected network
   const getDefaultTokenType = () => {
-    if (currentWallet?.name) {
-      const walletName = currentWallet.name.toLowerCase();
-      console.log('[Upload] Checking wallet name for token type:', walletName);
-      // Check if it's an IOTA wallet (check for common IOTA wallet names)
-      if (walletName.includes('iota')) {
-        console.log('[Upload] Detected IOTA wallet, using IOTA token type');
-        return '0x2::iota::IOTA';
-      }
+    console.log('[Upload] Checking network for token type:', network);
+
+    if (network === 'iota') {
+      console.log('[Upload] Detected IOTA network, using IOTA token type');
+      return '0x2::iota::IOTA';
     }
-    // Default to SUI for all other wallets (including Sui Wallet, Suiet, Ethos, etc.)
+
+    // Default to SUI for Sui network or when no network is detected
     console.log('[Upload] Using default SUI token type');
     return '0x2::sui::SUI';
   };
@@ -164,11 +163,14 @@ function UploadContent() {
     }
   }, [searchParams]);
 
-  // Update default token type when wallet changes
+  // Update default token type when network changes
   useEffect(() => {
-    if (currentWallet) {
+    if (network) {
       const defaultTokenType = getDefaultTokenType();
-      console.log('[Upload] Wallet changed - Name:', currentWallet.name, '-> Default token type:', defaultTokenType);
+      const currentWallet = network === 'sui' ? suiWallet : iotaWallet;
+      const walletName = currentWallet?.name || 'Unknown';
+
+      console.log('[Upload] Network changed - Network:', network, 'Wallet:', walletName, '-> Default token type:', defaultTokenType);
 
       // Update ALL fee configs that are using default SUI or IOTA tokens
       setFeeConfigs((prev) => {
@@ -187,7 +189,7 @@ function UploadContent() {
         return updated;
       });
     }
-  }, [currentWallet]);
+  }, [network, suiWallet, iotaWallet]);
 
   const [costEstimate, setCostEstimate] = useState<{
     totalWal: string;
@@ -339,25 +341,61 @@ function UploadContent() {
     }
 
     try {
-      const metadata = await suiClient.getCoinMetadata({ coinType: tokenType });
-      if (metadata) {
-        // Use fallback icon for SUI if metadata doesn't have one
-        let iconUrl = metadata.iconUrl;
-        if (!iconUrl && tokenType === '0x2::sui::SUI') {
-          iconUrl = 'https://imagedelivery.net/cBNDGgkrsEA-b_ixIp9SkQ/sui-coin.svg/public';
+      // Determine if this is an IOTA token
+      const isIotaToken = tokenType.includes('::iota::') || tokenType.startsWith('0x2::iota::');
+
+      if (isIotaToken) {
+        // Use IOTA metadata API
+        console.log(`[Coin Metadata] Fetching IOTA metadata for: ${tokenType}`);
+        const response = await fetch(`/api/v1/iota/coin-metadata/${encodeURIComponent(tokenType)}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.metadata) {
+            // Use fallback icon for IOTA if metadata doesn't have one
+            let iconUrl = data.metadata.iconUrl;
+            if (!iconUrl && tokenType === '0x2::iota::IOTA') {
+              iconUrl = 'https://iota.org/logo.png';
+            }
+
+            const coinData: CoinMetadata = {
+              decimals: data.metadata.decimals,
+              name: data.metadata.name,
+              symbol: data.metadata.symbol,
+              description: data.metadata.description || '',
+              iconUrl: iconUrl ?? null,
+            };
+
+            // Cache the metadata
+            setCoinMetadataCache((prev) => ({ ...prev, [tokenType]: coinData }));
+            console.log(`[Coin Metadata] IOTA metadata cached:`, coinData);
+            return coinData;
+          }
         }
+      } else {
+        // Use Sui client for Sui tokens
+        console.log(`[Coin Metadata] Fetching Sui metadata for: ${tokenType}`);
+        const metadata = await suiClient.getCoinMetadata({ coinType: tokenType });
+        if (metadata) {
+          // Use fallback icon for SUI if metadata doesn't have one
+          let iconUrl = metadata.iconUrl;
+          if (!iconUrl && tokenType === '0x2::sui::SUI') {
+            iconUrl = 'https://imagedelivery.net/cBNDGgkrsEA-b_ixIp9SkQ/sui-coin.svg/public';
+          }
 
-        const coinData: CoinMetadata = {
-          decimals: metadata.decimals,
-          name: metadata.name,
-          symbol: metadata.symbol,
-          description: metadata.description,
-          iconUrl: iconUrl ?? null,
-        };
+          const coinData: CoinMetadata = {
+            decimals: metadata.decimals,
+            name: metadata.name,
+            symbol: metadata.symbol,
+            description: metadata.description,
+            iconUrl: iconUrl ?? null,
+          };
 
-        // Cache the metadata
-        setCoinMetadataCache((prev) => ({ ...prev, [tokenType]: coinData }));
-        return coinData;
+          // Cache the metadata
+          setCoinMetadataCache((prev) => ({ ...prev, [tokenType]: coinData }));
+          console.log(`[Coin Metadata] Sui metadata cached:`, coinData);
+          return coinData;
+        }
       }
     } catch (error) {
       console.error(`[Coin Metadata] Failed to fetch for ${tokenType}:`, error);
@@ -375,7 +413,16 @@ function UploadContent() {
     }
 
     try {
-      const response = await fetch(`/api/v1/coin-price/${encodeURIComponent(tokenType)}`);
+      // Determine which API to use based on token type
+      // IOTA tokens use the Blockberry API, Sui tokens use the BlockVision API
+      const isIotaToken = tokenType.includes('::iota::') || tokenType.startsWith('0x2::iota::');
+      const apiEndpoint = isIotaToken
+        ? `/api/v1/iota/coin-price/${encodeURIComponent(tokenType)}`
+        : `/api/v1/coin-price/${encodeURIComponent(tokenType)}`;
+
+      console.log(`[Coin Price] Fetching price for ${tokenType} using ${isIotaToken ? 'IOTA' : 'Sui'} API`);
+
+      const response = await fetch(apiEndpoint);
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.price > 0) {
@@ -384,6 +431,7 @@ function UploadContent() {
             timestamp: Date.now(),
           };
           setCoinPriceCache((prev) => ({ ...prev, [tokenType]: priceData }));
+          console.log(`[Coin Price] ${tokenType}: $${data.price}`);
           return data.price;
         }
       }
