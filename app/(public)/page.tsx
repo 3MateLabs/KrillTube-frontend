@@ -9,14 +9,26 @@ export default function KrillTubeLanding() {
   return (
     <div className="min-h-screen bg-black">
       {/* Hero Background */}
-      <div className="relative min-h-screen bg-sky-800">
-        {/* Ocean Background Image - positioned to start from top */}
+      <div className="relative pb-32 bg-sky-800">
+        {/* Ocean Background Image - extends to cover full area */}
+        <div className="absolute inset-0 w-full min-h-full">
+          <Image
+            src="/landing/krilltube_bg.png"
+            alt="Ocean background"
+            width={1440}
+            height={1024}
+            className="w-full h-full min-h-[900px] object-cover object-right"
+            priority
+          />
+        </div>
+
+        {/* Krill Mascot - layered on top of background, hidden on small screens */}
         <Image
-          src="/image 21.png"
-          alt="Ocean background"
-          width={1440}
-          height={1024}
-          className="absolute left-0 top-14 w-full h-auto object-cover"
+          src="/landing/krill_mascot.png"
+          alt="Krill mascot"
+          width={600}
+          height={600}
+          className="hidden lg:block absolute right-8 xl:right-24 bottom-24 xl:bottom-32 w-[420px] xl:w-[480px] h-auto object-contain z-30 pointer-events-none"
           priority
         />
 
@@ -67,82 +79,90 @@ export default function KrillTubeLanding() {
         </nav>
 
         {/* Hero Content */}
-        <div className="relative pt-32 md:pt-48 pb-32 px-4 md:px-8 lg:px-28">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-8">
-            {/* Left side - Text content */}
-            <div className="w-full lg:w-[600px] p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-4 overflow-hidden">
-              <h1 className="self-stretch justify-start text-black text-5xl font-normal font-['Aclonica'] leading-tight">
-                Fuel the Ocean. Empower Creators.
-              </h1>
-              <p className="self-stretch justify-start text-red-600 text-base font-medium font-['Outfit']">
-                A decentralized video ocean where fans fuel creation.<br />
-                Powered by Walrus, driven by krill.
-              </p>
-            </div>
-          </div>
+        <div className="relative pt-16 md:pt-24 lg:pt-32 pb-12 md:pb-16 px-4 md:px-8 lg:px-16 xl:px-28 z-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8 lg:gap-12">
+              {/* Left side - Text and buttons */}
+              <div className="flex flex-col gap-6 lg:max-w-[600px]">
+                {/* Text content */}
+                <div className="w-full p-6 md:p-8 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-4">
+                  <h1 className="text-black text-3xl md:text-4xl lg:text-5xl font-normal font-['Aclonica'] leading-tight">
+                    Fuel the Ocean. Empower Creators.
+                  </h1>
+                  <p className="text-red-600 text-sm md:text-base font-medium font-['Outfit']">
+                    A decentralized video ocean where fans fuel creation.<br />
+                    Powered by Walrus, driven by krill.
+                  </p>
+                </div>
 
-          {/* CTA Buttons - positioned separately below */}
-          <div className="absolute left-4 md:left-28 top-[420px] md:top-[516px] flex flex-wrap gap-4">
-            <Link
-              href="/watch"
-              className="bg-[#EF4330] text-white font-semibold px-6 py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2"
-            >
-              Start Watching
-              <div className="w-7 h-7 p-1.5 bg-black rounded-full flex justify-center items-center">
-                <Play className="w-4 h-4 text-white" fill="white" />
+                {/* CTA Buttons */}
+                <div className="flex flex-wrap gap-4">
+                  <Link
+                    href="/watch"
+                    className="bg-[#EF4330] text-white font-semibold px-6 py-3 md:py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2 text-sm md:text-base"
+                  >
+                    Start Watching
+                    <div className="w-6 h-6 md:w-7 md:h-7 p-1 md:p-1.5 bg-black rounded-full flex justify-center items-center">
+                      <Play className="w-3 h-3 md:w-4 md:h-4 text-white" fill="white" />
+                    </div>
+                  </Link>
+                  <button
+                    className="bg-white text-black font-semibold px-6 py-3 md:py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2 text-sm md:text-base"
+                  >
+                    Learn More
+                    <div className="w-6 h-6 md:w-7 md:h-7 p-1 md:p-1.5 bg-black rounded-full flex justify-center items-center">
+                      <ChevronRight className="w-3 h-3 md:w-4 md:h-4 text-white rotate-90" />
+                    </div>
+                  </button>
+                </div>
               </div>
-            </Link>
-            <button
-              className="bg-white text-black font-semibold px-6 py-4 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all inline-flex items-center gap-2"
-            >
-              Learn More
-              <div className="w-7 h-7 p-1.5 bg-black rounded-full flex justify-center items-center">
-                <ChevronRight className="w-4 h-4 text-white rotate-90" />
-              </div>
-            </button>
+
+              {/* Right side - Space for mascot on large screens */}
+              <div className="hidden lg:block lg:flex-1"></div>
+            </div>
           </div>
         </div>
 
-        {/* Stats Card - overlapping the bottom */}
-        <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2 z-50 px-4">
-          <div className="w-[808px] px-8 py-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-black inline-flex justify-between items-start overflow-hidden">
-            <div className="flex-1 inline-flex flex-col justify-start items-start">
-              <div className="self-stretch text-center justify-start text-black text-5xl font-extrabold font-['Outfit'] leading-[66px]">+7000</div>
-              <div className="self-stretch text-center justify-start text-black text-lg font-medium font-['Outfit'] leading-7">Uploaded Content</div>
+        {/* Stats Card - positioned at bottom */}
+        <div className="relative left-1/2 -translate-x-1/2 z-50 px-4 mt-6 md:mt-8 pb-6">
+          <div className="w-full max-w-[808px] mx-auto px-4 md:px-8 py-4 md:py-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-black flex justify-between items-start gap-2">
+            <div className="flex-1 flex flex-col justify-start items-start">
+              <div className="w-full text-center text-black text-3xl md:text-4xl lg:text-5xl font-extrabold font-['Outfit'] leading-tight md:leading-[66px]">+7000</div>
+              <div className="w-full text-center text-black text-sm md:text-base lg:text-lg font-medium font-['Outfit'] leading-snug md:leading-7">Uploaded Content</div>
             </div>
-            <div className="flex-1 inline-flex flex-col justify-start items-start">
-              <div className="self-stretch text-center justify-start text-black text-5xl font-extrabold font-['Outfit'] leading-[66px]">+37</div>
-              <div className="self-stretch text-center justify-start text-black text-lg font-medium font-['Outfit'] leading-7">Payments made</div>
+            <div className="flex-1 flex flex-col justify-start items-start">
+              <div className="w-full text-center text-black text-3xl md:text-4xl lg:text-5xl font-extrabold font-['Outfit'] leading-tight md:leading-[66px]">+37</div>
+              <div className="w-full text-center text-black text-sm md:text-base lg:text-lg font-medium font-['Outfit'] leading-snug md:leading-7">Payments made</div>
             </div>
-            <div className="flex-1 inline-flex flex-col justify-start items-center">
-              <div className="self-stretch text-center justify-start text-black text-5xl font-extrabold font-['Outfit'] leading-[66px]">+15</div>
-              <div className="self-stretch text-center justify-start text-black text-lg font-medium font-['Outfit'] leading-7">Volume</div>
+            <div className="flex-1 flex flex-col justify-start items-center">
+              <div className="w-full text-center text-black text-3xl md:text-4xl lg:text-5xl font-extrabold font-['Outfit'] leading-tight md:leading-[66px]">+15</div>
+              <div className="w-full text-center text-black text-sm md:text-base lg:text-lg font-medium font-['Outfit'] leading-snug md:leading-7">Volume</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Gradient Section with rounded top */}
-      <div className="relative pt-32 pb-20 rounded-tl-[80px] rounded-tr-[80px] outline outline-[4px] outline-black" style={{background: 'linear-gradient(131deg, #00579B 0%, #0B79B0 44%, #1AAACE 100%)', marginTop: '-80px'}}>
+      <div className="relative pt-20 pb-20 rounded-tl-[80px] rounded-tr-[80px] outline outline-[4px] outline-black -mt-20" style={{background: 'linear-gradient(131deg, #00579B 0%, #0B79B0 44%, #1AAACE 100%)'}}>
         {/* Recommendations Carousel */}
-        <div className="w-full mx-auto inline-flex flex-col justify-start items-center gap-2 overflow-hidden">
-          <div style={{color: 'white', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Recommendations</div>
+        <div className="w-full mx-auto flex flex-col items-center gap-4 md:gap-6 overflow-hidden">
+          <h2 className="text-white text-2xl md:text-3xl font-bold font-['Fredoka'] text-center">Recommendations</h2>
           <div className="relative w-full">
             <div className="overflow-x-auto scrollbar-hide">
-              <div className="inline-flex justify-start items-center gap-6 px-4 animate-scroll">
+              <div className="flex gap-4 md:gap-6 px-4 animate-scroll">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className="p-4 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-center gap-2.5 overflow-hidden flex-shrink-0">
-                    <div className="w-96 flex flex-col justify-start items-start gap-6">
-                      <img className="self-stretch h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black" src="https://placehold.co/392x237" alt={`Video ${i + 1}`} />
-                      <div className="self-stretch flex flex-col justify-start items-start gap-2">
-                        <div className="justify-start text-black text-base font-semibold font-['Outfit'] [text-shadow:_0px_5px_10px_rgb(0_0_0_/_0.25)]">Walrus</div>
-                        <div className="self-stretch inline-flex justify-between items-start">
-                          <div className="inline-flex flex-col justify-start items-start gap-2">
-                            <div className="justify-start text-black text-2xl font-bold font-['Outfit']">IOTA Moveathon</div>
-                            <div className="self-stretch justify-start text-black text-sm font-normal font-['Outfit']">Stand a chance to win</div>
+                  <div key={i} className="p-3 md:p-4 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-2 md:gap-2.5 flex-shrink-0 w-[280px] md:w-[320px] lg:w-[392px]">
+                    <div className="w-full flex flex-col gap-4 md:gap-6">
+                      <img className="w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black object-cover" src="https://placehold.co/392x237" alt={`Video ${i + 1}`} />
+                      <div className="w-full flex flex-col gap-2">
+                        <div className="text-black text-sm md:text-base font-semibold font-['Outfit']">Walrus</div>
+                        <div className="w-full flex justify-between items-start gap-2">
+                          <div className="flex flex-col gap-1 md:gap-2 flex-1">
+                            <div className="text-black text-lg md:text-xl lg:text-2xl font-bold font-['Outfit'] line-clamp-2">IOTA Moveathon</div>
+                            <div className="text-black text-xs md:text-sm font-normal font-['Outfit']">Stand a chance to win</div>
                           </div>
-                          <div className="w-12 h-12 p-3 bg-black rounded-3xl flex justify-start items-center gap-[5px]">
-                            <Play className="w-6 h-6 text-white" fill="white" />
+                          <div className="w-10 h-10 md:w-12 md:h-12 p-2 md:p-3 bg-black rounded-3xl flex justify-center items-center flex-shrink-0">
+                            <Play className="w-5 h-5 md:w-6 md:h-6 text-white" fill="white" />
                           </div>
                         </div>
                       </div>
@@ -155,8 +175,31 @@ export default function KrillTubeLanding() {
         </div>
 
         {/* Playbook Section */}
-        <section id="playbook" className="relative flex justify-center items-center px-4 md:px-8 py-20">
-          <div className="w-[1152.91px] h-[1092.63px] relative">
+        <section id="playbook" className="relative flex justify-center items-center px-4 md:px-8 py-12 md:py-20">
+          {/* Mobile/Tablet Simplified Layout */}
+          <div className="w-full max-w-[1200px] mx-auto xl:hidden">
+            <h2 className="text-black text-2xl md:text-3xl font-bold font-['Fredoka'] text-center mb-8 flex items-center justify-center gap-2">
+              Playbook
+              <img className="w-12 h-12 md:w-16 md:h-16" src="/image 16.png" alt="Ship" />
+            </h2>
+
+            <div className="w-full flex flex-col gap-4 p-4 md:p-6 bg-[#ffeee5] rounded-[24px] md:rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-black mx-auto">
+              {[
+                { title: "Fueler", desc: "Watch Content on Krill.tube and fuel the ocean by feeding whales with Krill (small payments)." },
+                { title: "Whale", desc: "Feed your inner whale — upload on Krill.tube and earn Krill to fill that humongous belly!" },
+                { title: "Cashfish", desc: "Scavenge rewards from watching content on krill.tube based on how much fuel you provide." },
+                { title: "Krilly", desc: "Krilly is the glowing heart of KrillTube: a living spark of creative energy swimming through the decentralized ocean. It teaches users that every view, every krill, and every Tube matters. Friendly enough to guide first-time viewers, symbolic enough to represent the future of creator economies." }
+              ].map((item, i) => (
+                <div key={i} className="w-full px-4 md:px-8 py-4 md:py-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-black">
+                  <h3 className="text-black text-lg md:text-xl font-bold font-['Outfit'] mb-2">{item.title}</h3>
+                  <p className="text-black text-sm md:text-base font-medium font-['Outfit']">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Desktop Complex Layout */}
+          <div className="hidden xl:block w-[1152.91px] h-[1092.63px] relative mx-auto">
             {/* Main Background Container */}
             <div className="w-[889px] h-[943px] left-[211px] top-[97px] absolute bg-[#ffeee5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] border-[3px] border-black" />
 
@@ -220,41 +263,39 @@ export default function KrillTubeLanding() {
         </section>
 
         {/* Perks Section */}
-        <section id="perks" className="relative flex justify-center items-center px-4 md:px-8 py-20">
-          <div className="w-[1224px] inline-flex flex-col justify-start items-start gap-3.5">
-            <div className="self-stretch inline-flex justify-center items-center gap-2.5">
-              <div className="flex-1 text-center" style={{color: 'white', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Perks</div>
+        <section id="perks" className="relative flex justify-center items-center px-4 md:px-8 py-12 md:py-20">
+          <div className="w-full max-w-[1224px] flex flex-col gap-6 md:gap-8">
+            <div className="w-full flex justify-center items-center relative">
+              <h2 className="text-white text-2xl md:text-3xl font-bold font-['Fredoka'] text-center">Perks</h2>
+              {/* Walrus Mascot - positioned at top right of title */}
+              <img className="hidden lg:block w-20 h-20 lg:w-24 lg:h-24 absolute -top-8 -right-8 z-10" src="/b3d06289-17f3-442d-b9cc-7de63a8e1214-removebg-preview 1.png" alt="Walrus Mascot" />
             </div>
-            <div className="self-stretch p-6 rounded-[32px] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col justify-start items-start gap-2.5 relative">
-              {/* Walrus Mascot - positioned at top right */}
-              <img className="w-24 h-24 origin-top-left rotate-[0.73deg] absolute -top-4 -right-4 z-10" src="/b3d06289-17f3-442d-b9cc-7de63a8e1214-removebg-preview 1.png" alt="Walrus Mascot" />
 
-              <div className="self-stretch inline-flex justify-start items-center gap-6">
-                <div className="flex-1 h-64 p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-4 overflow-hidden">
-                  <div className="self-stretch text-center justify-start text-black text-3xl font-semibold font-['Outfit']">Unbeatable Low Fees</div>
-                  <div className="self-stretch justify-start text-[#E63946] text-base font-medium font-['Outfit']">Enjoy a pricing structure designed to maximize your earnings and savings. Our platform offers significantly lower transaction and service fees compared to other leading competitors, ensuring you keep more of what you earn.</div>
-                </div>
-                <div className="flex-1 h-64 p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-4 overflow-hidden">
-                  <div className="self-stretch text-center justify-start text-black text-3xl font-semibold font-['Outfit']">Powered by Walrus</div>
-                  <div className="self-stretch justify-start text-[#E63946] text-base font-medium font-['Outfit']">Enjoy a pricing structure designed to maximize your earnings and savings. Our platform offers significantly lower transaction and service fees compared to other leading competitors, ensuring you keep more of what you earn.</div>
-                </div>
-                <div className="flex-1 h-64 p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-4 overflow-hidden">
-                  <div className="self-stretch text-center justify-start text-black text-3xl font-semibold font-['Outfit']">Built on Sui Ecosystem</div>
-                  <div className="self-stretch justify-start text-[#E63946] text-base font-medium font-['Outfit']">Enjoy a pricing structure designed to maximize your earnings and savings. Our platform offers significantly lower transaction and service fees compared to other leading competitors, ensuring you keep more of what you earn.</div>
-                </div>
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <div className="w-full min-h-[240px] p-4 md:p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-3 md:gap-4">
+                <h3 className="text-black text-xl md:text-2xl lg:text-3xl font-semibold font-['Outfit'] text-center">Unbeatable Low Fees</h3>
+                <p className="text-[#E63946] text-sm md:text-base font-medium font-['Outfit']">Enjoy a pricing structure designed to maximize your earnings and savings. Our platform offers significantly lower transaction and service fees compared to other leading competitors, ensuring you keep more of what you earn.</p>
+              </div>
+              <div className="w-full min-h-[240px] p-4 md:p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-3 md:gap-4">
+                <h3 className="text-black text-xl md:text-2xl lg:text-3xl font-semibold font-['Outfit'] text-center">Powered by Walrus</h3>
+                <p className="text-[#E63946] text-sm md:text-base font-medium font-['Outfit']">Enjoy a pricing structure designed to maximize your earnings and savings. Our platform offers significantly lower transaction and service fees compared to other leading competitors, ensuring you keep more of what you earn.</p>
+              </div>
+              <div className="w-full min-h-[240px] p-4 md:p-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-3 md:gap-4">
+                <h3 className="text-black text-xl md:text-2xl lg:text-3xl font-semibold font-['Outfit'] text-center">Built on Sui Ecosystem</h3>
+                <p className="text-[#E63946] text-sm md:text-base font-medium font-['Outfit']">Enjoy a pricing structure designed to maximize your earnings and savings. Our platform offers significantly lower transaction and service fees compared to other leading competitors, ensuring you keep more of what you earn.</p>
               </div>
             </div>
           </div>
         </section>
 
         {/* FAQ Section */}
-        <section id="faq" className="flex justify-center items-center px-4 md:px-8 py-20">
-          <div className="w-[1221px] p-12 bg-[#ffeee5] rounded-[20px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black inline-flex flex-col justify-start items-center gap-12 relative">
-            {/* Decorative image - positioned to the right of the title */}
-            <img className="w-44 h-44 absolute -top-16 right-32" src="/47457298-c279-46a7-9d48-e0a9ed829bee 1.png" alt="Decoration" />
+        <section id="faq" className="flex justify-center items-center px-4 md:px-8 py-12 md:py-20">
+          <div className="w-full max-w-[1221px] p-4 md:p-8 lg:p-12 bg-[#ffeee5] rounded-[20px] md:rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col items-center gap-6 md:gap-8 lg:gap-12 relative">
+            {/* Decorative image - hidden on mobile, positioned on larger screens */}
+            <img className="hidden lg:block w-32 h-32 lg:w-44 lg:h-44 absolute -top-12 lg:-top-16 right-16 lg:right-32" src="/47457298-c279-46a7-9d48-e0a9ed829bee 1.png" alt="Decoration" />
 
-            <div className="self-stretch text-center" style={{color: '#E63946', fontSize: 32, fontFamily: 'Fredoka', fontWeight: '700', wordWrap: 'break-word'}}>Frequently Asked Questions (FAQs)</div>
-            <div className="self-stretch flex flex-col justify-start items-start gap-3">
+            <h2 className="w-full text-center text-[#E63946] text-xl md:text-2xl lg:text-3xl font-bold font-['Fredoka']">Frequently Asked Questions (FAQs)</h2>
+            <div className="w-full flex flex-col gap-3 md:gap-4">
               {[
                 { q: 'What is KrillTube?', a: 'KrillTube is a decentralized video platform powered by Walrus storage and built on the Sui blockchain.' },
                 { q: 'How do I earn Krill Points?', a: 'You can earn Krill Points by uploading content, watching videos, and participating in the community.' },
@@ -262,22 +303,20 @@ export default function KrillTubeLanding() {
                 { q: 'Is my content secure?', a: 'Yes, all content is stored on decentralized Walrus storage with encryption for maximum security.' },
                 { q: 'How do I get started?', a: 'Simply connect your wallet and start watching or uploading content to join the ocean!' }
               ].map((faq, i) => (
-                <details key={i} className="self-stretch p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col justify-start items-start gap-6 group">
-                  <summary className="self-stretch inline-flex justify-start items-center gap-6 cursor-pointer list-none">
-                    <div className="flex-1 flex justify-center items-center gap-2.5">
-                      <div className="flex-1 justify-start text-black text-2xl font-semibold font-['Outfit']">{faq.q}</div>
-                    </div>
-                    <div className="w-16 h-16 px-5 py-4 bg-[#4A9FD8] rounded-[30px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-center items-center gap-2.5">
-                      <img src="/Vector 2.svg" alt="Expand" className="w-[30px] h-[20px] transition-transform group-open:rotate-180" />
+                <details key={i} className="w-full p-4 md:p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-4 md:gap-6 group">
+                  <summary className="w-full flex justify-between items-center gap-3 md:gap-6 cursor-pointer list-none">
+                    <div className="flex-1 text-black text-base md:text-xl lg:text-2xl font-semibold font-['Outfit']">{faq.q}</div>
+                    <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-[#4A9FD8] rounded-[24px] md:rounded-[30px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-center items-center flex-shrink-0">
+                      <img src="/Vector 2.svg" alt="Expand" className="w-[20px] h-[14px] md:w-[30px] md:h-[20px] transition-transform group-open:rotate-180" />
                     </div>
                   </summary>
-                  <p className="text-black text-base font-medium font-['Outfit'] leading-relaxed">{faq.a}</p>
+                  <p className="text-black text-sm md:text-base font-medium font-['Outfit'] leading-relaxed">{faq.a}</p>
                 </details>
               ))}
             </div>
 
-            {/* Mascot bottom right */}
-            <img className="w-32 h-32 absolute bottom-4 right-[-96px]" src="/de80009084a8013aaa868412bd3bcab96e4eff19.png" alt="Mascot" />
+            {/* Mascot bottom right - hidden on mobile and medium screens */}
+            <img className="hidden xl:block w-32 h-32 absolute bottom-4 right-[-96px]" src="/de80009084a8013aaa868412bd3bcab96e4eff19.png" alt="Mascot" />
           </div>
         </section>
 

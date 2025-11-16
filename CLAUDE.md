@@ -499,3 +499,7 @@ This command:
 - Does not create migration files (use `npx prisma migrate dev` for production migrations)
 
 **Note**: Use `npx prisma db push` for development. For production, use `npx prisma migrate dev` to create migration files that can be version controlled.
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md
