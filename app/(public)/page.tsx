@@ -153,7 +153,7 @@ export default function KrillTubeLanding() {
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="p-3 md:p-4 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-2 md:gap-2.5 flex-shrink-0 w-[280px] md:w-[320px] lg:w-[392px]">
                     <div className="w-full flex flex-col gap-4 md:gap-6">
-                      <img className="w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black object-cover" src="https://placehold.co/392x237" alt={`Video ${i + 1}`} />
+                      <img className="w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black object-cover" src="/logos/theorigin.png" alt={`Video ${i + 1}`} />
                       <div className="w-full flex flex-col gap-2">
                         <div className="text-black text-sm md:text-base font-semibold font-['Outfit']">Walrus</div>
                         <div className="w-full flex justify-between items-start gap-2">

@@ -7,7 +7,7 @@
     "dev1": "next dev --port 3051 --webpack",
     "dev2": "next dev --port 3052 --webpack",
     "dev3": "next dev --port 3053 --webpack",
-    "build": "next build --webpack",
+    "build": "npx prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
