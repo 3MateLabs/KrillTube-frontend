@@ -1,6 +1,9 @@
 /**
  * Process Payment for Video Access
  * Uses the tunnel contract's process_payment function for direct payments
+ *
+ * IOTA payments are processed on the backend for security
+ * SUI payments are still processed on the frontend (for now)
  */
 
 import { coinWithBalance as suiCoinWithBalance, Transaction as SuiTransaction } from '@mysten/sui/transactions';
@@ -14,8 +17,10 @@ export interface ProcessPaymentParams {
   referrerAddress: string; // Use '0x0' for no referrer
   paymentAmount: number; // In smallest unit (e.g., 0.01 dKRILL = 10_000 with 6 decimals)
   signAndExecuteTransaction: (args: { transaction: SuiTransaction | IotaTransaction }) => Promise<any>;
+  signTransaction?: (args: { transaction: IotaTransaction }) => Promise<{ transactionBlockBytes: string; signature: string }>;
   userAddress: string;
   coinType?: string; // Optional: Override default coin type (e.g., '0x2::iota::IOTA' for native IOTA)
+  videoId: string; // Video ID for backend payment processing
 }
 
 export async function processPayment({
@@ -24,8 +29,10 @@ export async function processPayment({
   referrerAddress,
   paymentAmount,
   signAndExecuteTransaction,
+  signTransaction,
   userAddress,
   coinType: customCoinType,
+  videoId,
 }: ProcessPaymentParams): Promise<string> {
   console.log('[processPayment] Starting payment process', {
     network,
@@ -106,42 +113,12 @@ export async function processPayment({
       throw error;
     }
   } else if (network === 'iota') {
-    // IOTA FLOW
+    // IOTA FLOW - Build transaction and process via backend
     const tunnelPackageId = process.env.NEXT_PUBLIC_IOTA_TUNNEL_PACKAGE_ID!;
     const coinType = customCoinType || process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
     const rpcUrl = process.env.NEXT_PUBLIC_IOTA_RPC_URL || 'https://api.mainnet.iota.cafe';
 
     console.log('[processPayment] IOTA Config:', { tunnelPackageId, coinType, rpcUrl });
-
-    const client = new IotaClient({ url: rpcUrl });
-
-    // Fetch user's coins
-    console.log('[processPayment] Fetching IOTA coins for user:', userAddress);
-    const coinsResponse = await client.getCoins({
-      owner: userAddress,
-      coinType: coinType,
-    });
-
-    console.log('[processPayment] getCoins response:', JSON.stringify(coinsResponse, null, 2));
-
-    const coins = coinsResponse.data;
-    console.log({ network, coinsResponse, coinType, userAddress });
-
-    if (!coins || coins.length === 0) {
-      console.error('[processPayment] No coins found with specific coinType!');
-
-      // Try fetching ALL coins to see what the user has
-      console.log('[processPayment] Fetching ALL coins to debug...');
-      const allCoinsResponse = await client.getCoins({
-        owner: userAddress,
-      });
-      console.log('[processPayment] All coins:', JSON.stringify(allCoinsResponse, null, 2));
-
-      throw new Error(`No coins found. Please mint tokens first.\n\nSearched for: ${coinType}\n\nYou have ${allCoinsResponse.data?.length || 0} total coin(s)`);
-    }
-
-    console.log('[processPayment] Found', coins.length, 'coin(s)');
-    console.log('[processPayment] Using coin:', coins[0].coinObjectId, 'with balance:', coins[0].balance);
 
     // Build IOTA transaction
     const tx = new IotaTransaction();
@@ -165,12 +142,68 @@ export async function processPayment({
       ],
     });
 
-    console.log('[processPayment] IOTA transaction built, requesting wallet signature...');
+    console.log('[processPayment] IOTA transaction built, preparing to sign...');
 
     try {
-      const result = await signAndExecuteTransaction({ transaction: tx });
-      console.log('[processPayment] IOTA payment successful!', result);
-      return result.digest;
+      let transactionBytes: string;
+      let signature: string;
+
+      if (signTransaction) {
+        // Use signTransaction hook (signs but doesn't execute)
+        console.log('[processPayment] Signing transaction with signTransaction hook...');
+        const signResult = await signTransaction({ transaction: tx });
+        transactionBytes = signResult.transactionBlockBytes;
+        signature = signResult.signature;
+      } else {
+        // Fallback: build transaction bytes manually
+        console.log('[processPayment] Building transaction bytes...');
+        const client = new IotaClient({ url: rpcUrl });
+        const txBytes = await tx.build({ client });
+
+        // Convert Uint8Array to base64
+        const base64Encode = (bytes: Uint8Array): string => {
+          const binary = String.fromCharCode(...bytes);
+          return btoa(binary);
+        };
+        transactionBytes = base64Encode(txBytes);
+
+        // Request signature from wallet (this will execute, but we need the signature)
+        console.log('[processPayment] Requesting signature from wallet...');
+        const result = await signAndExecuteTransaction({ transaction: tx });
+
+        // Extract signature from result
+        // Note: This depends on the wallet implementation
+        signature = result.signature || '';
+
+        if (!signature) {
+          throw new Error('Failed to get signature from wallet. Please use a compatible IOTA wallet.');
+        }
+      }
+
+      console.log('[processPayment] Transaction signed, sending to backend for execution...');
+
+      // Send to backend for execution and validation
+      const response = await fetch('/api/v1/payment/process-iota', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionBytes,
+          signature,
+          videoId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Backend payment processing failed');
+      }
+
+      const data = await response.json();
+      console.log('[processPayment] IOTA payment processed successfully!', data);
+
+      return data.digest;
     } catch (error) {
       console.error('[processPayment] IOTA payment failed:', error);
       throw error;

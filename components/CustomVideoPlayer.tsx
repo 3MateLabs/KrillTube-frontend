@@ -70,7 +70,8 @@ export function CustomVideoPlayer({
   const { mutateAsync: signAndExecuteIota } = useIotaSignAndExecute();
 
   // Payment modal state
-  const [showPaymentModal, setShowPaymentModal] = useState(true); // Show on video open
+  const [showPaymentModal, setShowPaymentModal] = useState(false); // Start hidden, check payment first
+  const [checkingPayment, setCheckingPayment] = useState(true); // Loading state for payment check
 
   // No Krill modal state
   const [showNoKrillModal, setShowNoKrillModal] = useState(false);
@@ -109,6 +110,56 @@ export function CustomVideoPlayer({
   const [buffered, setBuffered] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if user has already paid for this video
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      if (!videoId) {
+        setCheckingPayment(false);
+        return;
+      }
+
+      try {
+        console.log('[CustomVideoPlayer] Checking payment status for video:', videoId);
+        const response = await fetch(`/api/v1/payment/check?videoId=${videoId}`);
+
+        if (!response.ok) {
+          console.error('[CustomVideoPlayer] Failed to check payment status');
+          setCheckingPayment(false);
+          setShowPaymentModal(true);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('[CustomVideoPlayer] Payment check result:', data);
+
+        if (data.hasPaid) {
+          // User has paid, hide payment modal and show player
+          console.log('[CustomVideoPlayer] ✓ User has already paid for this video');
+          setShowPaymentModal(false);
+          setCheckingPayment(false);
+
+          // Auto-play video after a short delay to ensure player is ready
+          setTimeout(() => {
+            console.log('[CustomVideoPlayer] Auto-playing video for paid user');
+            play();
+          }, 500);
+        } else {
+          // User hasn't paid, show payment modal
+          console.log('[CustomVideoPlayer] User has not paid, showing payment modal');
+          setShowPaymentModal(true);
+          setCheckingPayment(false);
+        }
+      } catch (error) {
+        console.error('[CustomVideoPlayer] Error checking payment status:', error);
+        // On error, default to showing payment modal
+        setShowPaymentModal(true);
+        setCheckingPayment(false);
+      }
+    };
+
+    checkPaymentStatus();
+  }, [videoId, address, chain, play]);
 
   // Fetch creator configs for both payment methods
   useEffect(() => {
@@ -277,6 +328,7 @@ export function CustomVideoPlayer({
         paymentAmount: parseInt(dKrillConfig.pricePerView),
         signAndExecuteTransaction,
         userAddress: address,
+        videoId,
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
@@ -287,11 +339,17 @@ export function CustomVideoPlayer({
         : `https://iotascan.com/mainnet/tx/${digest}`;
 
       setToast({
-        message: 'Payment successful! Click to view transaction',
+        message: 'Payment successful! Refreshing page...',
         type: 'success',
         link: explorerUrl
       });
       setShowPaymentModal(false); // Close payment modal after successful payment
+      setCheckingPayment(false); // Clear checking state
+
+      // Refresh page after short delay to ensure backend has processed the payment
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
 
@@ -342,6 +400,7 @@ export function CustomVideoPlayer({
         signAndExecuteTransaction,
         userAddress: address,
         coinType: '0x2::iota::IOTA', // Use native IOTA coin
+        videoId,
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
@@ -352,11 +411,17 @@ export function CustomVideoPlayer({
         : `https://iotascan.com/mainnet/tx/${digest}`;
 
       setToast({
-        message: 'Payment successful! Click to view transaction',
+        message: 'Payment successful! Refreshing page...',
         type: 'success',
         link: explorerUrl
       });
       setShowPaymentModal(false); // Close payment modal after successful payment
+      setCheckingPayment(false); // Clear checking state
+
+      // Refresh page after short delay to ensure backend has processed the payment
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
       setToast({
@@ -490,8 +555,18 @@ export function CustomVideoPlayer({
           </div>
         )}
 
-        {/* Payment Modal - Shows when video opens */}
-        {showPaymentModal && isConnected && (
+        {/* Checking Payment Status Overlay */}
+        {checkingPayment && isConnected && (
+          <div className="absolute inset-0 bg-[#2C5F7E]/90 z-30 flex flex-col items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-walrus-mint border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-walrus-mint font-medium">Checking payment status...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Modal - Shows when user hasn't paid */}
+        {showPaymentModal && isConnected && !checkingPayment && (
           <PaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
