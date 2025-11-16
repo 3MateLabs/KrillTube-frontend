@@ -67,10 +67,10 @@ export function ChainSelector() {
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-4 py-2 bg-white text-black font-bold rounded-[32px] outline outline-[3px] outline-black hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all"
+          className="flex items-center gap-2 h-14 px-6 bg-white text-black font-bold rounded-[32px] outline outline-[3px] outline-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all"
         >
           {getChainIcon(chain!)}
-          <span className="text-sm text-black">{formatAddress(address)}</span>
+          <span className="text-base text-black">{formatAddress(address)}</span>
         </button>
 
         {isOpen && (
@@ -82,7 +82,7 @@ export function ChainSelector() {
             />
 
             {/* Dropdown */}
-            <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
+            <div className="absolute right-0 mt-4 w-56 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
               <div className="p-3">
                 <button
                   onClick={handleCopyAddress}
@@ -140,7 +140,7 @@ export function ChainSelector() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-6 py-2 bg-white text-black font-bold rounded-[32px] outline outline-[3px] outline-black hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all whitespace-nowrap"
+        className="h-14 px-6 bg-white text-black font-bold rounded-[32px] outline outline-[3px] outline-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all whitespace-nowrap flex items-center justify-center"
       >
         Connect Wallet
       </button>
@@ -154,7 +154,7 @@ export function ChainSelector() {
           />
 
           {/* Wallet Modal */}
-          <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
+          <div className="absolute right-0 mt-4 w-80 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
             <div className="p-6">
               <h3 className="text-xl font-bold mb-4 text-black">Connect Wallet</h3>
 
