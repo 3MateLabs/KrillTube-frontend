@@ -152,6 +152,7 @@ model VideoPaymentInfo {
   id        String   @id @default(cuid())
   videoId   String   @map("video_id")
   payerAddress String   @map("payer_address")
+  chain String   @map("chain")
   tunnelObjectId String?   @map("tunnel_object_id")
   maxAllowedPayAmount String?   @map("max_allowed_pay_amount")
   currentPayAmount String?   @map("current_pay_amount")
