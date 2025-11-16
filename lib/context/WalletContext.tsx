@@ -50,19 +50,19 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    // Auto-detect if no active chain is set
+    // Auto-detect if no active chain is set - prioritize IOTA
     if (!activeChain) {
-      if (suiAccount?.address) {
-        return {
-          chain: 'sui',
-          address: suiAccount.address,
-          isConnected: true,
-        };
-      }
       if (iotaAccount?.address) {
         return {
           chain: 'iota',
           address: iotaAccount.address,
+          isConnected: true,
+        };
+      }
+      if (suiAccount?.address) {
+        return {
+          chain: 'sui',
+          address: suiAccount.address,
           isConnected: true,
         };
       }

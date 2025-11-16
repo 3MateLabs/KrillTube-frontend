@@ -11,9 +11,11 @@ import Hls from 'hls.js';
 import Image from 'next/image';
 import { useWalletContext } from '@/lib/context/WalletContext';
 import { PaymentModal } from './modals/PaymentModal';
+import { NoKrillModal } from './modals/NoKrillModal';
 import { ChainSelector } from './wallet/ChainSelector';
 import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
+import { processPayment } from '@/lib/utils/processPayment';
 import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
 import { useSignAndExecuteTransaction as useIotaSignAndExecute } from '@iota/dapp-kit';
 
@@ -68,10 +70,29 @@ export function CustomVideoPlayer({
   const { mutateAsync: signAndExecuteIota } = useIotaSignAndExecute();
 
   // Payment modal state
-  const [showPaymentModal, setShowPaymentModal] = useState(true); // Show on video open
+  const [showPaymentModal, setShowPaymentModal] = useState(false); // Start hidden, check payment first
+  const [checkingPayment, setCheckingPayment] = useState(true); // Loading state for payment check
+
+  // No Krill modal state
+  const [showNoKrillModal, setShowNoKrillModal] = useState(false);
 
   // Toast state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string } | null>(null);
+
+  // Creator config state - separate configs for dKRILL and IOTA
+  const [dKrillConfig, setDKrillConfig] = useState<{
+    objectId: string;
+    pricePerView: string;
+    chain: string;
+    decimals: number;
+  } | null>(null);
+
+  const [iotaConfig, setIotaConfig] = useState<{
+    objectId: string;
+    pricePerView: string;
+    chain: string;
+    decimals: number;
+  } | null>(null);
 
   // Quality switching state
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -89,6 +110,121 @@ export function CustomVideoPlayer({
   const [buffered, setBuffered] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if user has already paid for this video
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      if (!videoId) {
+        setCheckingPayment(false);
+        return;
+      }
+
+      try {
+        console.log('[CustomVideoPlayer] Checking payment status for video:', videoId);
+        const response = await fetch(`/api/v1/payment/check?videoId=${videoId}`);
+
+        if (!response.ok) {
+          console.error('[CustomVideoPlayer] Failed to check payment status');
+          setCheckingPayment(false);
+          setShowPaymentModal(true);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('[CustomVideoPlayer] Payment check result:', data);
+
+        if (data.hasPaid) {
+          // User has paid, hide payment modal and show player
+          console.log('[CustomVideoPlayer] ✓ User has already paid for this video');
+          setShowPaymentModal(false);
+          setCheckingPayment(false);
+
+          // Auto-play video after a short delay to ensure player is ready
+          setTimeout(() => {
+            console.log('[CustomVideoPlayer] Auto-playing video for paid user');
+            play();
+          }, 500);
+        } else {
+          // User hasn't paid, show payment modal
+          console.log('[CustomVideoPlayer] User has not paid, showing payment modal');
+          setShowPaymentModal(true);
+          setCheckingPayment(false);
+        }
+      } catch (error) {
+        console.error('[CustomVideoPlayer] Error checking payment status:', error);
+        // On error, default to showing payment modal
+        setShowPaymentModal(true);
+        setCheckingPayment(false);
+      }
+    };
+
+    checkPaymentStatus();
+  }, [videoId, address, chain, play]);
+
+  // Fetch creator configs for both payment methods
+  useEffect(() => {
+    const fetchCreatorConfigs = async () => {
+      if (!videoId || !chain) return;
+
+      try {
+        console.log('[CustomVideoPlayer] Fetching creator configs for video:', videoId);
+        const response = await fetch(`/api/v1/videos/${videoId}`);
+
+        if (!response.ok) {
+          console.error('[CustomVideoPlayer] Failed to fetch video data');
+          return;
+        }
+
+        const data = await response.json();
+        const video = data.video;
+
+        // Find dKRILL creator config
+        const dKrillCoinType = chain === 'sui'
+          ? process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN!
+          : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
+
+        const dKrillCfg = video.creatorConfigs?.find(
+          (c: any) => c.chain === chain && c.coinType === dKrillCoinType
+        );
+
+        if (dKrillCfg) {
+          console.log('[CustomVideoPlayer] Found dKRILL creator config:', dKrillCfg);
+          setDKrillConfig({
+            objectId: dKrillCfg.objectId,
+            pricePerView: dKrillCfg.pricePerView,
+            chain: dKrillCfg.chain,
+            decimals: dKrillCfg.decimals,
+          });
+        } else {
+          console.warn('[CustomVideoPlayer] No dKRILL creator config found for chain:', chain);
+        }
+
+        // Find native IOTA creator config (only for IOTA chain)
+        if (chain === 'iota') {
+          const nativeIotaCoinType = '0x2::iota::IOTA';
+          const iotaCfg = video.creatorConfigs?.find(
+            (c: any) => c.chain === chain && c.coinType === nativeIotaCoinType
+          );
+
+          if (iotaCfg) {
+            console.log('[CustomVideoPlayer] Found native IOTA creator config:', iotaCfg);
+            setIotaConfig({
+              objectId: iotaCfg.objectId,
+              pricePerView: iotaCfg.pricePerView,
+              chain: iotaCfg.chain,
+              decimals: iotaCfg.decimals,
+            });
+          } else {
+            console.warn('[CustomVideoPlayer] No native IOTA creator config found');
+          }
+        }
+      } catch (error) {
+        console.error('[CustomVideoPlayer] Error fetching creator configs:', error);
+      }
+    };
+
+    fetchCreatorConfigs();
+  }, [videoId, chain]);
 
   // Pause video when wallet disconnects
   useEffect(() => {
@@ -161,15 +297,138 @@ export function CustomVideoPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Payment handlers (placeholder - user will define functionality)
-  const handlePayWithDKRILL = () => {
+  // Payment handlers
+  const handlePayWithDKRILL = async () => {
     console.log('[CustomVideoPlayer] Pay with dKRILL clicked');
-    // TODO: Implement dKRILL payment
+
+    if (!address || !chain) {
+      setToast({ message: 'Please connect your wallet first', type: 'error' });
+      return;
+    }
+
+    if (!dKrillConfig) {
+      setToast({ message: 'dKRILL creator config not found', type: 'error' });
+      return;
+    }
+
+    try {
+      const network = chain === 'sui' ? 'sui' : 'iota';
+      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+
+      console.log('[CustomVideoPlayer] Processing dKRILL payment...', {
+        network,
+        creatorConfigId: dKrillConfig.objectId,
+        pricePerView: dKrillConfig.pricePerView,
+      });
+
+      const digest = await processPayment({
+        network,
+        creatorConfigId: dKrillConfig.objectId,
+        referrerAddress: '0x0', // No referrer
+        paymentAmount: parseInt(dKrillConfig.pricePerView),
+        signAndExecuteTransaction,
+        userAddress: address,
+        videoId,
+      });
+
+      console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
+
+      // Generate explorer URL based on network
+      const explorerUrl = network === 'sui'
+        ? `https://suiscan.xyz/mainnet/tx/${digest}`
+        : `https://iotascan.com/mainnet/tx/${digest}`;
+
+      setToast({
+        message: 'Payment successful! Refreshing page...',
+        type: 'success',
+        link: explorerUrl
+      });
+      setShowPaymentModal(false); // Close payment modal after successful payment
+      setCheckingPayment(false); // Clear checking state
+
+      // Refresh page after short delay to ensure backend has processed the payment
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Payment failed:', error);
+
+      // Check if the error is due to no dKRILL tokens
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+      if (errorMessage.includes('No dKRILL coins found')) {
+        // Show the No Krill modal instead of a toast error
+        setShowPaymentModal(false);
+        setShowNoKrillModal(true);
+      } else {
+        // Show toast for other errors
+        setToast({
+          message: errorMessage,
+          type: 'error'
+        });
+      }
+    }
   };
 
-  const handlePayWithIOTA = () => {
-    console.log('[CustomVideoPlayer] Pay with IOTA clicked');
-    // TODO: Implement IOTA payment
+  const handlePayWithIOTA = async () => {
+    console.log('[CustomVideoPlayer] Pay with native IOTA clicked');
+
+    if (!address || !chain) {
+      setToast({ message: 'Please connect your wallet first', type: 'error' });
+      return;
+    }
+
+    if (!iotaConfig) {
+      setToast({ message: 'Native IOTA creator config not found', type: 'error' });
+      return;
+    }
+
+    try {
+      const network = chain === 'sui' ? 'sui' : 'iota';
+      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+
+      console.log('[CustomVideoPlayer] Processing native IOTA payment...', {
+        network,
+        creatorConfigId: iotaConfig.objectId,
+        pricePerView: iotaConfig.pricePerView,
+      });
+
+      const digest = await processPayment({
+        network,
+        creatorConfigId: iotaConfig.objectId,
+        referrerAddress: '0x0', // No referrer
+        paymentAmount: parseInt(iotaConfig.pricePerView),
+        signAndExecuteTransaction,
+        userAddress: address,
+        coinType: '0x2::iota::IOTA', // Use native IOTA coin
+        videoId,
+      });
+
+      console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
+
+      // Generate explorer URL based on network
+      const explorerUrl = network === 'sui'
+        ? `https://suiscan.xyz/mainnet/tx/${digest}`
+        : `https://iotascan.com/mainnet/tx/${digest}`;
+
+      setToast({
+        message: 'Payment successful! Refreshing page...',
+        type: 'success',
+        link: explorerUrl
+      });
+      setShowPaymentModal(false); // Close payment modal after successful payment
+      setCheckingPayment(false); // Clear checking state
+
+      // Refresh page after short delay to ensure backend has processed the payment
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Payment failed:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Payment failed',
+        type: 'error'
+      });
+    }
   };
 
   const handleGetDemoTokens = async () => {
@@ -182,7 +441,7 @@ export function CustomVideoPlayer({
 
     try {
       const network = chain === 'sui' ? 'sui' : 'iota';
-      const signAndExecuteTransaction = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
 
       console.log('[CustomVideoPlayer] Minting demo tokens...', { network, address });
 
@@ -193,7 +452,21 @@ export function CustomVideoPlayer({
       });
 
       console.log('[CustomVideoPlayer] Mint successful! Digest:', digest);
-      setToast({ message: '1000 dKRILL tokens minted successfully!', type: 'success' });
+
+      // Generate explorer URL based on network
+      const explorerUrl = network === 'sui'
+        ? `https://suiscan.xyz/mainnet/tx/${digest}`
+        : `https://iotascan.com/mainnet/tx/${digest}`;
+
+      setToast({
+        message: '1000 dKRILL tokens minted! Click to view transaction',
+        type: 'success',
+        link: explorerUrl
+      });
+
+      // Close the No Krill modal and show the payment modal again
+      setShowNoKrillModal(false);
+      setShowPaymentModal(true);
     } catch (error) {
       console.error('[CustomVideoPlayer] Mint failed:', error);
       setToast({
@@ -282,13 +555,35 @@ export function CustomVideoPlayer({
           </div>
         )}
 
-        {/* Payment Modal - Shows when video opens */}
-        {showPaymentModal && isConnected && (
+        {/* Checking Payment Status Overlay */}
+        {checkingPayment && isConnected && (
+          <div className="absolute inset-0 bg-[#2C5F7E]/90 z-30 flex flex-col items-center justify-center">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-walrus-mint border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-walrus-mint font-medium">Checking payment status...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Modal - Shows when user hasn't paid */}
+        {showPaymentModal && isConnected && !checkingPayment && (
           <PaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
             onPayWithDKRILL={handlePayWithDKRILL}
             onPayWithIOTA={handlePayWithIOTA}
+            onGetDemoTokens={handleGetDemoTokens}
+          />
+        )}
+
+        {/* No Krill Modal - Shows when user doesn't have dKRILL */}
+        {showNoKrillModal && isConnected && (
+          <NoKrillModal
+            isOpen={showNoKrillModal}
+            onClose={() => {
+              setShowNoKrillModal(false);
+              setShowPaymentModal(true);
+            }}
             onGetDemoTokens={handleGetDemoTokens}
           />
         )}
@@ -438,6 +733,7 @@ export function CustomVideoPlayer({
         <Toast
           message={toast.message}
           type={toast.type}
+          link={toast.link}
           onClose={() => setToast(null)}
         />
       )}

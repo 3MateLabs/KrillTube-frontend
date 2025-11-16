@@ -3,13 +3,13 @@
  * Utility function to mint demo tokens for testing
  */
 
-import { Transaction } from '@mysten/sui/transactions';
-import { SuiClient } from '@mysten/sui/client';
+import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
+import { Transaction as IotaTransaction } from '@iota/iota-sdk/transactions';
 
 interface MintDemoKrillParams {
   network: 'sui' | 'iota';
   recipientAddress: string;
-  signAndExecuteTransaction: (args: { transaction: Transaction }) => Promise<any>;
+  signAndExecuteTransaction: (args: { transaction: SuiTransaction | IotaTransaction }) => Promise<any>;
 }
 
 export async function mintDemoKrill({
@@ -30,8 +30,8 @@ export async function mintDemoKrill({
 
   console.log('[mintDemoKrill] Config:', { packageId, treasuryCapId });
 
-  // Build transaction to mint 1000 dKRILL
-  const tx = new Transaction();
+  // Build transaction to mint 1000 dKRILL with correct type based on network
+  const tx = network === 'sui' ? new SuiTransaction() : new IotaTransaction();
 
   tx.setSender(recipientAddress);
 
@@ -40,7 +40,7 @@ export async function mintDemoKrill({
     target: `${packageId}::demo_krill_coin::mint`,
     arguments: [
       tx.object(treasuryCapId),
-      tx.pure.u64(1000_000_000), // 1000 dKRILL tokens (assuming 6 decimals)
+      tx.pure.u64(1000_000_000_000), // 1000 dKRILL tokens (assuming 9 decimals)
     ],
   });
 

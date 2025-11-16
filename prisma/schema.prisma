@@ -147,3 +147,20 @@ model Video {
   @@index([masterEndEpoch])
   @@map("videos")
 }
+
+model VideoPaymentInfo {
+  id        String   @id @default(cuid())
+  videoId   String   @map("video_id")
+  payerAddress String   @map("payer_address")
+  chain String   @map("chain")
+  tunnelObjectId String?   @map("tunnel_object_id")
+  maxAllowedPayAmount String?   @map("max_allowed_pay_amount")
+  currentPayAmount String?   @map("current_pay_amount")
+  authorizeSignature String?   @map("authorize_signature")
+  paidSegmentIds  Int[] @map("paid_segment_ids")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([videoId])
+  @@map("video_payment_infos")
+}

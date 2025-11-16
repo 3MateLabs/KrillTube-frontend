@@ -122,24 +122,28 @@ export function PaymentMethodCard({
           {/* Input field based on mode */}
           {config.inputMode === 'coin' ? (
             <input
-              type="number"
+              type="text"
               value={config.amountPer1000Views}
-              onChange={(e) => onUpdateCoinAmount(e.target.value)}
-              placeholder="0"
-              min="0"
-              step="0.000001"
+              onChange={(e) => {
+                // Strip commas and underscores for cleaner input
+                const cleaned = e.target.value.replace(/[,_]/g, '');
+                onUpdateCoinAmount(cleaned);
+              }}
+              placeholder="0 (e.g., 10_000 or 10,000)"
               className="w-full px-4 py-3 bg-white rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] outline outline-1 outline-black
                 text-black placeholder-black/40 font-medium font-['Outfit']
                 focus:outline-krill-orange focus:outline-2 transition-all"
             />
           ) : (
             <input
-              type="number"
+              type="text"
               value={config.usdAmountPer1000Views || ''}
-              onChange={(e) => onUpdateUsdAmount(e.target.value)}
-              placeholder="0"
-              min="0"
-              step="0.01"
+              onChange={(e) => {
+                // Strip commas and underscores for cleaner input
+                const cleaned = e.target.value.replace(/[,_]/g, '');
+                onUpdateUsdAmount(cleaned);
+              }}
+              placeholder="0 (e.g., 100.00)"
               className="w-full px-4 py-3 bg-white rounded-xl shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] outline outline-1 outline-black
                 text-black placeholder-black/40 font-medium font-['Outfit']
                 focus:outline-krill-orange focus:outline-2 transition-all"

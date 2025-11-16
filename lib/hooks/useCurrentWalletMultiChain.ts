@@ -46,11 +46,14 @@ export function useCurrentWalletMultiChain(): MultiChainWalletState {
   // Determine network based on context and wallet connections
   let network: WalletNetwork = chain;
 
-  // Auto-detect if no active chain is set
+  // Auto-detect if no active chain is set - default to IOTA
   if (!network) {
-    if (suiWallet) {
+    if (iotaWallet) {
+      network = 'iota';
+    } else if (suiWallet) {
       network = 'sui';
-    } else if (iotaWallet) {
+    } else {
+      // Default to IOTA even if no wallet is connected
       network = 'iota';
     }
   }

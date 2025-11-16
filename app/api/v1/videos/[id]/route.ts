@@ -27,7 +27,7 @@ export async function GET(
       );
     }
 
-    // Fetch video with renditions
+    // Fetch video with renditions and creator configs
     const video = await prisma.video.findUnique({
       where: { id: videoId },
       include: {
@@ -38,6 +38,7 @@ export async function GET(
             },
           },
         },
+        creatorConfigs: true,
       },
     });
 
@@ -47,6 +48,9 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Cast to any to access included relations
+    const videoWithRelations = video as any;
 
     // Return video metadata (without root secret - that's provided by session API)
     return NextResponse.json({
@@ -64,14 +68,24 @@ export async function GET(
         masterEndEpoch: video.masterEndEpoch,
         posterBlobObjectId: video.posterBlobObjectId,
         posterEndEpoch: video.posterEndEpoch,
-        renditions: video.renditions.map((rendition) => ({
+        // Creator configs for payment
+        creatorConfigs: videoWithRelations.creatorConfigs.map((config: any) => ({
+          id: config.id,
+          objectId: config.objectId,
+          chain: config.chain,
+          coinType: config.coinType,
+          pricePerView: config.pricePerView,
+          decimals: config.decimals,
+          metadata: config.metadata,
+        })),
+        renditions: videoWithRelations.renditions.map((rendition: any) => ({
           id: rendition.id,
           name: rendition.name,
           resolution: rendition.resolution,
           bitrate: rendition.bitrate,
           walrusPlaylistUri: rendition.walrusPlaylistUri,
           segmentCount: rendition.segments.length,
-          segments: rendition.segments.map((segment) => ({
+          segments: rendition.segments.map((segment: any) => ({
             segIdx: segment.segIdx,
             walrusUri: segment.walrusUri,
             duration: segment.duration,

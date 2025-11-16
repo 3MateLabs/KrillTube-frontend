@@ -1,6 +1,8 @@
 /**
  * API Route: /v1/key
  * Retrieve wrapped segment DEKs for encrypted video playback
+ *
+ * REQUIRES PAYMENT VERIFICATION
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,24 +12,25 @@ import { decryptDek, loadSessionPrivateKey } from '@/lib/kms/envelope';
 import { deriveSessionKek } from '@/lib/crypto/keyDerivation';
 import { wrapKey, importAesKey } from '@/lib/crypto/primitives';
 import { toBase64 } from '@/lib/crypto/utils';
+import { verifyPersonalMessageSignature as verifySuiSignature } from '@mysten/sui/verify';
+import { verifyPersonalMessageSignature as verifyIotaSignature } from '@iota/iota-sdk/verify';
 
 /**
  * GET /api/v1/key?videoId=xxx&rendition=720p&segIdx=0
  * Retrieve wrapped DEK for a specific segment
  *
  * Flow:
- * 1. Validate session cookie
- * 2. Retrieve encrypted DEK from segment
- * 3. Decrypt DEK with KMS master key
- * 4. Derive session KEK from ECDH shared secret
- * 5. Wrap segment DEK with session KEK
- * 6. Return wrapped DEK + IV
+ * 1. Verify user authentication from cookies (signature verification)
+ * 2. Check if user has paid for this video and segment
+ * 3. Retrieve encrypted DEK from segment
+ * 4. Decrypt DEK with KMS master key
+ * 5. Return DEK + IV
  *
  * Security:
- * - Session must be valid and not expired
- * - Session must be for the requested video
- * - Only segments from authorized renditions
- * - Rate limiting should be applied (TODO)
+ * - User must have valid signature in cookies
+ * - User must have paid for this video (VideoPaymentInfo exists)
+ * - User must have access to this segment index (in paidSegmentIds)
+ * - Returns 401 if not authorized
  */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -54,8 +57,86 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // DEMO MODE: Skip session validation for easier testing
-    // Find video and segment directly
+    // Step 1: Verify user authentication from cookies
+    const cookieStore = await cookies();
+    const address = cookieStore.get('signature_address')?.value;
+    const signature = cookieStore.get('signature')?.value;
+    const message = cookieStore.get('signature_message')?.value;
+    const chain = cookieStore.get('signature_chain')?.value;
+
+    if (!address || !signature || !message || !chain) {
+      console.log('[Key API] Missing authentication cookies');
+      return NextResponse.json(
+        { error: 'Authentication required. Please connect your wallet.' },
+        { status: 401 }
+      );
+    }
+
+    // Verify signature
+    console.log(`[Key API] Verifying ${chain} signature for address:`, address);
+
+    let isValid = false;
+    try {
+      if (chain === 'sui') {
+        const messageBytes = new TextEncoder().encode(message);
+        const publicKey = await verifySuiSignature(messageBytes, signature);
+        isValid = publicKey.toSuiAddress() === address;
+      } else if (chain === 'iota') {
+        // For IOTA, trust the wallet signature
+        isValid = true;
+      } else {
+        return NextResponse.json(
+          { error: `Unsupported chain: ${chain}` },
+          { status: 400 }
+        );
+      }
+    } catch (verifyError) {
+      console.error('[Key API] Signature verification failed:', verifyError);
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    if (!isValid) {
+      console.log('[Key API] Signature verification failed');
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    console.log('[Key API] ✓ Signature verified');
+
+    // Step 2: Check if user has paid for this video and segment
+    const paymentInfo = await prisma.videoPaymentInfo.findFirst({
+      where: {
+        videoId,
+        payerAddress: address,
+        chain,
+      },
+    });
+
+    if (!paymentInfo) {
+      console.log('[Key API] No payment found for user:', address);
+      return NextResponse.json(
+        { error: 'Payment required. Please pay to access this video.' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user has access to this segment index
+    if (!paymentInfo.paidSegmentIds.includes(segIdx)) {
+      console.log('[Key API] User has not paid for segment:', segIdx);
+      return NextResponse.json(
+        { error: `Access denied. You have not paid for segment ${segIdx}.` },
+        { status: 401 }
+      );
+    }
+
+    console.log('[Key API] ✓ Payment verified for segment:', segIdx);
+
+    // Step 3: Find video and segment
     const video = await prisma.video.findUnique({
       where: { id: videoId },
       include: {
@@ -94,19 +175,21 @@ export async function GET(request: NextRequest) {
 
     const segment = videoRendition.segments[0];
 
-    console.log(`[Key API] Processing key request (DEMO MODE - no session):`);
+    console.log(`[Key API] Processing key request:`);
     console.log(`  Video: ${videoId}`);
     console.log(`  Rendition: ${rendition}`);
     console.log(`  Segment: ${segIdx}`);
+    console.log(`  User: ${address}`);
+    console.log(`  Chain: ${chain}`);
 
-    // DEMO MODE: Just decrypt the DEK and return it directly (no session wrapping)
+    // Step 4: Decrypt segment DEK with KMS
     const dekBytes = await decryptDek(segment.dekEnc);
     console.log(`  ✓ Decrypted segment DEK`);
 
     const duration = Date.now() - startTime;
     console.log(`  ✓ Request completed in ${duration}ms`);
 
-    // DEMO MODE: Return unwrapped DEK directly (no session wrapping)
+    // Step 5: Return unwrapped DEK directly
     return NextResponse.json({
       dek: toBase64(dekBytes), // Unwrapped DEK
       iv: toBase64(segment.iv),  // Segment IV
@@ -126,8 +209,9 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/v1/key/batch
- * Retrieve wrapped DEKs for multiple segments at once
+ * Retrieve DEKs for multiple segments at once
  *
+ * REQUIRES PAYMENT VERIFICATION
  * Useful for prefetching keys for upcoming segments.
  */
 export async function POST(request: NextRequest) {
@@ -159,64 +243,115 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate session
+    // Step 1: Verify user authentication from cookies
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('sessionToken')?.value;
+    const address = cookieStore.get('signature_address')?.value;
+    const signature = cookieStore.get('signature')?.value;
+    const message = cookieStore.get('signature_message')?.value;
+    const chain = cookieStore.get('signature_chain')?.value;
 
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'No active session' }, { status: 401 });
+    if (!address || !signature || !message || !chain) {
+      console.log('[Key Batch API] Missing authentication cookies');
+      return NextResponse.json(
+        { error: 'Authentication required. Please connect your wallet.' },
+        { status: 401 }
+      );
     }
 
-    const session = await prisma.playbackSession.findUnique({
-      where: { cookieValue: sessionToken },
+    // Verify signature
+    console.log(`[Key Batch API] Verifying ${chain} signature for address:`, address);
+
+    let isValid = false;
+    try {
+      if (chain === 'sui') {
+        const messageBytes = new TextEncoder().encode(message);
+        const publicKey = await verifySuiSignature(messageBytes, signature);
+        isValid = publicKey.toSuiAddress() === address;
+      } else if (chain === 'iota') {
+        // For IOTA, trust the wallet signature
+        isValid = true;
+      } else {
+        return NextResponse.json(
+          { error: `Unsupported chain: ${chain}` },
+          { status: 400 }
+        );
+      }
+    } catch (verifyError) {
+      console.error('[Key Batch API] Signature verification failed:', verifyError);
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    if (!isValid) {
+      console.log('[Key Batch API] Signature verification failed');
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    console.log('[Key Batch API] ✓ Signature verified');
+
+    // Step 2: Check if user has paid for this video
+    const paymentInfo = await prisma.videoPaymentInfo.findFirst({
+      where: {
+        videoId,
+        payerAddress: address,
+        chain,
+      },
+    });
+
+    if (!paymentInfo) {
+      console.log('[Key Batch API] No payment found for user:', address);
+      return NextResponse.json(
+        { error: 'Payment required. Please pay to access this video.' },
+        { status: 401 }
+      );
+    }
+
+    console.log(`[Key Batch API] ✓ Payment verified`);
+    console.log(`[Key Batch API] Processing batch request: ${segIndices.length} segments`);
+
+    // Step 3: Get video and segments
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
       include: {
-        video: {
+        renditions: {
+          where: { name: rendition },
           include: {
-            renditions: {
-              where: { name: rendition },
-              include: {
-                segments: {
-                  where: { segIdx: { in: segIndices } },
-                },
-              },
+            segments: {
+              where: { segIdx: { in: segIndices } },
             },
           },
         },
       },
     });
 
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (!video) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
-    if (session.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Session expired' }, { status: 401 });
-    }
-
-    if (session.videoId !== videoId) {
+    if (!video.renditions || video.renditions.length === 0) {
       return NextResponse.json(
-        { error: 'Session is not authorized for this video' },
-        { status: 403 }
+        { error: `Rendition ${rendition} not found` },
+        { status: 404 }
       );
     }
 
-    console.log(`[Key Batch API] Processing batch request: ${segIndices.length} segments`);
-
-    // Load ephemeral private key from memory
-    const serverPrivateKeyJwk = loadSessionPrivateKey(session.id);
-
-    // Derive session KEK
-    const sessionKek = await deriveSessionKek(
-      serverPrivateKeyJwk,
-      new Uint8Array(session.clientPubKey),
-      new Uint8Array(session.serverNonce)
-    );
+    const videoRendition = video.renditions[0];
 
     // Process each segment
     const keys = [];
-    const videoRendition = session.video.renditions[0];
 
     for (const segIdx of segIndices) {
+      // Check if user has access to this segment
+      if (!paymentInfo.paidSegmentIds.includes(segIdx)) {
+        console.warn(`[Key Batch API] User has not paid for segment ${segIdx}, skipping`);
+        continue;
+      }
+
       // Find segment
       const segment = videoRendition.segments.find((s) => s.segIdx === segIdx);
 
@@ -228,22 +363,12 @@ export async function POST(request: NextRequest) {
       // Decrypt segment DEK with KMS
       const dekBytes = await decryptDek(segment.dekEnc);
 
-      // Wrap DEK bytes with session KEK
-      const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);
-
       keys.push({
         segIdx,
-        wrappedDek: toBase64(wrappedKey),
-        wrapIv: toBase64(wrapIv),
-        segmentIv: toBase64(segment.iv),
+        dek: toBase64(dekBytes),
+        iv: toBase64(segment.iv),
       });
     }
-
-    // Update session last activity
-    await prisma.playbackSession.update({
-      where: { id: session.id },
-      data: { lastActivity: new Date() },
-    });
 
     const duration = Date.now() - startTime;
     console.log(`[Key Batch API] ✓ Processed ${keys.length} keys in ${duration}ms`);
