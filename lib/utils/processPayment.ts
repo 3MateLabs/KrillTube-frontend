@@ -45,8 +45,8 @@ export async function processPayment({
     : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!);
 
   const rpcUrl = network === 'sui'
-    ? process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.testnet.sui.io:443'
-    : process.env.NEXT_PUBLIC_IOTA_RPC_URL || 'https://api.testnet.iota.cafe';
+    ? process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443'
+    : process.env.NEXT_PUBLIC_IOTA_RPC_URL || 'https://api.mainnet.iota.cafe';
 
   console.log('[processPayment] Config:', { tunnelPackageId, coinType, rpcUrl });
 
@@ -69,6 +69,7 @@ export async function processPayment({
   console.log('[processPayment] getCoins response:', JSON.stringify(coinsResponse, null, 2));
 
   const coins = coinsResponse.data;
+  console.log({ network, coinsResponse, coinType, userAddress });
 
   if (!coins || coins.length === 0) {
     console.error('[processPayment] No dKRILL coins found with specific coinType!');
