@@ -185,7 +185,7 @@ export default function Home() {
                       <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_4px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                       <div className="self-stretch inline-flex justify-between items-start">
                         <div className="inline-flex flex-col justify-start items-start gap-1">
-                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                           <div className="self-stretch inline-flex justify-start items-center gap-1.5">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -223,7 +223,7 @@ export default function Home() {
                       <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                       <div className="self-stretch inline-flex justify-between items-start">
                         <div className="inline-flex flex-col justify-start items-start gap-1">
-                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                           <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -261,7 +261,7 @@ export default function Home() {
                       <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                       <div className="self-stretch inline-flex justify-between items-start">
                         <div className="inline-flex flex-col justify-start items-start gap-1">
-                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                           <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -302,7 +302,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -335,7 +335,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -368,7 +368,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -433,7 +433,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -466,7 +466,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -499,7 +499,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">Haulout Hackathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>

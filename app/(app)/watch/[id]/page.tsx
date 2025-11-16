@@ -172,7 +172,7 @@ export default function WatchPage() {
                       </div>
                       <div className="self-stretch inline-flex justify-start items-end gap-4">
                         <div className="inline-flex flex-col justify-start items-start gap-2">
-                          <div className="justify-start text-black text-base font-bold font-['Outfit']">Haulout Hackathon</div>
+                          <div className="justify-start text-black text-base font-bold font-['Outfit']">IOTA Moveathon</div>
                           <div className="self-stretch inline-flex justify-start items-start gap-1">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
