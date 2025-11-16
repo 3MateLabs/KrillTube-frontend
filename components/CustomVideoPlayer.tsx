@@ -74,8 +74,15 @@ export function CustomVideoPlayer({
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Creator config state
-  const [creatorConfig, setCreatorConfig] = useState<{
+  // Creator config state - separate configs for dKRILL and IOTA
+  const [dKrillConfig, setDKrillConfig] = useState<{
+    objectId: string;
+    pricePerView: string;
+    chain: string;
+    decimals: number;
+  } | null>(null);
+
+  const [iotaConfig, setIotaConfig] = useState<{
     objectId: string;
     pricePerView: string;
     chain: string;
@@ -99,13 +106,13 @@ export function CustomVideoPlayer({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch creator config for payment
+  // Fetch creator configs for both payment methods
   useEffect(() => {
-    const fetchCreatorConfig = async () => {
+    const fetchCreatorConfigs = async () => {
       if (!videoId || !chain) return;
 
       try {
-        console.log('[CustomVideoPlayer] Fetching creator config for video:', videoId);
+        console.log('[CustomVideoPlayer] Fetching creator configs for video:', videoId);
         const response = await fetch(`/api/v1/videos/${videoId}`);
 
         if (!response.ok) {
@@ -116,32 +123,52 @@ export function CustomVideoPlayer({
         const data = await response.json();
         const video = data.video;
 
-        // Find creator config matching current chain and dKRILL coin
-        const coinType = chain === 'sui'
+        // Find dKRILL creator config
+        const dKrillCoinType = chain === 'sui'
           ? process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN!
           : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
 
-        const config = video.creatorConfigs?.find(
-          (c: any) => c.chain === chain && c.coinType === coinType
+        const dKrillCfg = video.creatorConfigs?.find(
+          (c: any) => c.chain === chain && c.coinType === dKrillCoinType
         );
 
-        if (config) {
-          console.log('[CustomVideoPlayer] Found creator config:', config);
-          setCreatorConfig({
-            objectId: config.objectId,
-            pricePerView: config.pricePerView,
-            chain: config.chain,
-            decimals: config.decimals,
+        if (dKrillCfg) {
+          console.log('[CustomVideoPlayer] Found dKRILL creator config:', dKrillCfg);
+          setDKrillConfig({
+            objectId: dKrillCfg.objectId,
+            pricePerView: dKrillCfg.pricePerView,
+            chain: dKrillCfg.chain,
+            decimals: dKrillCfg.decimals,
           });
         } else {
-          console.warn('[CustomVideoPlayer] No creator config found for chain:', chain);
+          console.warn('[CustomVideoPlayer] No dKRILL creator config found for chain:', chain);
+        }
+
+        // Find native IOTA creator config (only for IOTA chain)
+        if (chain === 'iota') {
+          const nativeIotaCoinType = '0x2::iota::IOTA';
+          const iotaCfg = video.creatorConfigs?.find(
+            (c: any) => c.chain === chain && c.coinType === nativeIotaCoinType
+          );
+
+          if (iotaCfg) {
+            console.log('[CustomVideoPlayer] Found native IOTA creator config:', iotaCfg);
+            setIotaConfig({
+              objectId: iotaCfg.objectId,
+              pricePerView: iotaCfg.pricePerView,
+              chain: iotaCfg.chain,
+              decimals: iotaCfg.decimals,
+            });
+          } else {
+            console.warn('[CustomVideoPlayer] No native IOTA creator config found');
+          }
         }
       } catch (error) {
-        console.error('[CustomVideoPlayer] Error fetching creator config:', error);
+        console.error('[CustomVideoPlayer] Error fetching creator configs:', error);
       }
     };
 
-    fetchCreatorConfig();
+    fetchCreatorConfigs();
   }, [videoId, chain]);
 
   // Pause video when wallet disconnects
@@ -224,8 +251,8 @@ export function CustomVideoPlayer({
       return;
     }
 
-    if (!creatorConfig) {
-      setToast({ message: 'Creator config not found', type: 'error' });
+    if (!dKrillConfig) {
+      setToast({ message: 'dKRILL creator config not found', type: 'error' });
       return;
     }
 
@@ -235,15 +262,15 @@ export function CustomVideoPlayer({
 
       console.log('[CustomVideoPlayer] Processing dKRILL payment...', {
         network,
-        creatorConfigId: creatorConfig.objectId,
-        pricePerView: creatorConfig.pricePerView,
+        creatorConfigId: dKrillConfig.objectId,
+        pricePerView: dKrillConfig.pricePerView,
       });
 
       const digest = await processPayment({
         network,
-        creatorConfigId: creatorConfig.objectId,
+        creatorConfigId: dKrillConfig.objectId,
         referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(creatorConfig.pricePerView),
+        paymentAmount: parseInt(dKrillConfig.pricePerView),
         signAndExecuteTransaction,
         userAddress: address,
       });
@@ -261,15 +288,15 @@ export function CustomVideoPlayer({
   };
 
   const handlePayWithIOTA = async () => {
-    console.log('[CustomVideoPlayer] Pay with IOTA clicked');
+    console.log('[CustomVideoPlayer] Pay with native IOTA clicked');
 
     if (!address || !chain) {
       setToast({ message: 'Please connect your wallet first', type: 'error' });
       return;
     }
 
-    if (!creatorConfig) {
-      setToast({ message: 'Creator config not found', type: 'error' });
+    if (!iotaConfig) {
+      setToast({ message: 'Native IOTA creator config not found', type: 'error' });
       return;
     }
 
@@ -277,19 +304,20 @@ export function CustomVideoPlayer({
       const network = chain === 'sui' ? 'sui' : 'iota';
       const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
 
-      console.log('[CustomVideoPlayer] Processing IOTA payment...', {
+      console.log('[CustomVideoPlayer] Processing native IOTA payment...', {
         network,
-        creatorConfigId: creatorConfig.objectId,
-        pricePerView: creatorConfig.pricePerView,
+        creatorConfigId: iotaConfig.objectId,
+        pricePerView: iotaConfig.pricePerView,
       });
 
       const digest = await processPayment({
         network,
-        creatorConfigId: creatorConfig.objectId,
+        creatorConfigId: iotaConfig.objectId,
         referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(creatorConfig.pricePerView),
+        paymentAmount: parseInt(iotaConfig.pricePerView),
         signAndExecuteTransaction,
         userAddress: address,
+        coinType: '0x2::iota::IOTA', // Use native IOTA coin
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
