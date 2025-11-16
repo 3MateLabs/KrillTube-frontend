@@ -105,7 +105,7 @@ export function ChainSelector() {
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 z-[60]"
+              className="fixed inset-0 bg-black/70 z-[60]"
               onClick={() => setIsOpen(false)}
             />
 
@@ -187,7 +187,7 @@ export function ChainSelector() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-[60]"
+            className="fixed inset-0 bg-black/70 z-[60]"
             onClick={() => setIsOpen(false)}
           />
 
@@ -197,16 +197,6 @@ export function ChainSelector() {
               <h3 className="text-xl font-bold mb-4 text-black">Connect Wallet</h3>
 
               <div className="space-y-4">
-                {/* Sui Wallets */}
-                <div>
-                  <h4 className="text-sm font-semibold mb-2 text-black">Sui Wallets</h4>
-                  <div className="sui-connect-wrapper">
-                    <SuiConnectButton
-                      connectText="Connect Sui Wallet"
-                    />
-                  </div>
-                </div>
-
                 {/* IOTA Wallets */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-black">IOTA Wallets</h4>
