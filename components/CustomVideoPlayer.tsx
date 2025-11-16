@@ -76,7 +76,7 @@ export function CustomVideoPlayer({
   const [showNoKrillModal, setShowNoKrillModal] = useState(false);
 
   // Toast state
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string } | null>(null);
 
   // Creator config state - separate configs for dKRILL and IOTA
   const [dKrillConfig, setDKrillConfig] = useState<{
@@ -280,7 +280,17 @@ export function CustomVideoPlayer({
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
-      setToast({ message: 'Payment successful! Enjoy the video', type: 'success' });
+
+      // Generate explorer URL based on network
+      const explorerUrl = network === 'sui'
+        ? `https://suiscan.xyz/mainnet/tx/${digest}`
+        : `https://iotascan.com/mainnet/tx/${digest}`;
+
+      setToast({
+        message: 'Payment successful! Click to view transaction',
+        type: 'success',
+        link: explorerUrl
+      });
       setShowPaymentModal(false); // Close payment modal after successful payment
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
@@ -335,7 +345,17 @@ export function CustomVideoPlayer({
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
-      setToast({ message: 'Payment successful! Enjoy the video', type: 'success' });
+
+      // Generate explorer URL based on network
+      const explorerUrl = network === 'sui'
+        ? `https://suiscan.xyz/mainnet/tx/${digest}`
+        : `https://iotascan.com/mainnet/tx/${digest}`;
+
+      setToast({
+        message: 'Payment successful! Click to view transaction',
+        type: 'success',
+        link: explorerUrl
+      });
       setShowPaymentModal(false); // Close payment modal after successful payment
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
@@ -367,7 +387,17 @@ export function CustomVideoPlayer({
       });
 
       console.log('[CustomVideoPlayer] Mint successful! Digest:', digest);
-      setToast({ message: '1000 dKRILL tokens minted successfully!', type: 'success' });
+
+      // Generate explorer URL based on network
+      const explorerUrl = network === 'sui'
+        ? `https://suiscan.xyz/mainnet/tx/${digest}`
+        : `https://iotascan.com/mainnet/tx/${digest}`;
+
+      setToast({
+        message: '1000 dKRILL tokens minted! Click to view transaction',
+        type: 'success',
+        link: explorerUrl
+      });
 
       // Close the No Krill modal and show the payment modal again
       setShowNoKrillModal(false);
@@ -628,6 +658,7 @@ export function CustomVideoPlayer({
         <Toast
           message={toast.message}
           type={toast.type}
+          link={toast.link}
           onClose={() => setToast(null)}
         />
       )}
