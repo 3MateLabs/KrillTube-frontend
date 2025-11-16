@@ -9,6 +9,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useEncryptedVideo } from '@/lib/player/useEncryptedVideo';
 import Hls from 'hls.js';
 import Image from 'next/image';
+import { useWalletContext } from '@/lib/context/WalletContext';
+import { PaymentModal } from './modals/PaymentModal';
+import { ChainSelector } from './wallet/ChainSelector';
+import { Toast } from './ui/Toast';
+import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
+import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
+import { useSignAndExecuteTransaction as useIotaSignAndExecute } from '@iota/dapp-kit';
 
 export interface CustomVideoPlayerProps {
   videoId: string;
@@ -53,6 +60,19 @@ export function CustomVideoPlayer({
     },
   });
 
+  // Wallet connection check
+  const { isConnected, address, chain } = useWalletContext();
+
+  // Transaction signing hooks
+  const { mutateAsync: signAndExecuteSui } = useSuiSignAndExecute();
+  const { mutateAsync: signAndExecuteIota } = useIotaSignAndExecute();
+
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState(true); // Show on video open
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
   // Quality switching state
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [availableQualities, setAvailableQualities] = useState<Array<{
@@ -69,6 +89,14 @@ export function CustomVideoPlayer({
   const [buffered, setBuffered] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Pause video when wallet disconnects
+  useEffect(() => {
+    if (!isConnected && isPlaying) {
+      console.log('[CustomVideoPlayer] Wallet disconnected, pausing video');
+      pause();
+    }
+  }, [isConnected, isPlaying, pause]);
 
   // Get HLS instance and extract quality levels
   useEffect(() => {
@@ -131,6 +159,48 @@ export function CustomVideoPlayer({
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Payment handlers (placeholder - user will define functionality)
+  const handlePayWithDKRILL = () => {
+    console.log('[CustomVideoPlayer] Pay with dKRILL clicked');
+    // TODO: Implement dKRILL payment
+  };
+
+  const handlePayWithIOTA = () => {
+    console.log('[CustomVideoPlayer] Pay with IOTA clicked');
+    // TODO: Implement IOTA payment
+  };
+
+  const handleGetDemoTokens = async () => {
+    console.log('[CustomVideoPlayer] Get demo tokens clicked');
+
+    if (!address || !chain) {
+      setToast({ message: 'Please connect your wallet first', type: 'error' });
+      return;
+    }
+
+    try {
+      const network = chain === 'sui' ? 'sui' : 'iota';
+      const signAndExecuteTransaction = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+
+      console.log('[CustomVideoPlayer] Minting demo tokens...', { network, address });
+
+      const digest = await mintDemoKrill({
+        network,
+        recipientAddress: address,
+        signAndExecuteTransaction,
+      });
+
+      console.log('[CustomVideoPlayer] Mint successful! Digest:', digest);
+      setToast({ message: '1000 dKRILL tokens minted successfully!', type: 'success' });
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Mint failed:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to mint tokens',
+        type: 'error'
+      });
+    }
   };
 
   // Handle seek
@@ -208,6 +278,37 @@ export function CustomVideoPlayer({
             <div className="bg-red-900/20 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg max-w-md">
               <h4 className="font-bold">Playback Error</h4>
               <p className="text-sm">{error.message}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Modal - Shows when video opens */}
+        {showPaymentModal && isConnected && (
+          <PaymentModal
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
+            onPayWithDKRILL={handlePayWithDKRILL}
+            onPayWithIOTA={handlePayWithIOTA}
+            onGetDemoTokens={handleGetDemoTokens}
+          />
+        )}
+
+        {/* Wallet Connection Overlay - Covers entire video player */}
+        {!isConnected && (
+          <div className="absolute inset-0 bg-[#2C5F7E] z-30 flex flex-col items-center justify-center">
+            {/* Content */}
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-white mb-3 mx-auto">
+                Connect wallet to continue
+              </h2>
+              <p className="text-white/80 text-sm mx-auto">
+                You need to connect your wallet to play videos
+              </p>
+            </div>
+
+            {/* Connect Wallet Button */}
+            <div className="flex justify-center">
+              <ChainSelector />
             </div>
           </div>
         )}
@@ -331,6 +432,15 @@ export function CustomVideoPlayer({
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
