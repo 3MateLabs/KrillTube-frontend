@@ -21,7 +21,7 @@ interface IotaProviderProps {
 export function IotaProvider({ children }: IotaProviderProps) {
   return (
     <IotaClientProvider networks={networks} defaultNetwork="mainnet">
-      <WalletProvider autoConnect={false}>
+      <WalletProvider autoConnect={false} storage={localStorage} storageKey="iota-wallet">
         {children}
       </WalletProvider>
     </IotaClientProvider>
