@@ -25,7 +25,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <NetworkProvider>
         <SuiClientProvider networks={suiNetworks} defaultNetwork="mainnet">
-          <SuiWalletProvider autoConnect={false}>
+          <SuiWalletProvider autoConnect={false} storage={localStorage} storageKey="sui-wallet">
             <IotaProvider>
               <WalletContextProvider>
                 {children}
