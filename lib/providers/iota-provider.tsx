@@ -7,6 +7,7 @@
 
 import { IotaClientProvider, WalletProvider } from '@iota/dapp-kit';
 import { getFullnodeUrl } from '@iota/iota-sdk/client';
+import { safeLocalStorage } from '@/lib/utils/storage';
 
 // Network configuration
 const networks = {
@@ -21,7 +22,7 @@ interface IotaProviderProps {
 export function IotaProvider({ children }: IotaProviderProps) {
   return (
     <IotaClientProvider networks={networks} defaultNetwork="mainnet">
-      <WalletProvider autoConnect={false} storage={localStorage} storageKey="iota-wallet">
+      <WalletProvider autoConnect={true} storage={safeLocalStorage} storageKey="iota-wallet">
         {children}
       </WalletProvider>
     </IotaClientProvider>
