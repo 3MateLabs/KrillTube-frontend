@@ -105,12 +105,12 @@ export function ChainSelector() {
           <>
             {/* Backdrop */}
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-[60]"
               onClick={() => setIsOpen(false)}
             />
 
             {/* Dropdown */}
-            <div className="absolute right-0 mt-4 w-64 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 bg-white rounded-2xl shadow-xl border-2 border-black z-[70] overflow-hidden">
               <div className="p-3">
                 {/* Wallet Name */}
                 <div className="px-2 py-1 mb-2">
@@ -187,12 +187,12 @@ export function ChainSelector() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[60]"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Wallet Modal */}
-          <div className="absolute right-0 mt-4 w-80 bg-white rounded-2xl shadow-xl border-2 border-black z-50 overflow-hidden">
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-white rounded-2xl shadow-xl border-2 border-black z-[70] overflow-hidden">
             <div className="p-6">
               <h3 className="text-xl font-bold mb-4 text-black">Connect Wallet</h3>
 
