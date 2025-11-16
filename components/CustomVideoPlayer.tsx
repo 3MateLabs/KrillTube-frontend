@@ -14,6 +14,7 @@ import { PaymentModal } from './modals/PaymentModal';
 import { ChainSelector } from './wallet/ChainSelector';
 import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
+import { processPayment } from '@/lib/utils/processPayment';
 import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
 import { useSignAndExecuteTransaction as useIotaSignAndExecute } from '@iota/dapp-kit';
 
@@ -73,6 +74,14 @@ export function CustomVideoPlayer({
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Creator config state
+  const [creatorConfig, setCreatorConfig] = useState<{
+    objectId: string;
+    pricePerView: string;
+    chain: string;
+    decimals: number;
+  } | null>(null);
+
   // Quality switching state
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [availableQualities, setAvailableQualities] = useState<Array<{
@@ -89,6 +98,51 @@ export function CustomVideoPlayer({
   const [buffered, setBuffered] = useState(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch creator config for payment
+  useEffect(() => {
+    const fetchCreatorConfig = async () => {
+      if (!videoId || !chain) return;
+
+      try {
+        console.log('[CustomVideoPlayer] Fetching creator config for video:', videoId);
+        const response = await fetch(`/api/v1/videos/${videoId}`);
+
+        if (!response.ok) {
+          console.error('[CustomVideoPlayer] Failed to fetch video data');
+          return;
+        }
+
+        const data = await response.json();
+        const video = data.video;
+
+        // Find creator config matching current chain and dKRILL coin
+        const coinType = chain === 'sui'
+          ? process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN!
+          : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
+
+        const config = video.creatorConfigs?.find(
+          (c: any) => c.chain === chain && c.coinType === coinType
+        );
+
+        if (config) {
+          console.log('[CustomVideoPlayer] Found creator config:', config);
+          setCreatorConfig({
+            objectId: config.objectId,
+            pricePerView: config.pricePerView,
+            chain: config.chain,
+            decimals: config.decimals,
+          });
+        } else {
+          console.warn('[CustomVideoPlayer] No creator config found for chain:', chain);
+        }
+      } catch (error) {
+        console.error('[CustomVideoPlayer] Error fetching creator config:', error);
+      }
+    };
+
+    fetchCreatorConfig();
+  }, [videoId, chain]);
 
   // Pause video when wallet disconnects
   useEffect(() => {
@@ -161,15 +215,93 @@ export function CustomVideoPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Payment handlers (placeholder - user will define functionality)
-  const handlePayWithDKRILL = () => {
+  // Payment handlers
+  const handlePayWithDKRILL = async () => {
     console.log('[CustomVideoPlayer] Pay with dKRILL clicked');
-    // TODO: Implement dKRILL payment
+
+    if (!address || !chain) {
+      setToast({ message: 'Please connect your wallet first', type: 'error' });
+      return;
+    }
+
+    if (!creatorConfig) {
+      setToast({ message: 'Creator config not found', type: 'error' });
+      return;
+    }
+
+    try {
+      const network = chain === 'sui' ? 'sui' : 'iota';
+      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+
+      console.log('[CustomVideoPlayer] Processing dKRILL payment...', {
+        network,
+        creatorConfigId: creatorConfig.objectId,
+        pricePerView: creatorConfig.pricePerView,
+      });
+
+      const digest = await processPayment({
+        network,
+        creatorConfigId: creatorConfig.objectId,
+        referrerAddress: '0x0', // No referrer
+        paymentAmount: parseInt(creatorConfig.pricePerView),
+        signAndExecuteTransaction,
+        userAddress: address,
+      });
+
+      console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
+      setToast({ message: 'Payment successful! Enjoy the video', type: 'success' });
+      setShowPaymentModal(false); // Close payment modal after successful payment
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Payment failed:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Payment failed',
+        type: 'error'
+      });
+    }
   };
 
-  const handlePayWithIOTA = () => {
+  const handlePayWithIOTA = async () => {
     console.log('[CustomVideoPlayer] Pay with IOTA clicked');
-    // TODO: Implement IOTA payment
+
+    if (!address || !chain) {
+      setToast({ message: 'Please connect your wallet first', type: 'error' });
+      return;
+    }
+
+    if (!creatorConfig) {
+      setToast({ message: 'Creator config not found', type: 'error' });
+      return;
+    }
+
+    try {
+      const network = chain === 'sui' ? 'sui' : 'iota';
+      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+
+      console.log('[CustomVideoPlayer] Processing IOTA payment...', {
+        network,
+        creatorConfigId: creatorConfig.objectId,
+        pricePerView: creatorConfig.pricePerView,
+      });
+
+      const digest = await processPayment({
+        network,
+        creatorConfigId: creatorConfig.objectId,
+        referrerAddress: '0x0', // No referrer
+        paymentAmount: parseInt(creatorConfig.pricePerView),
+        signAndExecuteTransaction,
+        userAddress: address,
+      });
+
+      console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
+      setToast({ message: 'Payment successful! Enjoy the video', type: 'success' });
+      setShowPaymentModal(false); // Close payment modal after successful payment
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Payment failed:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Payment failed',
+        type: 'error'
+      });
+    }
   };
 
   const handleGetDemoTokens = async () => {
@@ -182,7 +314,7 @@ export function CustomVideoPlayer({
 
     try {
       const network = chain === 'sui' ? 'sui' : 'iota';
-      const signAndExecuteTransaction = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
 
       console.log('[CustomVideoPlayer] Minting demo tokens...', { network, address });
 
