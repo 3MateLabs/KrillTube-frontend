@@ -11,6 +11,7 @@ import Hls from 'hls.js';
 import Image from 'next/image';
 import { useWalletContext } from '@/lib/context/WalletContext';
 import { PaymentModal } from './modals/PaymentModal';
+import { NoKrillModal } from './modals/NoKrillModal';
 import { ChainSelector } from './wallet/ChainSelector';
 import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
@@ -70,6 +71,9 @@ export function CustomVideoPlayer({
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(true); // Show on video open
+
+  // No Krill modal state
+  const [showNoKrillModal, setShowNoKrillModal] = useState(false);
 
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -253,10 +257,20 @@ export function CustomVideoPlayer({
       setShowPaymentModal(false); // Close payment modal after successful payment
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
-      setToast({
-        message: error instanceof Error ? error.message : 'Payment failed',
-        type: 'error'
-      });
+
+      // Check if the error is due to no dKRILL tokens
+      const errorMessage = error instanceof Error ? error.message : 'Payment failed';
+      if (errorMessage.includes('No dKRILL coins found')) {
+        // Show the No Krill modal instead of a toast error
+        setShowPaymentModal(false);
+        setShowNoKrillModal(true);
+      } else {
+        // Show toast for other errors
+        setToast({
+          message: errorMessage,
+          type: 'error'
+        });
+      }
     }
   };
 
@@ -326,6 +340,10 @@ export function CustomVideoPlayer({
 
       console.log('[CustomVideoPlayer] Mint successful! Digest:', digest);
       setToast({ message: '1000 dKRILL tokens minted successfully!', type: 'success' });
+
+      // Close the No Krill modal and show the payment modal again
+      setShowNoKrillModal(false);
+      setShowPaymentModal(true);
     } catch (error) {
       console.error('[CustomVideoPlayer] Mint failed:', error);
       setToast({
@@ -421,6 +439,18 @@ export function CustomVideoPlayer({
             onClose={() => setShowPaymentModal(false)}
             onPayWithDKRILL={handlePayWithDKRILL}
             onPayWithIOTA={handlePayWithIOTA}
+            onGetDemoTokens={handleGetDemoTokens}
+          />
+        )}
+
+        {/* No Krill Modal - Shows when user doesn't have dKRILL */}
+        {showNoKrillModal && isConnected && (
+          <NoKrillModal
+            isOpen={showNoKrillModal}
+            onClose={() => {
+              setShowNoKrillModal(false);
+              setShowPaymentModal(true);
+            }}
             onGetDemoTokens={handleGetDemoTokens}
           />
         )}

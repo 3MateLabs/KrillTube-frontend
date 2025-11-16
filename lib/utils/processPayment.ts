@@ -5,6 +5,7 @@
 
 import { Transaction as SuiTransaction } from '@mysten/sui/transactions';
 import { Transaction as IotaTransaction } from '@iota/iota-sdk/transactions';
+import { SuiClient } from '@mysten/sui/client';
 import { IotaClient } from '@iota/iota-sdk/client';
 
 export interface ProcessPaymentParams {
@@ -46,8 +47,10 @@ export async function processPayment({
 
   console.log('[processPayment] Config:', { tunnelPackageId, coinType, rpcUrl });
 
-  // Create client to fetch user's dKRILL coins
-  const client = new IotaClient({ url: rpcUrl });
+  // Create client based on network to fetch user's dKRILL coins
+  const client = network === 'sui'
+    ? new SuiClient({ url: rpcUrl })
+    : new IotaClient({ url: rpcUrl });
 
   // Fetch user's dKRILL coin objects
   console.log('[processPayment] Fetching dKRILL coins for user:', userAddress);
