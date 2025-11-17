@@ -13,6 +13,10 @@ interface PaymentModalProps {
   onPayWithDKRILL: () => void;
   onPayWithIOTA: () => void;
   onGetDemoTokens: () => void;
+  dKrillPrice?: string; // Price in human-readable format (e.g., "10.00")
+  iotaPrice?: string; // Price in human-readable format (e.g., "0.01")
+  dKrillDecimals?: number; // Token decimals for dKRILL
+  iotaDecimals?: number; // Token decimals for IOTA
 }
 
 export function PaymentModal({
@@ -21,8 +25,22 @@ export function PaymentModal({
   onPayWithDKRILL,
   onPayWithIOTA,
   onGetDemoTokens,
+  dKrillPrice,
+  iotaPrice,
+  dKrillDecimals = 6,
+  iotaDecimals = 9,
 }: PaymentModalProps) {
   if (!isOpen) return null;
+
+  // Format price with decimals
+  const formatPrice = (priceInSmallestUnit: string | undefined, decimals: number): string => {
+    if (!priceInSmallestUnit) return '0.00';
+    const price = parseFloat(priceInSmallestUnit) / Math.pow(10, decimals);
+    return price.toFixed(2);
+  };
+
+  const formattedDKrillPrice = formatPrice(dKrillPrice, dKrillDecimals);
+  const formattedIotaPrice = formatPrice(iotaPrice, iotaDecimals);
 
   return (
     <div className="absolute inset-0 bg-[#2C5F7E] z-30 flex flex-col items-center justify-center">
@@ -47,7 +65,7 @@ export function PaymentModal({
             />
           </div>
           {/* Amount */}
-          <div className="text-2xl font-bold text-white">0.01 $dKRILL</div>
+          <div className="text-2xl font-bold text-white">{formattedDKrillPrice} $dKRILL</div>
         </button>
 
         {/* IOTA Option */}
@@ -70,7 +88,7 @@ export function PaymentModal({
             </svg>
           </div>
           {/* Amount */}
-          <div className="text-2xl font-bold text-white">0.01 $IOTA</div>
+          <div className="text-2xl font-bold text-white">{formattedIotaPrice} $IOTA</div>
         </button>
       </div>
 

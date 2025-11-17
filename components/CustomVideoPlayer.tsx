@@ -573,6 +573,10 @@ export function CustomVideoPlayer({
             onPayWithDKRILL={handlePayWithDKRILL}
             onPayWithIOTA={handlePayWithIOTA}
             onGetDemoTokens={handleGetDemoTokens}
+            dKrillPrice={dKrillConfig?.pricePerView}
+            iotaPrice={iotaConfig?.pricePerView}
+            dKrillDecimals={dKrillConfig?.decimals}
+            iotaDecimals={iotaConfig?.decimals}
           />
         )}
 
