@@ -37,8 +37,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           bg-[#0668A6] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
           overflow-y-auto overflow-x-hidden
           transition-all duration-300 ease-in-out
-          lg:translate-x-0
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           ${showText ? 'w-72' : 'w-20'}
         `}
       >
