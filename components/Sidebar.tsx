@@ -33,7 +33,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
         onMouseEnter={() => isCollapsed && setIsHovered(true)}
         onMouseLeave={() => isCollapsed && setIsHovered(false)}
         className={`
-          fixed top-0 left-0 bottom-0 z-50 h-screen
+          fixed top-0 left-0 bottom-0 z-40 h-screen
           bg-[#0668A6] shadow-[0_4px_15px_rgba(42,42,42,0.31)] border-r-[3px] border-black backdrop-blur-[100px]
           overflow-y-auto overflow-x-hidden
           transition-all duration-300 ease-in-out

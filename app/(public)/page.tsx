@@ -28,7 +28,7 @@ export default function KrillTubeLanding() {
           alt="Krill mascot"
           width={600}
           height={600}
-          className="hidden lg:block absolute right-8 xl:right-24 bottom-24 xl:bottom-32 w-[420px] xl:w-[480px] h-auto object-contain z-30 pointer-events-none"
+          className="hidden lg:block absolute right-8 xl:right-24 bottom-24 xl:bottom-32 w-[420px] xl:w-[480px] h-auto object-contain z-[5] pointer-events-none"
           priority
         />
 
@@ -124,7 +124,7 @@ export default function KrillTubeLanding() {
         </div>
 
         {/* Stats Card - positioned at bottom */}
-        <div className="relative left-1/2 -translate-x-1/2 z-50 px-4 mt-6 md:mt-8 pb-6">
+        <div className="relative left-1/2 -translate-x-1/2 z-10 px-4 mt-6 md:mt-8 pb-6">
           <div className="w-full max-w-[808px] mx-auto px-4 md:px-8 py-4 md:py-6 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-black flex justify-between items-start gap-2">
             <div className="flex-1 flex flex-col justify-start items-start">
               <div className="w-full text-center text-black text-3xl md:text-4xl lg:text-5xl font-extrabold font-['Outfit'] leading-tight md:leading-[66px]">+7000</div>
