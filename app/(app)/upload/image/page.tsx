@@ -47,6 +47,7 @@ function ImageUploadContent() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [imagesPerChunk, setImagesPerChunk] = useState<number>(1); // Default: 1 image per chunk
   const [allowSubscription, setAllowSubscription] = useState<boolean>(true);
   const [feeConfigs, setFeeConfigs] = useState<FeeConfig[]>([
     {
@@ -91,6 +92,10 @@ function ImageUploadContent() {
       maximumFractionDigits: 2,
     });
   };
+
+  // Calculate chunks for images
+  const totalImages = selectedImages.length;
+  const calculatedChunks = Math.max(1, Math.ceil(totalImages / imagesPerChunk));
 
   // Fee config handlers
   const handleAddFeeConfig = () => {
@@ -239,6 +244,53 @@ function ImageUploadContent() {
                 className="w-full px-4 py-3 border-2 border-black rounded-lg font-['Outfit'] text-black focus:outline-none focus:ring-2 focus:ring-[#EF4330]"
               />
             </div>
+
+            {/* Chunk Configuration */}
+            {selectedImages.length > 0 && (
+              <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                <h3 className="text-lg font-bold text-black font-['Outfit'] mb-4">Image Encryption Chunks</h3>
+                <p className="text-sm text-black/70 font-medium font-['Outfit'] mb-4">
+                  Your images will be encrypted and split into chunks. Users pay per chunk they access.
+                </p>
+
+                <div className="space-y-4">
+                  {/* Images Per Chunk */}
+                  <div>
+                    <label className="block mb-2 text-sm font-semibold text-black font-['Outfit']">
+                      Images per chunk
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={totalImages}
+                      value={imagesPerChunk}
+                      onChange={(e) => setImagesPerChunk(Math.max(1, Math.min(totalImages, parseInt(e.target.value) || 1)))}
+                      className="w-full px-4 py-3 border-2 border-black rounded-lg font-['Outfit'] text-black focus:outline-none focus:ring-2 focus:ring-[#EF4330]"
+                    />
+                    <p className="mt-1 text-xs text-black/60 font-medium font-['Outfit']">
+                      Recommended: 1 image per chunk (range: 1-{totalImages})
+                    </p>
+                  </div>
+
+                  {/* Calculated Chunks Display */}
+                  <div className="p-4 bg-[#FFEEE5] rounded-lg border-2 border-black">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-black font-['Outfit']">
+                          Total Chunks
+                        </div>
+                        <div className="text-xs text-black/70 font-medium font-['Outfit'] mt-1">
+                          Based on {totalImages} image(s) ÷ {imagesPerChunk} image(s)/chunk
+                        </div>
+                      </div>
+                      <div className="text-3xl font-bold text-[#EF4330] font-['Outfit']">
+                        {calculatedChunks}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Navigation */}
             <div className="flex justify-between">

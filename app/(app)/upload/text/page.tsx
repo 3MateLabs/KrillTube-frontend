@@ -48,6 +48,7 @@ function TextUploadContent() {
   const [content, setContent] = useState('');
   const [tags, setTags] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
+  const [wordsPerChunk, setWordsPerChunk] = useState<number>(500); // Default: 500 words per chunk
   const [allowSubscription, setAllowSubscription] = useState<boolean>(true);
   const [feeConfigs, setFeeConfigs] = useState<FeeConfig[]>([
     {
@@ -69,6 +70,10 @@ function TextUploadContent() {
       maximumFractionDigits: 2,
     });
   };
+
+  // Calculate word count and chunks
+  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
+  const calculatedChunks = Math.max(1, Math.ceil(wordCount / wordsPerChunk));
 
   // Fee config handlers
   const handleAddFeeConfig = () => {
@@ -239,8 +244,54 @@ function TextUploadContent() {
                   Word Count:
                 </span>
                 <span className="text-base font-bold text-[#EF4330] font-['Outfit']">
-                  {content.trim().split(/\s+/).filter(Boolean).length}
+                  {wordCount}
                 </span>
+              </div>
+            </div>
+
+            {/* Chunk Configuration */}
+            <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+              <h3 className="text-lg font-bold text-black font-['Outfit'] mb-4">Content Encryption Chunks</h3>
+              <p className="text-sm text-black/70 font-medium font-['Outfit'] mb-4">
+                Your content will be encrypted and split into chunks. Users pay per chunk they access.
+              </p>
+
+              <div className="space-y-4">
+                {/* Words Per Chunk */}
+                <div>
+                  <label className="block mb-2 text-sm font-semibold text-black font-['Outfit']">
+                    Words per chunk
+                  </label>
+                  <input
+                    type="number"
+                    min="100"
+                    max="2000"
+                    step="100"
+                    value={wordsPerChunk}
+                    onChange={(e) => setWordsPerChunk(Math.max(100, parseInt(e.target.value) || 500))}
+                    className="w-full px-4 py-3 border-2 border-black rounded-lg font-['Outfit'] text-black focus:outline-none focus:ring-2 focus:ring-[#EF4330]"
+                  />
+                  <p className="mt-1 text-xs text-black/60 font-medium font-['Outfit']">
+                    Recommended: 500 words per chunk (range: 100-2000)
+                  </p>
+                </div>
+
+                {/* Calculated Chunks Display */}
+                <div className="p-4 bg-[#FFEEE5] rounded-lg border-2 border-black">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-black font-['Outfit']">
+                        Total Chunks
+                      </div>
+                      <div className="text-xs text-black/70 font-medium font-['Outfit'] mt-1">
+                        Based on {wordCount} words ÷ {wordsPerChunk} words/chunk
+                      </div>
+                    </div>
+                    <div className="text-3xl font-bold text-[#EF4330] font-['Outfit']">
+                      {calculatedChunks}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
