@@ -32,6 +32,8 @@ interface Step2MonetizationProps {
   feeConfigs: FeeConfig[];
   coinMetadataCache: Record<string, CoinMetadata>;
   coinPriceCache: Record<string, CoinPrice>;
+  allowSubscription: boolean;
+  onToggleSubscription: () => void;
   onAddFeeConfig: () => void;
   onRemoveFeeConfig: (id: string) => void;
   onUpdateTokenType: (id: string, value: string) => void;
@@ -45,6 +47,8 @@ export function Step2Monetization({
   feeConfigs,
   coinMetadataCache,
   coinPriceCache,
+  allowSubscription,
+  onToggleSubscription,
   onAddFeeConfig,
   onRemoveFeeConfig,
   onUpdateTokenType,
@@ -55,6 +59,27 @@ export function Step2Monetization({
 }: Step2MonetizationProps) {
   return (
     <div className="space-y-6">
+      {/* Subscription Option */}
+      <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+        <label className="flex items-start gap-4 cursor-pointer">
+          <div className="flex items-center h-6">
+            <input
+              type="checkbox"
+              checked={allowSubscription}
+              onChange={onToggleSubscription}
+              className="w-5 h-5 rounded border-2 border-black cursor-pointer accent-krill-orange"
+            />
+          </div>
+          <div className="flex-1">
+            <div className="text-base font-bold font-['Outfit'] text-black mb-1">
+              Enable Subscription Access
+            </div>
+            <div className="text-sm font-medium font-['Outfit'] text-black/70">
+              Allow your channel subscribers to access this content at no additional cost
+            </div>
+          </div>
+        </label>
+      </div>
       <div className="p-6 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold font-['Outfit'] text-black">Payment Methods</h3>
