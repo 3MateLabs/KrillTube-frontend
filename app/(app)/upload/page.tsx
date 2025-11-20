@@ -903,6 +903,7 @@ function UploadContent() {
         effectiveUploadAddress = effectiveAccount.address;
       } else if (walrusNetwork === 'mainnet') {
         // Mainnet: use delegator wallet (already funded via PTB)
+        // This allows automatic signing of all segment uploads without user interaction
         if (!delegatorAddress || !executeWithDelegator) {
           throw new Error('Delegator wallet not initialized');
         }
@@ -1437,12 +1438,8 @@ function UploadContent() {
                     : debugMode
                     ? '[DEBUG MODE] Start Upload'
                     : walrusNetwork === 'mainnet'
-                    ? `Approve & Upload (Sui Mainnet) - ${costEstimate?.totalWal} WAL`
-                    : feeConfigs.length > 0
-                    ? network === 'iota'
-                      ? 'Approve & Start Upload (IOTA Mainnet)'
-                      : 'Approve & Start Upload (Sui Mainnet)'
-                    : 'Start Upload (Walrus Testnet)'}
+                    ? `Approve & Upload - ~${costEstimate?.totalWal} WAL`
+                    : 'Upload (Walrus Testnet - Free)'}
                 </button>
               </div>
 
@@ -1610,12 +1607,8 @@ function UploadContent() {
                     {!effectiveAccount
                       ? 'Connect Wallet to Upload'
                       : walrusNetwork === 'mainnet'
-                      ? `Retry Upload (Sui Mainnet) - ${costEstimate?.totalWal} WAL`
-                      : feeConfigs.length > 0
-                      ? network === 'iota'
-                        ? 'Retry Upload (IOTA Mainnet)'
-                        : 'Retry Upload (Sui Mainnet)'
-                      : 'Retry Upload (Walrus Testnet)'}
+                      ? `Retry - Approve & Upload (~${costEstimate?.totalWal} WAL)`
+                      : 'Retry Upload (Walrus Testnet - Free)'}
                   </button>
                 </div>
               )}

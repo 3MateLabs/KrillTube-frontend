@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import { useWalletContext } from '@/lib/context/WalletContext';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
-import { ConnectButton as SuiConnectButton } from '@mysten/dapp-kit';
+import { ConnectButton as SuiConnectButton, useSuiClientQuery } from '@mysten/dapp-kit';
 import { ConnectButton as IotaConnectButton } from '@iota/dapp-kit';
 import { useDisconnectWallet as useIotaDisconnect } from '@iota/dapp-kit';
 import { useDisconnectWallet as useSuiDisconnect } from '@mysten/dapp-kit';
@@ -27,6 +27,19 @@ export function ChainSelector() {
   const currentWallet = network === 'sui' ? suiWallet : network === 'iota' ? iotaWallet : null;
   const walletName = currentWallet?.name || 'Unknown Wallet';
 
+  // Fetch SuiNS name for Sui addresses (reverse resolution)
+  const { data: suinsData } = useSuiClientQuery(
+    'resolveNameServiceNames',
+    { address: address || '' },
+    {
+      enabled: !!address && chain === 'sui',
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  // Extract the first SuiNS name from the result
+  const suinsName = suinsData?.data?.[0] || null;
+
   // Debug logging
   useEffect(() => {
     console.log('[ChainSelector] Wallet state:', {
@@ -37,8 +50,10 @@ export function ChainSelector() {
       suiWallet: suiWallet?.name,
       iotaWallet: iotaWallet?.name,
       currentWallet: walletName,
+      suinsName,
+      suinsData,
     });
-  }, [network, chain, address, isConnected, suiWallet, iotaWallet, walletName]);
+  }, [network, chain, address, isConnected, suiWallet, iotaWallet, walletName, suinsName, suinsData]);
 
   const handleDisconnect = () => {
     console.log('[ChainSelector] Disconnecting wallet:', {
@@ -67,6 +82,16 @@ export function ChainSelector() {
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  // Get display address: SuiNS name > formatted address
+  const getDisplayAddress = () => {
+    if (chain === 'sui' && suinsName) {
+      // Remove .sui suffix and add @ prefix
+      const nameWithoutSuffix = suinsName.replace('.sui', '');
+      return `@${nameWithoutSuffix}`;
+    }
+    return address ? formatAddress(address) : '';
   };
 
   const getChainDisplayName = (c: 'sui' | 'iota') => {
@@ -98,7 +123,7 @@ export function ChainSelector() {
           className="flex items-center gap-2 h-14 px-6 bg-white text-black font-bold rounded-[32px] outline outline-[3px] outline-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] active:translate-x-0 active:translate-y-0 active:shadow-none transition-all"
         >
           {getChainIcon(chain!)}
-          <span className="text-base text-black">{formatAddress(address)}</span>
+          <span className="text-base text-black">{getDisplayAddress()}</span>
         </button>
 
         {isOpen && (
@@ -120,6 +145,16 @@ export function ChainSelector() {
                     {walletName}
                   </div>
                 </div>
+
+                {/* SuiNS Name (if available) */}
+                {chain === 'sui' && suinsName && (
+                  <div className="px-2 py-1 mb-2">
+                    <div className="text-xs text-gray-500 mb-0.5">SuiNS Name</div>
+                    <div className="text-sm font-bold text-blue-600">
+                      {suinsName}
+                    </div>
+                  </div>
+                )}
 
                 {/* Address (Click to Copy) */}
                 <button
@@ -197,6 +232,16 @@ export function ChainSelector() {
               <h3 className="text-xl font-bold mb-4 text-black">Connect Wallet</h3>
 
               <div className="space-y-4">
+                {/* Sui Wallets */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-2 text-black">Sui Wallets</h4>
+                  <div className="sui-connect-wrapper">
+                    <SuiConnectButton
+                      connectText="Connect Sui Wallet"
+                    />
+                  </div>
+                </div>
+
                 {/* IOTA Wallets */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2 text-black">IOTA Wallets</h4>

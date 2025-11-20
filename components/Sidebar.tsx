@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useWalletContext } from '@/lib/context/WalletContext';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -15,8 +16,44 @@ interface SidebarProps {
 export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
+  const { address, isConnected } = useWalletContext();
+  const [userProfile, setUserProfile] = useState<{ name: string; avatar: string | null } | null>(null);
 
   const showText = !isCollapsed || isHovered;
+
+  // Fetch user profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!address) {
+        setUserProfile(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/v1/profile/${address}`);
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile({
+            name: data.profile.name,
+            avatar: data.profile.avatar,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile:', error);
+      }
+    };
+
+    fetchProfile();
+  }, [address]);
+
+  // Get display name: profile name > shortened address
+  const getDisplayName = () => {
+    if (userProfile?.name && !userProfile.name.startsWith('Creator 0x')) {
+      return userProfile.name;
+    }
+    if (address) return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    return '@EasonC13';
+  };
 
   return (
     <>
@@ -180,6 +217,23 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           {/* User Menu */}
           <div className={`px-4 py-8 bg-[#FFEEE5] rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col justify-center items-center gap-2.5 ${showText ? 'self-stretch' : ''}`}>
             <div className={`flex flex-col justify-center items-start gap-4 ${showText ? 'self-stretch' : ''}`}>
+              {isConnected && address && (
+                <Link
+                  href={`/profile/${address}`}
+                  onClick={onClose}
+                  className={`px-4 py-2 rounded-[32px] inline-flex justify-start items-center gap-2.5 transition-colors ${
+                    pathname === `/profile/${address}`
+                      ? 'bg-[#EF4330] outline outline-[3px] outline-offset-[-3px] outline-black'
+                      : 'hover:bg-white/50'
+                  } ${showText ? 'self-stretch' : ''}`}
+                >
+                  <svg className={`w-6 h-6 flex-shrink-0 ${pathname === `/profile/${address}` ? 'text-white' : 'text-black'}`} fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  {showText && <div className={`justify-start text-base font-semibold font-['Outfit'] whitespace-nowrap ${pathname === `/profile/${address}` ? 'text-white' : 'text-black'}`}>Your Channel</div>}
+                </Link>
+              )}
+
               <Link
                 href="/library"
                 onClick={onClose}
@@ -211,17 +265,48 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
             </div>
           </div>
 
-          {/* User Profile */}
-          <div className={`inline-flex items-center gap-3 transition-all duration-300 ${showText ? 'self-stretch justify-center' : 'w-full justify-start ml-4'}`}>
-            <div className="w-[50px] h-[50px] flex-shrink-0">
-              <Image className="w-[50px] h-[50px] rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
-            </div>
-            {showText && (
-              <div className="flex-1 h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
-                <div className="text-white text-base font-semibold font-['Montserrat'] whitespace-nowrap">@EasonC13</div>
+          {/* User Profile - Clickable */}
+          {isConnected && address ? (
+            <Link
+              href={`/profile/${address}`}
+              onClick={onClose}
+              className={`inline-flex items-center gap-3 transition-all duration-300 hover:opacity-80 ${showText ? 'self-stretch justify-center' : 'w-full justify-start ml-4'}`}
+            >
+              <div className="w-[50px] h-[50px] flex-shrink-0 bg-black rounded-full shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white overflow-hidden">
+                {userProfile?.avatar ? (
+                  <img
+                    src={userProfile.avatar}
+                    alt={getDisplayName()}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0668A6] to-[#1AAACE]">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+              {showText && (
+                <div className="flex-1 h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
+                  <div className="text-white text-base font-semibold font-['Montserrat'] whitespace-nowrap">
+                    {getDisplayName()}
+                  </div>
+                </div>
+              )}
+            </Link>
+          ) : (
+            <div className={`inline-flex items-center gap-3 transition-all duration-300 ${showText ? 'self-stretch justify-center' : 'w-full justify-start ml-4'}`}>
+              <div className="w-[50px] h-[50px] flex-shrink-0">
+                <Image className="w-[50px] h-[50px] rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
+              </div>
+              {showText && (
+                <div className="flex-1 h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
+                  <div className="text-white text-base font-semibold font-['Montserrat'] whitespace-nowrap">@EasonC13</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </aside>
     </>

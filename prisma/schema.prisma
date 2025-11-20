@@ -138,6 +138,15 @@ model Video {
   createdAt            DateTime          @default(now()) @map("created_at")
   updatedAt            DateTime          @updatedAt @map("updated_at")
   creatorId            String            @map("creator_id")
+
+  // Encryption type: "per-video" (pay per video) or "subscription-acl" (subscribers only) or "both"
+  encryptionType       String            @default("per-video") @map("encryption_type")
+
+  // SEAL encryption fields (for subscription-acl videos)
+  sealObjectId         String?           @map("seal_object_id") // SEAL channel/apology object ID
+  sealDocumentId       String?           @map("seal_document_id") // SEAL document ID for decryption
+  sealBlobId           String?           @map("seal_blob_id") // Walrus blob ID for SEAL-encrypted data
+
   sessions             PlaybackSession[] @relation("VideoToPlaybackSession")
   renditions           VideoRendition[]  @relation("VideoToVideoRendition")
   creatorConfigs       CreatorConfig[]   @relation("VideoToCreatorConfig")
@@ -145,6 +154,7 @@ model Video {
   @@index([creatorId])
   @@index([masterBlobObjectId])
   @@index([masterEndEpoch])
+  @@index([encryptionType])
   @@map("videos")
 }
 
@@ -163,4 +173,41 @@ model VideoPaymentInfo {
 
   @@index([videoId])
   @@map("video_payment_infos")
+}
+
+model Creator {
+  id            String   @id @default(cuid())
+  walletAddress String   @unique @map("wallet_address")
+  name          String
+  bio           String?
+  avatar        String?  // Walrus blob ID or URL for avatar image
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Channel subscription settings
+  channelPrice  String?  @map("channel_price") // Subscription price (one-time payment)
+  channelChain  String?  @map("channel_chain") // "sui" or "iota"
+  channelCoinType String? @map("channel_coin_type") // Coin type for subscriptions
+  sealObjectId  String?  @map("seal_object_id") // SEAL channel object ID for ACL
+
+  subscriptions Subscription[] @relation("CreatorToSubscriptions")
+
+  @@index([walletAddress])
+  @@map("creators")
+}
+
+model Subscription {
+  id                String   @id @default(cuid())
+  subscriberAddress String   @map("subscriber_address")
+  creatorId         String   @map("creator_id")
+  chain             String   // "sui" or "iota"
+  txDigest          String   @map("tx_digest") // Payment transaction digest
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  creator           Creator  @relation("CreatorToSubscriptions", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberAddress, creatorId, chain])
+  @@index([creatorId])
+  @@index([subscriberAddress])
+  @@map("subscriptions")
 }
