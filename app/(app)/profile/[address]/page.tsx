@@ -286,10 +286,10 @@ export default function ProfilePage() {
                 key={video.id}
                 id={video.id}
                 title={video.title}
-                thumbnail={video.posterWalrusUri}
+                thumbnail={video.posterWalrusUri || undefined}
                 creator={profile.name}
                 uploadedAt={video.createdAt}
-                duration={video.duration}
+                duration={video.duration?.toString() || undefined}
                 variant="default"
               />
             ))}

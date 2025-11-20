@@ -107,6 +107,29 @@ export async function processPayment({
     try {
       const result = await signAndExecuteTransaction({ transaction: tx });
       console.log('[processPayment] SUI payment successful!', result);
+
+      // Send transaction digest to backend for verification and recording
+      console.log('[processPayment] Sending payment to backend for verification...');
+      const backendResponse = await fetch('/api/v1/payment/process-sui', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          digest: result.digest,
+          videoId,
+        }),
+      });
+
+      if (!backendResponse.ok) {
+        const errorData = await backendResponse.json();
+        console.error('[processPayment] Backend verification failed:', errorData);
+        throw new Error(errorData.error || 'Backend payment verification failed');
+      }
+
+      const backendData = await backendResponse.json();
+      console.log('[processPayment] Payment verified and recorded:', backendData);
+
       return result.digest;
     } catch (error) {
       console.error('[processPayment] SUI payment failed:', error);

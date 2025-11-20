@@ -93,7 +93,7 @@ export async function uploadVideoClientSide(
     process.env.NEXT_PUBLIC_WALRUS_AGGREGATOR ||
     (network === 'testnet'
       ? 'https://aggregator.walrus-testnet.walrus.space'
-      : 'https://aggregator.walrus.space');
+      : 'https://aggregator.mainnet.walrus.mirai.cloud');
 
   // Step 1: Transcode video
   onProgress?.({

@@ -17,7 +17,6 @@ import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
 import { processPayment } from '@/lib/utils/processPayment';
 import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
-import { useSignAndExecuteTransaction as useIotaSignAndExecute } from '@iota/dapp-kit';
 
 export interface CustomVideoPlayerProps {
   videoId: string;
@@ -65,9 +64,8 @@ export function CustomVideoPlayer({
   // Wallet connection check
   const { isConnected, address, chain } = useWalletContext();
 
-  // Transaction signing hooks
+  // Transaction signing hook
   const { mutateAsync: signAndExecuteSui } = useSuiSignAndExecute();
-  const { mutateAsync: signAndExecuteIota } = useIotaSignAndExecute();
 
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false); // Start hidden, check payment first
@@ -87,7 +85,7 @@ export function CustomVideoPlayer({
     decimals: number;
   } | null>(null);
 
-  const [iotaConfig, setIotaConfig] = useState<{
+  const [suiConfig, setSuiConfig] = useState<{
     objectId: string;
     pricePerView: string;
     chain: string;
@@ -199,23 +197,23 @@ export function CustomVideoPlayer({
           console.warn('[CustomVideoPlayer] No dKRILL creator config found for chain:', chain);
         }
 
-        // Find native IOTA creator config (only for IOTA chain)
-        if (chain === 'iota') {
-          const nativeIotaCoinType = '0x2::iota::IOTA';
-          const iotaCfg = video.creatorConfigs?.find(
-            (c: any) => c.chain === chain && c.coinType === nativeIotaCoinType
+        // Find native SUI creator config (only for Sui chain)
+        if (chain === 'sui') {
+          const nativeSuiCoinType = '0x2::sui::SUI';
+          const suiCfg = video.creatorConfigs?.find(
+            (c: any) => c.chain === chain && c.coinType === nativeSuiCoinType
           );
 
-          if (iotaCfg) {
-            console.log('[CustomVideoPlayer] Found native IOTA creator config:', iotaCfg);
-            setIotaConfig({
-              objectId: iotaCfg.objectId,
-              pricePerView: iotaCfg.pricePerView,
-              chain: iotaCfg.chain,
-              decimals: iotaCfg.decimals,
+          if (suiCfg) {
+            console.log('[CustomVideoPlayer] Found native SUI creator config:', suiCfg);
+            setSuiConfig({
+              objectId: suiCfg.objectId,
+              pricePerView: suiCfg.pricePerView,
+              chain: suiCfg.chain,
+              decimals: suiCfg.decimals,
             });
           } else {
-            console.warn('[CustomVideoPlayer] No native IOTA creator config found');
+            console.warn('[CustomVideoPlayer] No native SUI creator config found');
           }
         }
       } catch (error) {
@@ -311,37 +309,33 @@ export function CustomVideoPlayer({
       return;
     }
 
-    try {
-      const network = chain === 'sui' ? 'sui' : 'iota';
-      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+    if (chain !== 'sui') {
+      setToast({ message: 'Please connect Sui wallet to pay with dKRILL', type: 'error' });
+      return;
+    }
 
-      console.log('[CustomVideoPlayer] Processing dKRILL payment...', {
-        network,
+    try {
+      console.log('[CustomVideoPlayer] Processing dKRILL payment on SUI...', {
         creatorConfigId: dKrillConfig.objectId,
         pricePerView: dKrillConfig.pricePerView,
       });
 
       const digest = await processPayment({
-        network,
+        network: 'sui',
         creatorConfigId: dKrillConfig.objectId,
         referrerAddress: '0x0', // No referrer
         paymentAmount: parseInt(dKrillConfig.pricePerView),
-        signAndExecuteTransaction,
+        signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
         userAddress: address,
         videoId,
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
 
-      // Generate explorer URL based on network
-      const explorerUrl = network === 'sui'
-        ? `https://suiscan.xyz/mainnet/tx/${digest}`
-        : `https://iotascan.com/mainnet/tx/${digest}`;
-
       setToast({
         message: 'Payment successful! Refreshing page...',
         type: 'success',
-        link: explorerUrl
+        link: `https://suiscan.xyz/mainnet/tx/${digest}`
       });
       setShowPaymentModal(false); // Close payment modal after successful payment
       setCheckingPayment(false); // Clear checking state
@@ -369,51 +363,47 @@ export function CustomVideoPlayer({
     }
   };
 
-  const handlePayWithIOTA = async () => {
-    console.log('[CustomVideoPlayer] Pay with native IOTA clicked');
+  const handlePayWithSUI = async () => {
+    console.log('[CustomVideoPlayer] Pay with native SUI clicked');
 
     if (!address || !chain) {
       setToast({ message: 'Please connect your wallet first', type: 'error' });
       return;
     }
 
-    if (!iotaConfig) {
-      setToast({ message: 'Native IOTA creator config not found', type: 'error' });
+    if (!suiConfig) {
+      setToast({ message: 'Native SUI creator config not found', type: 'error' });
+      return;
+    }
+
+    if (chain !== 'sui') {
+      setToast({ message: 'Please connect Sui wallet to pay with SUI', type: 'error' });
       return;
     }
 
     try {
-      const network = chain === 'sui' ? 'sui' : 'iota';
-      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
-
-      console.log('[CustomVideoPlayer] Processing native IOTA payment...', {
-        network,
-        creatorConfigId: iotaConfig.objectId,
-        pricePerView: iotaConfig.pricePerView,
+      console.log('[CustomVideoPlayer] Processing native SUI payment...', {
+        creatorConfigId: suiConfig.objectId,
+        pricePerView: suiConfig.pricePerView,
       });
 
       const digest = await processPayment({
-        network,
-        creatorConfigId: iotaConfig.objectId,
+        network: 'sui',
+        creatorConfigId: suiConfig.objectId,
         referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(iotaConfig.pricePerView),
-        signAndExecuteTransaction,
+        paymentAmount: parseInt(suiConfig.pricePerView),
+        signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
         userAddress: address,
-        coinType: '0x2::iota::IOTA', // Use native IOTA coin
+        coinType: '0x2::sui::SUI', // Use native SUI coin
         videoId,
       });
 
       console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
 
-      // Generate explorer URL based on network
-      const explorerUrl = network === 'sui'
-        ? `https://suiscan.xyz/mainnet/tx/${digest}`
-        : `https://iotascan.com/mainnet/tx/${digest}`;
-
       setToast({
         message: 'Payment successful! Refreshing page...',
         type: 'success',
-        link: explorerUrl
+        link: `https://suiscan.xyz/mainnet/tx/${digest}`
       });
       setShowPaymentModal(false); // Close payment modal after successful payment
       setCheckingPayment(false); // Clear checking state
@@ -439,29 +429,26 @@ export function CustomVideoPlayer({
       return;
     }
 
-    try {
-      const network = chain === 'sui' ? 'sui' : 'iota';
-      const signAndExecuteTransaction: any = network === 'sui' ? signAndExecuteSui : signAndExecuteIota;
+    if (chain !== 'sui') {
+      setToast({ message: 'Please connect Sui wallet to mint demo tokens', type: 'error' });
+      return;
+    }
 
-      console.log('[CustomVideoPlayer] Minting demo tokens...', { network, address });
+    try {
+      console.log('[CustomVideoPlayer] Minting demo tokens on SUI...', { address });
 
       const digest = await mintDemoKrill({
-        network,
+        network: 'sui',
         recipientAddress: address,
-        signAndExecuteTransaction,
+        signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
       });
 
       console.log('[CustomVideoPlayer] Mint successful! Digest:', digest);
 
-      // Generate explorer URL based on network
-      const explorerUrl = network === 'sui'
-        ? `https://suiscan.xyz/mainnet/tx/${digest}`
-        : `https://iotascan.com/mainnet/tx/${digest}`;
-
       setToast({
         message: '1000 dKRILL tokens minted! Click to view transaction',
         type: 'success',
-        link: explorerUrl
+        link: `https://suiscan.xyz/mainnet/tx/${digest}`
       });
 
       // Close the No Krill modal and show the payment modal again
@@ -571,12 +558,12 @@ export function CustomVideoPlayer({
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
             onPayWithDKRILL={handlePayWithDKRILL}
-            onPayWithIOTA={handlePayWithIOTA}
+            onPayWithSUI={handlePayWithSUI}
             onGetDemoTokens={handleGetDemoTokens}
             dKrillPrice={dKrillConfig?.pricePerView}
-            iotaPrice={iotaConfig?.pricePerView}
+            suiPrice={suiConfig?.pricePerView}
             dKrillDecimals={dKrillConfig?.decimals}
-            iotaDecimals={iotaConfig?.decimals}
+            suiDecimals={suiConfig?.decimals}
           />
         )}
 

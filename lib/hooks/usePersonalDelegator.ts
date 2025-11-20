@@ -188,7 +188,7 @@ export function usePersonalDelegator() {
     }
   }, [delegatorState.keypair, delegatorState.address, suiClient]);
 
-  // Auto-reclaim unused SUI back to user
+  // Auto-reclaim unused SUI and WAL back to user
   const autoReclaimGas = useCallback(async (
     userAddress: string,
   ): Promise<{ digest: string; recovered: bigint } | null> => {
@@ -198,19 +198,44 @@ export function usePersonalDelegator() {
     }
 
     try {
-      // Check current balance
-      const balance = await checkBalance();
+      // Check current SUI balance
+      const suiBalance = await checkBalance();
 
-      if (balance === BigInt(0)) {
+      // Check WAL balance
+      const WAL_TOKEN_TYPE = '0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL';
+      const walCoins = await suiClient.getCoins({
+        owner: delegatorState.address,
+        coinType: WAL_TOKEN_TYPE,
+      });
+
+      const totalWalBalance = walCoins.data.reduce((sum, coin) => sum + BigInt(coin.balance), BigInt(0));
+
+      if (suiBalance === BigInt(0) && walCoins.data.length === 0) {
         console.log('[Delegator] Wallet is empty, nothing to reclaim');
         return { digest: '', recovered: BigInt(0) };
       }
 
-      // Build reclaim transaction
+      console.log('[Delegator] Reclaiming assets:', {
+        sui: Number(suiBalance) / 1_000_000_000 + ' SUI',
+        wal: Number(totalWalBalance) / 1_000_000_000 + ' WAL',
+        walCoins: walCoins.data.length,
+      });
+
+      // Build reclaim transaction for BOTH SUI and WAL
       const tx = new Transaction();
       tx.setSender(delegatorState.address);
 
-      // Transfer all remaining SUI back to user
+      // Return all WAL tokens first
+      if (walCoins.data.length > 0) {
+        const walCoinIds = walCoins.data.map(coin => coin.coinObjectId);
+        tx.transferObjects(
+          walCoinIds.map(id => tx.object(id)),
+          tx.pure.address(userAddress)
+        );
+        console.log('[Delegator] Returning', walCoins.data.length, 'WAL coins to user');
+      }
+
+      // Transfer remaining SUI back to user (use as gas for this transaction)
       // Sui automatically deducts gas fees from the transfer
       tx.transferObjects([tx.gas], tx.pure.address(userAddress));
 
@@ -224,15 +249,16 @@ export function usePersonalDelegator() {
         },
       });
 
-      console.log('[Delegator] Auto-reclaimed SUI:', result.digest);
-      console.log('[Delegator] Recovered:', Number(balance) / 1_000_000_000, 'SUI');
+      console.log('[Delegator] Auto-reclaimed assets:', result.digest);
+      console.log('[Delegator] Recovered SUI:', Number(suiBalance) / 1_000_000_000);
+      console.log('[Delegator] Recovered WAL:', Number(totalWalBalance) / 1_000_000_000);
 
       // Update local balance
       setDelegatorState(prev => ({ ...prev, balance: BigInt(0) }));
 
       return {
         digest: result.digest,
-        recovered: balance,
+        recovered: suiBalance,
       };
     } catch (error: any) {
       console.error('[Delegator] Failed to auto-reclaim:', error);
