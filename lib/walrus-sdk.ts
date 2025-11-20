@@ -11,8 +11,9 @@
 import { WalrusClient } from '@mysten/walrus';
 import { getSuiClient } from '@mysten/sui/client';
 
+// Walrus Mainnet Contract Addresses (from walrus/testnet-contracts/walrus/Move.lock)
 const MAINNET_SYSTEM_OBJECT = '0x2134d52768ea07e8c43570ef975eb3e4c27a39fa6396bef985b5abc58d03ddd2';
-const MAINNET_PACKAGE_ID = '0x6b8c2a2cf5be98f43e04a6cd7ca9e38d0c8c8a8c8c8c8c8c8c8c8c8c8c8c8c8c'; // TODO: Update with actual mainnet package ID
+const MAINNET_PACKAGE_ID = '0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77';
 
 export interface WalrusBlobMetadata {
   blobObjectId: string;
