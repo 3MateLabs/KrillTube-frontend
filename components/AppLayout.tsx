@@ -21,7 +21,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <>
-      <Header onMenuClick={toggleSidebar} />
+      <Header onMenuClick={toggleSidebar} isSidebarOpen={isSidebarOpen} />
       <div className="flex min-h-screen bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE]">
         <Sidebar
           isOpen={isSidebarOpen}

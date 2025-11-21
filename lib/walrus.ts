@@ -62,14 +62,34 @@ export class WalrusClient {
   /**
    * Upload a single blob to Walrus with retry logic
    */
-  async uploadBlob(data: Buffer | Uint8Array, filename: string, maxRetries = 3): Promise<WalrusUploadResult> {
+  async uploadBlob(
+    data: Buffer | Uint8Array,
+    filename: string,
+    options?: { deletable?: boolean; epochs?: number; sendObjectTo?: string },
+    maxRetries = 3
+  ): Promise<WalrusUploadResult> {
     let lastError: Error | null = null;
+    const epochs = options?.epochs || this.epochs;
+    const deletable = options?.deletable ?? false;
+    const sendObjectTo = options?.sendObjectTo;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[Walrus] Uploading ${filename} (${formatBytes(data.length)})... ${attempt > 1 ? `(attempt ${attempt}/${maxRetries})` : ''}`);
+        console.log(`[Walrus] Options: epochs=${epochs}, deletable=${deletable}, sendObjectTo=${sendObjectTo ? sendObjectTo.substring(0, 10) + '...' : 'publisher'}`);
 
-        const response = await fetch(`${this.publisherUrl}/v1/blobs?epochs=${this.epochs}`, {
+        // Build URL with query parameters
+        let url = `${this.publisherUrl}/v1/blobs?epochs=${epochs}`;
+        if (deletable) {
+          url += '&deletable=true';
+        }
+        if (sendObjectTo) {
+          url += `&send_object_to=${sendObjectTo}`;
+        }
+
+        console.log(`[Walrus] Uploading to: ${url}`);
+
+        const response = await fetch(url, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/octet-stream',
@@ -79,9 +99,12 @@ export class WalrusClient {
           signal: AbortSignal.timeout(300000), // 5 minutes
         });
 
+        console.log(`[Walrus] Response status: ${response.status} ${response.statusText}`);
+
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Walrus upload failed: ${response.statusText} - ${errorText}`);
+          console.error(`[Walrus] Error response: ${errorText}`);
+          throw new Error(`Walrus upload failed: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const result = await response.json();
@@ -116,7 +139,13 @@ export class WalrusClient {
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        console.error(`[Walrus] Upload attempt ${attempt}/${maxRetries} failed for ${filename}:`, lastError.message);
+        console.error(`[Walrus] Upload attempt ${attempt}/${maxRetries} failed for ${filename}:`, lastError);
+        console.error(`[Walrus] Error stack:`, lastError.stack);
+
+        // Check if it's a network error
+        if (lastError.message.includes('fetch failed') || lastError.name === 'TypeError') {
+          console.error(`[Walrus] Network error - check if publisher URL is accessible: ${this.publisherUrl}`);
+        }
 
         if (attempt < maxRetries) {
           // Exponential backoff: 2s, 4s, 8s...

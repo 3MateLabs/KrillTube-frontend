@@ -13,6 +13,10 @@ const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet') as 'testne
 const epochs = process.env.NEXT_PUBLIC_WALRUS_EPOCHS ? parseInt(process.env.NEXT_PUBLIC_WALRUS_EPOCHS, 10) : 200;
 const suiRpcUrl = process.env.NEXT_PUBLIC_SUI_RPC_URL || getFullnodeUrl(network);
 
+// Walrus Mainnet Contract Addresses (from walrus/testnet-contracts/walrus/Move.lock)
+const MAINNET_SYSTEM_OBJECT = '0x2134d52768ea07e8c43570ef975eb3e4c27a39fa6396bef985b5abc58d03ddd2';
+const MAINNET_PACKAGE_ID = '0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77';
+
 // Lazy initialization to avoid loading WASM on server
 let _suiWalrusClient: any = null;
 
