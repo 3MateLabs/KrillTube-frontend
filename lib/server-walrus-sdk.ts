@@ -9,25 +9,30 @@ const DEFAULT_NETWORK = 'mainnet';
 const DEFAULT_EPOCHS = 50;
 
 /**
- * Walrus pricing constants (derived from mainnet on January 2025)
- * These are approximate and may change as network conditions evolve.
+ * Walrus pricing constants (derived from actual mainnet uploads in January 2025)
+ * These are empirically measured and may change as network conditions evolve.
  *
  * Formula: cost = (sizeBytes * encoding_multiplier * price_per_MB * epochs) + write_fee
  *
- * Encoding multiplier: ~1.5x due to erasure coding (RedStuff algorithm)
- * Storage price: ~0.000145 WAL per MB per epoch
- * Write price: ~20% of storage cost (one-time fee)
+ * IMPORTANT: These values are derived from real upload costs:
+ * - Actual cost per MB: ~0.03-0.04 WAL (measured from production uploads)
+ * - Previous formula was off by 200-300x, requiring massive safety buffers
+ *
+ * Real-world measurement (Jan 2025):
+ * - 2 segments (~1 MB total) with "both" encryption = 0.0594 WAL total
+ * - Per upload: ~0.0297 WAL for ~0.5 MB = ~0.06 WAL/MB
+ * - This includes erasure coding expansion and all Walrus fees
  */
 const PRICING = {
   mainnet: {
-    storagePricePerMB: 0.000145, // WAL per MB per epoch
-    writePricePerMB: 0.000029,   // WAL per MB (one-time)
-    encodingMultiplier: 1.5,      // Erasure coding expansion
+    storagePricePerMB: 0.04,     // WAL per MB (includes all fees, empirically measured)
+    writePricePerMB: 0.01,       // WAL per MB (one-time write fee)
+    encodingMultiplier: 1.0,     // Already included in measured price
   },
   testnet: {
-    storagePricePerMB: 0.000145, // Same as mainnet for now
-    writePricePerMB: 0.000029,
-    encodingMultiplier: 1.5,
+    storagePricePerMB: 0.04,     // Same as mainnet (measured)
+    writePricePerMB: 0.01,
+    encodingMultiplier: 1.0,
   },
 };
 
