@@ -286,17 +286,31 @@ export function usePersonalDelegator() {
   }, []);
 
   // Estimate SUI needed for upload operations
-  const estimateGasNeeded = useCallback((numberOfSegments: number): bigint => {
+  const estimateGasNeeded = useCallback((
+    numberOfSegments: number,
+    encryptionType?: 'per-video' | 'subscription-acl' | 'both'
+  ): bigint => {
     // Each segment requires 2 transactions (register + certify)
-    // Each transaction needs ~0.02 SUI gas budget (increased for safety)
-    // Add poster, playlists, master playlist (not counted in numberOfSegments)
-    const gasPerSegment = BigInt(40_000_000); // 0.04 SUI per segment (2 transactions × 0.02)
-    const baseGas = BigInt(200_000_000);       // 0.2 SUI base overhead for poster + playlists
-    const total = baseGas + (gasPerSegment * BigInt(numberOfSegments));
+    // Actual gas per transaction is ~0.03-0.05 SUI, use 0.08 SUI for safety margin
+    const gasPerSegment = BigInt(160_000_000); // 0.16 SUI per segment (2 transactions × 0.08)
+
+    // Base gas for non-segment uploads: poster + playlists + master playlist
+    // Each needs 2 transactions (register + certify), so 6 transactions total
+    const baseGas = BigInt(500_000_000);       // 0.5 SUI base overhead (6 transactions × ~0.08)
+
+    let total = baseGas + (gasPerSegment * BigInt(numberOfSegments));
+
+    // Apply multiplier for 'both' encryption (DEK + SEAL uploads sequentially)
+    // Use 3x instead of 2x to account for variability and ensure sufficient buffer
+    if (encryptionType === 'both') {
+      total = total * BigInt(3);
+    }
 
     console.log('[Delegator] Gas estimate for', numberOfSegments, 'segments:', {
       base: Number(baseGas) / 1_000_000_000 + ' SUI',
       perSegment: Number(gasPerSegment) / 1_000_000_000 + ' SUI',
+      encryptionType: encryptionType || 'per-video',
+      multiplier: encryptionType === 'both' ? '3x (sequential dual upload)' : '1x',
       total: Number(total) / 1_000_000_000 + ' SUI',
     });
 
