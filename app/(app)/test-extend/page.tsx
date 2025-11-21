@@ -112,7 +112,7 @@ export default function TestExtendPage() {
     }
   };
 
-  // Step 2: Build PTB client-side and execute
+  // Step 2: Build PTB client-side and execute (using direct Move calls)
   const handleExecuteExtend = async () => {
     if (!extendResponse || !account?.address) {
       setError('No transaction to execute');
@@ -123,29 +123,29 @@ export default function TestExtendPage() {
     setError('');
 
     try {
-      console.log('[Test Extend] Building PTB client-side (browser WASM)...');
+      console.log('[Test Extend] Building batch PTB with direct Move calls...');
       console.log('[Test Extend] Blob IDs to extend:', extendResponse.blobObjectIds.length);
 
-      // Import Walrus SDK for client-side PTB construction
-      const { buildBatchExtendTransaction } = await import('@/lib/walrus-sdk');
+      // Import batch extend client (browser-side, uses WASM)
+      const { batchExtendBlobs } = await import('@/lib/walrus-batch-extend-client');
 
-      // Build batch extend transaction in browser (where WASM works)
-      const blobs = extendResponse.blobObjectIds.map(blobObjectId => ({
-        blobObjectId,
-      }));
-
-      console.log('[Test Extend] Calling buildBatchExtendTransaction...');
-      const transaction = await buildBatchExtendTransaction(blobs, extendResponse.epochs);
-      console.log('[Test Extend] PTB built successfully');
-
-      // Sign and execute the transaction
-      console.log('[Test Extend] Requesting wallet signature...');
-      const result = await signAndExecute({
-        transaction,
+      // Execute batch extend - single PTB with multiple extend_blob calls
+      const result = await batchExtendBlobs({
+        blobObjectIds: extendResponse.blobObjectIds,
+        epochs: extendResponse.epochs,
+        signAndExecuteTransaction: signAndExecute,
+        walletAddress: account.address,
       });
 
-      console.log('[Test Extend] ✅ Transaction executed:', result);
-      setResult(`✅ Transaction executed successfully!\n\nDigest: ${result.digest}\n\nAll ${extendResponse.blobCount} blobs have been extended in a single PTB transaction!`);
+      console.log('[Test Extend] ✅ Batch extend complete:', result);
+      setResult(
+        `✅ Batch extend successful!\n\n` +
+        `Transaction: ${result.digest}\n` +
+        `Blobs extended: ${result.blobCount}\n` +
+        `Total cost: ${result.totalCostWal} WAL\n` +
+        `Additional epochs: ${result.epochs}\n\n` +
+        `All ${result.blobCount} blobs extended in a SINGLE transaction with 1 signature!`
+      );
 
     } catch (err) {
       console.error('[Test Extend] Execution error:', err);
@@ -338,17 +338,21 @@ export default function TestExtendPage() {
 
         {/* Instructions */}
         <div className="bg-white/20 rounded-2xl p-6 border-2 border-white text-white">
-          <h3 className="text-lg font-bold mb-2">How to Test:</h3>
+          <h3 className="text-lg font-bold mb-2">How to Test Batch Extend:</h3>
           <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Connect your Sui wallet (must be video creator)</li>
-            <li>Select a mainnet video you own</li>
-            <li>Set the number of epochs to extend (default 5)</li>
-            <li>Click "Step 1: Get Batch Extend Transaction" to build the PTB</li>
-            <li>Review the transaction details (blob count, cost, batch mode)</li>
-            <li>Click "Step 2: Sign & Execute PTB" to execute the batch extend</li>
-            <li>Check console logs for PTB construction details</li>
-            <li>Check if all blobs were extended in a single transaction!</li>
+            <li>Connect your Sui wallet (must be video creator with WAL tokens)</li>
+            <li>Select a mainnet video you own (must have blob object IDs)</li>
+            <li>Set the number of epochs to extend (1 epoch ≈ 1 day on mainnet)</li>
+            <li>Click "Step 1" to fetch blob metadata from server</li>
+            <li>Review the blob count and batch mode confirmation</li>
+            <li>Click "Step 2" to build PTB client-side and sign with wallet</li>
+            <li>Your wallet will show total cost - sign the transaction</li>
+            <li>✅ All blobs extended in ONE transaction with 1 signature!</li>
           </ol>
+          <div className="mt-4 p-3 bg-black/30 rounded-lg">
+            <p className="text-xs font-semibold mb-1">🚀 Technical Details:</p>
+            <p className="text-xs">This uses Sui's Programmable Transaction Blocks (PTBs) to batch multiple <code className="bg-white/20 px-1 rounded">extend_blob</code> Move calls into a single atomic transaction. Benefits: 1 signature, 1 gas fee, ~10 seconds instead of minutes.</p>
+          </div>
         </div>
       </div>
     </div>
