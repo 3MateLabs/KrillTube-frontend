@@ -34,6 +34,8 @@ export async function POST(request: NextRequest) {
       posterBlobObjectId,
       duration,
       network,
+      encryptionType,
+      sealObjectId,
       renditions,
       paymentInfo,
       creatorConfigs,
@@ -48,6 +50,8 @@ export async function POST(request: NextRequest) {
       posterBlobObjectId?: string; // Mainnet only - for extend/delete operations
       duration: number;
       network?: 'mainnet' | 'testnet'; // Walrus network (optional, defaults to mainnet)
+      encryptionType?: 'per-video' | 'subscription-acl' | 'both'; // Encryption type
+      sealObjectId?: string; // Creator's SEAL channel ID (for subscription videos)
       creatorConfigs?: Array<{
         objectId: string; // On-chain creator config object ID
         chain: string; // "iota", "sui", etc.
@@ -66,8 +70,10 @@ export async function POST(request: NextRequest) {
           segIdx: number;
           walrusUri: string;
           blobObjectId?: string; // Mainnet only - for extend/delete operations
-          dek: string; // Base64-encoded 16-byte DEK
-          iv: string; // Base64-encoded 12-byte IV
+          dek?: string; // Base64-encoded 16-byte DEK (for per-video encryption)
+          iv?: string; // Base64-encoded 12-byte IV (for per-video encryption)
+          sealDocumentId?: string; // SEAL document ID (for subscription-acl encryption)
+          sealBlobId?: string; // SEAL blob ID (for subscription-acl encryption)
           duration: number;
           size: number;
         }>;
@@ -150,6 +156,8 @@ export async function POST(request: NextRequest) {
         posterEndEpoch: posterEndEpoch, // Mainnet only
         duration,
         network: network || 'mainnet', // Save Walrus network (defaults to mainnet)
+        encryptionType: encryptionType || 'per-video', // Save encryption type (defaults to per-video)
+        sealObjectId: sealObjectId || null, // Save SEAL channel ID for subscription videos
         creatorId,
         creatorConfigs: {
           create: creatorConfigs?.map((config) => ({
@@ -172,19 +180,37 @@ export async function POST(request: NextRequest) {
               segments: {
                 create: await Promise.all(
                   rendition.segments.map(async (segment) => {
-                    // Decrypt base64 DEK and encrypt with KMS
-                    const dekPlain = Buffer.from(segment.dek, 'base64');
-                    if (dekPlain.length !== 16) {
-                      throw new Error(`Invalid DEK size: ${dekPlain.length} bytes (expected 16)`);
+                    // Handle both DEK and SEAL encryption
+                    let dekEnc: Buffer | null = null;
+                    let iv: Buffer | null = null;
+                    let sealDocumentId: string | null = null;
+                    let sealBlobId: string | null = null;
+
+                    if (segment.dek && segment.iv) {
+                      // DEK encryption (per-video or both)
+                      const dekPlain = Buffer.from(segment.dek, 'base64');
+                      if (dekPlain.length !== 16) {
+                        throw new Error(`Invalid DEK size: ${dekPlain.length} bytes (expected 16)`);
+                      }
+                      const dekEncrypted = await encryptDek(new Uint8Array(dekPlain));
+                      dekEnc = Buffer.from(dekEncrypted);
+                      iv = Buffer.from(segment.iv, 'base64');
                     }
-                    const dekEncrypted = await encryptDek(new Uint8Array(dekPlain));
+
+                    if (segment.sealDocumentId && segment.sealBlobId) {
+                      // SEAL encryption (subscription-acl or both)
+                      sealDocumentId = segment.sealDocumentId;
+                      sealBlobId = segment.sealBlobId;
+                    }
 
                     return {
                       segIdx: segment.segIdx,
                       walrusUri: segment.walrusUri,
                       blobObjectId: segment.blobObjectId || null, // Mainnet only
-                      dekEnc: Buffer.from(dekEncrypted), // Store KMS-encrypted DEK
-                      iv: Buffer.from(segment.iv, 'base64'),
+                      dekEnc, // Store KMS-encrypted DEK (null for SEAL-only)
+                      iv, // Store IV (null for SEAL-only)
+                      sealDocumentId, // Store SEAL document ID (null for DEK-only)
+                      sealBlobId, // Store SEAL blob ID (null for DEK-only)
                       duration: segment.duration,
                       size: segment.size,
                     };

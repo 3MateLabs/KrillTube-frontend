@@ -63,6 +63,8 @@ export async function GET(
         creatorId: video.creatorId,
         createdAt: video.createdAt,
         network: video.network,
+        encryptionType: video.encryptionType || 'per-video', // Encryption type for player
+        sealObjectId: video.sealObjectId, // SEAL channel ID for subscription videos
         // Mainnet blob metadata (for storage management)
         masterBlobObjectId: video.masterBlobObjectId,
         masterEndEpoch: video.masterEndEpoch,
