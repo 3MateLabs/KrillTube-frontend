@@ -133,15 +133,67 @@ export default function WatchPage() {
 
       console.log('[Watch] ✅ Batch extend complete:', result);
 
+      // Step 3: Fetch actual end epoch from blockchain (source of truth)
+      let actualEndEpoch = (video.masterEndEpoch || 0) + epochs; // Default calculation
+
+      try {
+        // Import getBlobMetadata to fetch from blockchain
+        const { getBlobMetadata } = await import('@/lib/walrus-manage-client');
+
+        // Use the master blob's object ID to verify the new epoch
+        if (extendResponse.blobObjectIds && extendResponse.blobObjectIds.length > 0) {
+          const masterBlobId = extendResponse.blobObjectIds[0];
+          console.log('[Watch] Fetching actual end epoch from blockchain for blob:', masterBlobId);
+
+          const blobMetadata = await getBlobMetadata(masterBlobId);
+          actualEndEpoch = blobMetadata.endEpoch;
+
+          console.log('[Watch] ✅ Actual end epoch from blockchain:', actualEndEpoch);
+        }
+      } catch (blockchainError) {
+        console.warn('[Watch] Could not fetch from blockchain, using calculated value:', blockchainError);
+        // Continue with calculated value
+      }
+
+      // Step 4: Finalize - update database with actual blockchain epoch
+      try {
+        const finalizeRes = await fetch(`/api/v1/videos/${videoId}/extend/finalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            digest: result.digest,
+            newEndEpoch: actualEndEpoch, // Use actual epoch from blockchain
+            creatorId: account.address,
+          }),
+        });
+
+        if (finalizeRes.ok) {
+          console.log('[Watch] ✅ Database updated with new end epoch:', actualEndEpoch);
+
+          // Update local state to show new epoch immediately (no reload needed)
+          setVideo({
+            ...video,
+            masterEndEpoch: actualEndEpoch,
+          });
+        } else {
+          console.warn('[Watch] ⚠️ Failed to update database, but blockchain extend succeeded');
+        }
+      } catch (finalizeError) {
+        console.error('[Watch] Finalize error:', finalizeError);
+        // Don't fail the whole operation if finalize fails - blockchain extend succeeded
+      }
+
       setExtendSuccess(
         `Successfully extended ${result.blobCount} blobs for ${result.epochs} epochs! ` +
-        `Total cost: ${result.totalCostWal} WAL. Transaction: ${result.digest.slice(0, 10)}...`
+        `New end epoch: ${actualEndEpoch}. Total cost: ${result.totalCostWal} WAL.`
       );
 
-      // Refresh video data to show new end epoch
+      // Close modal after 2 seconds to show updated epoch in modal
       setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+        setShowExtendModal(false);
+        setExtendError(null);
+        setExtendSuccess(null);
+      }, 3000);
 
     } catch (err) {
       console.error('[Watch] Extend error:', err);

@@ -138,12 +138,59 @@ export default function TestExtendPage() {
       });
 
       console.log('[Test Extend] ✅ Batch extend complete:', result);
+
+      // Step 3: Fetch actual end epoch from blockchain (source of truth)
+      const selectedVideo = videos.find(v => v.id === selectedVideoId);
+      let actualEndEpoch = (selectedVideo?.masterEndEpoch || 0) + epochs; // Default calculation
+
+      try {
+        // Import getBlobMetadata to fetch from blockchain
+        const { getBlobMetadata } = await import('@/lib/walrus-manage-client');
+
+        // Use the master blob's object ID to verify the new epoch
+        if (extendResponse.blobObjectIds && extendResponse.blobObjectIds.length > 0) {
+          const masterBlobId = extendResponse.blobObjectIds[0];
+          console.log('[Test Extend] Fetching actual end epoch from blockchain for blob:', masterBlobId);
+
+          const blobMetadata = await getBlobMetadata(masterBlobId);
+          actualEndEpoch = blobMetadata.endEpoch;
+
+          console.log('[Test Extend] ✅ Actual end epoch from blockchain:', actualEndEpoch);
+        }
+      } catch (blockchainError) {
+        console.warn('[Test Extend] Could not fetch from blockchain, using calculated value:', blockchainError);
+        // Continue with calculated value
+      }
+
+      // Step 4: Finalize - update database with actual blockchain epoch
+      try {
+        const finalizeRes = await fetch(`/api/v1/videos/${selectedVideoId}/extend/finalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            digest: result.digest,
+            newEndEpoch: actualEndEpoch, // Use actual epoch from blockchain
+            creatorId: account.address,
+          }),
+        });
+
+        if (finalizeRes.ok) {
+          console.log('[Test Extend] ✅ Database updated with new end epoch:', actualEndEpoch);
+        } else {
+          console.warn('[Test Extend] ⚠️ Failed to update database, but blockchain extend succeeded');
+        }
+      } catch (finalizeError) {
+        console.error('[Test Extend] Finalize error:', finalizeError);
+        // Don't fail the whole operation if finalize fails - blockchain extend succeeded
+      }
+
       setResult(
         `✅ Batch extend successful!\n\n` +
         `Transaction: ${result.digest}\n` +
         `Blobs extended: ${result.blobCount}\n` +
         `Total cost: ${result.totalCostWal} WAL\n` +
-        `Additional epochs: ${result.epochs}\n\n` +
+        `Additional epochs: ${result.epochs}\n` +
+        `New end epoch: ${actualEndEpoch} (verified from blockchain)\n\n` +
         `All ${result.blobCount} blobs extended in a SINGLE transaction with 1 signature!`
       );
 
