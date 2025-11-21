@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { WalrusBadgeInline } from './WalrusBadge';
 
 interface VideoCardProps {
@@ -32,6 +33,7 @@ export function VideoCard({
   variant = 'default',
   accentColor,
 }: VideoCardProps) {
+  const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const formattedViews = views ? formatViews(views) : '0 views';
   const formattedDate = uploadedAt ? formatDate(uploadedAt) : 'Just now';
@@ -94,13 +96,16 @@ export function VideoCard({
                 </div>
                 {/* Creator Name */}
                 {creatorAddress ? (
-                  <Link
-                    href={`/profile/${creatorAddress}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="font-medium hover:underline"
+                  <span
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      router.push(`/profile/${creatorAddress}`);
+                    }}
+                    className="font-medium hover:underline cursor-pointer"
                   >
                     {creator}
-                  </Link>
+                  </span>
                 ) : (
                   <span className="font-medium">{creator}</span>
                 )}
@@ -264,13 +269,16 @@ export function VideoCard({
             {/* Creator Name */}
             <div className="flex-1 min-w-0">
               {creatorAddress ? (
-                <Link
-                  href={`/profile/${creatorAddress}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-sm text-text-muted hover:text-walrus-mint transition-colors truncate block"
+                <span
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(`/profile/${creatorAddress}`);
+                  }}
+                  className="text-sm text-text-muted hover:text-walrus-mint transition-colors truncate block cursor-pointer"
                 >
                   {creator}
-                </Link>
+                </span>
               ) : (
                 <div className="text-sm text-text-muted truncate">{creator}</div>
               )}
