@@ -143,6 +143,12 @@ export default function WatchPage() {
                 network={video.network || 'mainnet'}
                 title={video.title}
                 autoplay={false}
+                encryptionType={video.encryptionType || 'per-video'}
+                channelId={video.sealObjectId}
+                creatorAddress={video.creatorId}
+                creatorName={creator?.name}
+                channelPrice={creator?.channelPrice}
+                channelChain={creator?.channelChain}
               />
             </div>
           </div>
