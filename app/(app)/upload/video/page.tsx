@@ -653,7 +653,7 @@ function UploadContent() {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [selectedFile, selectedQualities, storageOptionIndex, testnetStorageDays, walrusNetwork]);
+  }, [selectedFile, selectedQualities, storageOptionIndex, testnetStorageDays, walrusNetwork, encryptionType]);
 
   const handleEstimateCost = async () => {
     if (!selectedFile || selectedQualities.length === 0) return;
@@ -673,6 +673,7 @@ function UploadContent() {
           // Cap epochs to network-specific maximums (testnet: 53, mainnet: 53)
           epochs: walrusNetwork === 'mainnet' ? storageEpochs : Math.min(storageEpochs, 53),
           network: walrusNetwork, // Pass network to get accurate Walrus SDK pricing
+          encryptionType, // Include encryption type for accurate cost calculation
         }),
       });
 
@@ -865,27 +866,46 @@ function UploadContent() {
       if (walrusNetwork === 'mainnet' && !debugMode && account) {
         console.log('[Upload V2] Funding delegator wallet with PTB...');
 
-        // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        // Add 50x safety buffer because cost estimator uses simplified formula:
-        // - Estimator doesn't use actual Walrus SDK storageCost() calculation
-        // - Each blob requires 2 transactions (register + certify)
-        // - Poster, playlists, and master playlist uploads (not in estimate)
-        // - Encoding overhead (erasure coding expands data 3-5x)
-        // - Upload relay tips (40 MIST per KiB of encoded data)
-        // - Actual per-blob costs are much higher than approximation
-        const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
-        const walAmountMist = estimatedWalMist * BigInt(50); // 50x buffer for inaccurate estimate
-
-        // Estimate gas needed based on file size (rough calculation)
+        // First, calculate segment count for gas and WAL estimates
         const fileSizeMB = selectedFile.size / 1024 / 1024;
-        const estimatedSegments = Math.ceil(fileSizeMB / 2) * selectedQualities.length;
-        const gasNeeded = estimateGasNeeded(estimatedSegments);
+        const videoSegments = Math.ceil(fileSizeMB / 2) * selectedQualities.length;
+        const initSegments = selectedQualities.length; // One init segment per quality
+        const estimatedSegments = videoSegments + initSegments;
+        const gasNeeded = estimateGasNeeded(estimatedSegments, encryptionType);
+
+        // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
+        // Our cost estimate is now based on real upload measurements (~0.05 WAL/MB)
+        // Apply modest 5x buffer for:
+        // - Poster, playlists, and master playlist uploads (small extra files)
+        // - Network fee variability
+        // - Rounding and overhead
+        const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
+        const bufferedWalMist = estimatedWalMist * BigInt(5); // 5x buffer for overhead
+
+        // Ensure minimum funding based on segment count
+        // With accurate estimates, we can use a much lower minimum
+        // Each segment needs ~0.01 WAL, plus poster/playlists
+        const minWalPerSegment = BigInt(10_000_000); // 0.01 WAL per segment
+        let minWalMist = minWalPerSegment * BigInt(estimatedSegments + 5); // +5 for poster/playlists
+
+        // For "both" encryption, we upload everything twice (DEK + SEAL)
+        // Each upload has: segments + poster + playlists, so double the WAL needed
+        if (encryptionType === 'both') {
+          minWalMist = minWalMist * BigInt(2); // 2x for dual upload
+          console.log('[Upload V2] Both encryption detected, doubling WAL funding');
+        }
+
+        // Use the larger of buffered estimate or minimum
+        const walAmountMist = bufferedWalMist > minWalMist ? bufferedWalMist : minWalMist;
 
         console.log('[Upload V2] PTB Funding:', {
           estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
-          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (50x buffer)`,
+          bufferedWal: `${Number(bufferedWalMist) / 1_000_000_000} WAL (5x buffer)`,
+          minimumWal: `${Number(minWalMist) / 1_000_000_000} WAL (${estimatedSegments} segments${encryptionType === 'both' ? ' × 2 uploads' : ''})`,
+          finalWalAmount: `${Number(walAmountMist) / 1_000_000_000} WAL`,
           gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
-          segments: estimatedSegments,
+          segments: `${estimatedSegments} total (${videoSegments} video + ${initSegments} init)`,
+          encryptionType,
         });
 
         try {
