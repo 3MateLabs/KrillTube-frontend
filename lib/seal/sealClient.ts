@@ -9,6 +9,7 @@ import { SuiClient } from '@mysten/sui/client';
 import { SealClient, SessionKey } from '@mysten/seal';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { fromHex, toHex } from '@mysten/sui/utils';
+import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 // SEAL Key Server Object IDs and URLs
 // Mainnet: Using 1-of-1 threshold with Mirai open key server
@@ -39,11 +40,8 @@ export interface SealConfig {
  * Initialize a SEAL client for encryption/decryption operations
  */
 export function initializeSealClient(config: SealConfig): SealClient {
-  const suiClient = config.suiClient || new SuiClient({
-    url: config.network === 'mainnet'
-      ? 'https://fullnode.mainnet.sui.io'
-      : 'https://fullnode.testnet.sui.io',
-  });
+  // Use rate-limited SuiClient with automatic RPC endpoint rotation
+  const suiClient = config.suiClient || createSuiClientWithRateLimitHandling();
 
   const keyServers = SEAL_KEY_SERVERS[config.network];
 

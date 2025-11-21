@@ -26,6 +26,7 @@
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { WalrusClient } from '@mysten/walrus';
 import type { Signer } from '@mysten/sui/cryptography';
+import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 const DEFAULT_NETWORK = 'mainnet';
 const DEFAULT_EPOCHS = 50;
@@ -86,7 +87,8 @@ export function getMaxEpochs(network: 'testnet' | 'mainnet'): number {
  * 2. Direct Nodes: Browser-side fan-out, no tip but high network load
  */
 export function createWalrusClient(network: 'testnet' | 'mainnet' = DEFAULT_NETWORK) {
-  const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
+  // Use rate-limited SuiClient with automatic RPC endpoint rotation
+  const suiClient = createSuiClientWithRateLimitHandling();
 
   if (UPLOAD_RELAY_ENABLED) {
     return new WalrusClient({
@@ -261,6 +263,8 @@ export async function uploadQuiltWithWallet(
   const epochs = options?.epochs || DEFAULT_EPOCHS;
   const deletable = options?.deletable ?? true;
 
+  // For $extend pattern, use plain SuiClient (not rate-limited)
+  // Rate limiting is handled by WalrusClient constructor elsewhere
   const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
   const { Transaction } = await import('@mysten/sui/transactions');
   const { walrus } = await import('@mysten/walrus');
@@ -473,18 +477,32 @@ export async function uploadMultipleBlobsWithWallet(
         console.log(`[HTTP Upload] ✓ ${blob.identifier}: ${result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId}`);
       } catch (err) {
         console.error(`[HTTP Upload] Failed to upload ${blob.identifier}:`, err);
-        throw err;
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
+        // Detect insufficient balance errors and provide helpful message
+        if (
+          errorMessage.includes('InsufficientCoinBalance') ||
+          errorMessage.includes('could not automatically determine a budget') ||
+          errorMessage.includes('No valid gas coins found')
+        ) {
+          throw new Error(
+            `Insufficient SUI balance to upload ${blob.identifier}. ` +
+            `Please add SUI tokens to your wallet for gas fees. ` +
+            `Testnet: https://faucet.testnet.sui.io/ | Mainnet: Buy/transfer SUI to your wallet.`
+          );
+        }
+
+        throw new Error(`Failed to upload ${blob.identifier}: ${errorMessage}`);
       }
     }
 
     return results;
   }
 
-  const suiClient = new SuiClient({ url: getFullnodeUrl(network) });
+  // Use rate-limited SuiClient with WalrusClient constructor
+  const suiClient = createSuiClientWithRateLimitHandling();
+  const walrusClient = createWalrusClient(network);
   const { Transaction } = await import('@mysten/sui/transactions');
-  const { walrus } = await import('@mysten/walrus');
-
-  const walrusClient = suiClient.$extend(walrus({ network }));
 
   const results: Array<{
     identifier: string;
@@ -495,7 +513,12 @@ export async function uploadMultipleBlobsWithWallet(
 
   for (const blob of blobs) {
     try {
+      // Small delay between uploads to ensure blockchain state updates
+      // This prevents coin contention when segments upload sequentially
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Query WAL coins for EACH upload (coins change after each transaction)
+      console.log(`[Walrus SDK] Querying available WAL coins for ${blob.identifier}...`);
       const walCoins = await suiClient.getCoins({
         owner: ownerAddress,
         coinType: WAL_TOKEN_TYPE,
@@ -508,12 +531,12 @@ export async function uploadMultipleBlobsWithWallet(
       const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
       const primaryCoin = sortedCoins[0];
 
-      console.log(`[Walrus SDK] Uploading ${blob.identifier} with coin ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
+      console.log(`[Walrus SDK] Found ${walCoins.data.length} WAL coins, using ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL) for ${blob.identifier}`);
 
-      const encoded = await walrusClient.walrus.encodeBlob(blob.contents);
+      const encoded = await walrusClient.encodeBlob(blob.contents);
 
       const registerTxObj = new Transaction();
-      const registerTx = await walrusClient.walrus.registerBlobTransaction({
+      const registerTx = await walrusClient.registerBlobTransaction({
         transaction: registerTxObj,
         blobId: encoded.blobId,
         rootHash: encoded.rootHash,
@@ -534,7 +557,7 @@ export async function uploadMultipleBlobsWithWallet(
         },
       });
 
-      const blobType = await walrusClient.walrus.getBlobType();
+      const blobType = await walrusClient.getBlobType();
       const blobObjectChange = txDetails.objectChanges?.find(
         (obj: any) => obj.type === 'created' && obj.objectType === blobType
       ) as { objectId: string } | undefined;
@@ -543,7 +566,7 @@ export async function uploadMultipleBlobsWithWallet(
         throw new Error(`Blob object not found for ${blob.identifier}`);
       }
 
-      const confirmations = await walrusClient.walrus.writeEncodedBlobToNodes({
+      const confirmations = await walrusClient.writeEncodedBlobToNodes({
         blobId: encoded.blobId,
         metadata: encoded.metadata,
         sliversByNode: encoded.sliversByNode,
@@ -552,7 +575,7 @@ export async function uploadMultipleBlobsWithWallet(
       });
 
       const certifyTxObj = new Transaction();
-      const certifyTx = await walrusClient.walrus.certifyBlobTransaction({
+      const certifyTx = await walrusClient.certifyBlobTransaction({
         transaction: certifyTxObj,
         blobId: encoded.blobId,
         blobObjectId: blobObjectChange.objectId,
@@ -578,7 +601,22 @@ export async function uploadMultipleBlobsWithWallet(
         size: blob.contents.length,
       });
     } catch (error) {
-      throw new Error(`Failed to upload ${blob.identifier}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      // Detect insufficient balance errors and provide helpful message
+      if (
+        errorMessage.includes('InsufficientCoinBalance') ||
+        errorMessage.includes('could not automatically determine a budget') ||
+        errorMessage.includes('No valid gas coins found')
+      ) {
+        throw new Error(
+          `Insufficient SUI balance to upload ${blob.identifier}. ` +
+          `Please add SUI tokens to your wallet for gas fees. ` +
+          `Testnet: https://faucet.testnet.sui.io/ | Mainnet: Buy/transfer SUI to your wallet.`
+        );
+      }
+
+      throw new Error(`Failed to upload ${blob.identifier}: ${errorMessage}`);
     }
   }
 

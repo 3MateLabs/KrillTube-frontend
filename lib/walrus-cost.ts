@@ -4,13 +4,15 @@
 
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { walrus } from '@mysten/walrus';
+import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 const MIST_PER_SUI = 1_000_000_000;
 
 // Get network from environment
 const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet') as 'testnet' | 'mainnet';
 
-// Create Sui client with Walrus extension
+// For $extend pattern, use plain SuiClient (not rate-limited)
+// Rate limiting is handled by WalrusClient constructor elsewhere
 const suiClient = (new SuiClient({
   url: getFullnodeUrl(network),
 }) as any).extend(walrus({ network }));

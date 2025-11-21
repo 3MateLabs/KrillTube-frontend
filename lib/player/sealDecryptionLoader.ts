@@ -14,6 +14,7 @@ import { SEAL_CONFIG } from '@/lib/seal/config';
 import { SuiClient } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
+import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 export interface SealSegmentMetadata {
   segIdx: number;
@@ -67,8 +68,8 @@ export async function loadSealSegment(
     const encryptedData = new Uint8Array(await response.arrayBuffer());
     console.log('[SEAL Loader] Downloaded encrypted segment:', encryptedData.length, 'bytes');
 
-    // Step 2: Initialize SEAL client
-    const suiClient = new SuiClient({ url: SEAL_CONFIG.RPC_URL });
+    // Step 2: Initialize SEAL client with rate-limited RPC
+    const suiClient = createSuiClientWithRateLimitHandling();
     const sealClient = initializeSealClient({
       network: SEAL_CONFIG.NETWORK,
       packageId,
@@ -261,7 +262,7 @@ export async function checkSealAccess(
   userAddress: string
 ): Promise<boolean> {
   const packageId = SEAL_CONFIG.PACKAGE_ID;
-  const suiClient = new SuiClient({ url: SEAL_CONFIG.RPC_URL });
+  const suiClient = createSuiClientWithRateLimitHandling();
 
   try {
     // Use devInspectTransactionBlock to check subscription status

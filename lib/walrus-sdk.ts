@@ -7,6 +7,7 @@ import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import type { Signer } from '@mysten/sui/cryptography';
 import { readFile } from 'fs/promises';
+import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 // Get configuration from environment
 const network = (process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet') as 'testnet' | 'mainnet';
@@ -22,6 +23,8 @@ async function getSuiWalrusClient() {
     // Import walrus dynamically to avoid loading WASM during module init
     const { walrus } = await import('@mysten/walrus');
 
+    // For $extend pattern, use plain SuiClient (not rate-limited)
+    // Rate limiting is handled by WalrusClient constructor elsewhere
     _suiWalrusClient = (new SuiClient({
       url: suiRpcUrl,
     }) as any).extend(walrus({ network }));
@@ -345,7 +348,8 @@ export interface DeleteBlobOptions {
  */
 export async function getBlobMetadata(blobObjectId: string): Promise<WalrusBlobMetadata> {
   try {
-    const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+    // Use rate-limited SuiClient with automatic RPC endpoint rotation
+    const suiClient = createSuiClientWithRateLimitHandling();
     const blobObject = await suiClient.getObject({
       id: blobObjectId,
       options: { showContent: true },

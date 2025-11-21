@@ -10,6 +10,7 @@ import { coinWithBalance as suiCoinWithBalance, Transaction as SuiTransaction } 
 import { coinWithBalance as iotaCoinWithBalance, Transaction as IotaTransaction } from '@iota/iota-sdk/transactions';
 import { SuiClient } from '@mysten/sui/client';
 import { IotaClient } from '@iota/iota-sdk/client';
+import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 export interface ProcessPaymentParams {
   network: 'sui' | 'iota';
@@ -50,7 +51,8 @@ export async function processPayment({
 
     console.log('[processPayment] SUI Config:', { tunnelPackageId, coinType, rpcUrl });
 
-    const client = new SuiClient({ url: rpcUrl });
+    // Use rate-limited SuiClient with automatic RPC endpoint rotation
+    const client = createSuiClientWithRateLimitHandling();
 
     // Fetch user's coins
     console.log('[processPayment] Fetching SUI coins for user:', userAddress);
