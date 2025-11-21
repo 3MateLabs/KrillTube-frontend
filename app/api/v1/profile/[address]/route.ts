@@ -6,6 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { cookies } from 'next/headers';
+import { SuiClient } from '@mysten/sui/client';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { fromHex } from '@mysten/sui/utils';
+import { createChannel, suiToMist } from '@/lib/seal';
+import { SEAL_CONFIG, isSealConfigured } from '@/lib/seal/config';
 
 /**
  * GET /api/v1/profile/[address]
@@ -87,6 +92,7 @@ export async function GET(
       subscriberCount: creator._count.subscriptions,
       channelPrice: creator.channelPrice,
       channelChain: creator.channelChain,
+      sealObjectId: creator.sealObjectId,
     };
 
     return NextResponse.json({
@@ -162,6 +168,65 @@ export async function PUT(
       );
     }
 
+    // Get existing creator to check if channel needs to be created
+    const existingCreator = await prisma.creator.findUnique({
+      where: { walletAddress: address },
+    });
+
+    let sealObjectId = existingCreator?.sealObjectId || null;
+
+    // If creator is setting a subscription price and doesn't have a channel yet
+    if (channelPrice?.trim() && !sealObjectId && isSealConfigured()) {
+      try {
+        console.log('[Profile API] Creating on-chain channel for creator:', address);
+
+        // Initialize Sui client
+        const suiClient = new SuiClient({ url: SEAL_CONFIG.RPC_URL });
+
+        // Use operator keypair to create channel on behalf of creator
+        // Handle both bech32 (suiprivkey1...) and hex (0x...) formats
+        let operatorKeypair: Ed25519Keypair;
+        const privateKey = SEAL_CONFIG.OPERATOR_PRIVATE_KEY!;
+
+        if (privateKey.startsWith('suiprivkey')) {
+          // Bech32 format - use decodeSuiPrivateKey
+          operatorKeypair = Ed25519Keypair.fromSecretKey(privateKey);
+        } else {
+          // Hex format - use fromHex
+          operatorKeypair = Ed25519Keypair.fromSecretKey(fromHex(privateKey));
+        }
+
+        // Log operator address for funding (can remove after funding)
+        const operatorAddress = operatorKeypair.toSuiAddress();
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('🔑 OPERATOR WALLET ADDRESS (fund with SUI for gas):');
+        console.log('   ', operatorAddress);
+        console.log('═══════════════════════════════════════════════════════');
+
+        // Convert SUI price to MIST
+        const priceInMist = suiToMist(parseFloat(channelPrice.trim()));
+
+        // Create on-chain channel
+        const { channelId, digest } = await createChannel(
+          SEAL_CONFIG.PACKAGE_ID,
+          {
+            name: name.trim(),
+            description: bio?.trim() || `${name.trim()}'s Channel`,
+            subscriptionPrice: priceInMist,
+          },
+          operatorKeypair,
+          suiClient
+        );
+
+        console.log('[Profile API] Channel created:', channelId, 'tx:', digest);
+        sealObjectId = channelId;
+      } catch (error) {
+        console.error('[Profile API] Failed to create channel:', error);
+        // Don't fail the entire profile update if channel creation fails
+        // User can try again later or admin can fix manually
+      }
+    }
+
     // Update or create creator profile
     const updatedCreator = await prisma.creator.upsert({
       where: { walletAddress: address },
@@ -172,6 +237,7 @@ export async function PUT(
         channelPrice: channelPrice?.trim() || null,
         channelChain: channelPrice?.trim() ? 'sui' : null,
         channelCoinType: channelPrice?.trim() ? '0x2::sui::SUI' : null,
+        sealObjectId: sealObjectId,
       },
       create: {
         walletAddress: address,
@@ -181,6 +247,7 @@ export async function PUT(
         channelPrice: channelPrice?.trim() || null,
         channelChain: channelPrice?.trim() ? 'sui' : null,
         channelCoinType: channelPrice?.trim() ? '0x2::sui::SUI' : null,
+        sealObjectId: sealObjectId,
       },
     });
 
