@@ -15,11 +15,18 @@ import { calculateStorageCost } from '@/lib/server-walrus-sdk';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { fileSizeMB, qualities, epochs = 1, network = 'mainnet' } = body as {
+    const {
+      fileSizeMB,
+      qualities,
+      epochs = 1,
+      network = 'mainnet',
+      encryptionType = 'per-video'
+    } = body as {
       fileSizeMB: number;
       qualities: string[];
       epochs?: number;
       network?: 'mainnet' | 'testnet';
+      encryptionType?: 'per-video' | 'subscription-acl' | 'both';
     };
 
     if (!fileSizeMB || !qualities || qualities.length === 0) {
@@ -58,10 +65,13 @@ export async function POST(request: NextRequest) {
       epochs,
     });
 
-    // Convert from MIST to WAL
-    const totalCostWal = Number(cost.totalCost) / 1_000_000_000;
-    const storageCostWal = Number(cost.storageCost) / 1_000_000_000;
-    const writeCostWal = Number(cost.writeCost) / 1_000_000_000;
+    // Apply multiplier for 'both' encryption type (uploads twice: DEK + SEAL)
+    const costMultiplier = encryptionType === 'both' ? 2 : 1;
+
+    // Convert from MIST to WAL and apply multiplier
+    const totalCostWal = (Number(cost.totalCost) / 1_000_000_000) * costMultiplier;
+    const storageCostWal = (Number(cost.storageCost) / 1_000_000_000) * costMultiplier;
+    const writeCostWal = (Number(cost.writeCost) / 1_000_000_000) * costMultiplier;
 
     // Get USD price
     const walPrice = await getCachedWalPrice();
@@ -70,7 +80,8 @@ export async function POST(request: NextRequest) {
     const writeUsd = walToUsd(writeCostWal, walPrice);
 
     console.log(`[API Estimate Cost] File: ${fileSizeMB.toFixed(2)} MB, Qualities: ${qualities.join(', ')}, Epochs: ${epochs}, Network: ${network}`);
-    console.log(`[API Estimate Cost] Estimated storage: ${totalStorageMB.toFixed(2)} MB (${totalStorageBytes} bytes)`);
+    console.log(`[API Estimate Cost] Encryption: ${encryptionType}${costMultiplier > 1 ? ` (${costMultiplier}x for sequential dual upload)` : ''}`);
+    console.log(`[API Estimate Cost] Estimated storage: ${totalStorageMB.toFixed(2)} MB (${totalStorageBytes} bytes)${costMultiplier > 1 ? ' per upload' : ''}`);
     console.log(`[API Estimate Cost] Walrus SDK cost: ${totalCostWal.toFixed(6)} WAL (~${formatUsd(totalUsd)})`);
     console.log(`[API Estimate Cost] Breakdown: Storage=${storageCostWal.toFixed(6)} WAL, Write=${writeCostWal.toFixed(6)} WAL`);
 
@@ -90,25 +101,27 @@ export async function POST(request: NextRequest) {
       estimate: {
         totalWal: totalCostWal.toFixed(6),
         totalUsd: formatSmallUsd(totalUsd),
-        totalMist: cost.totalCost.toString(),
+        totalMist: (BigInt(cost.totalCost) * BigInt(costMultiplier)).toString(),
         storageMB: totalStorageMB.toFixed(2),
         epochs,
         network,
+        encryptionType,
+        costMultiplier,
         breakdown: {
           storage: {
             wal: storageCostWal.toFixed(6),
             usd: formatSmallUsd(storageUsd),
-            mist: cost.storageCost.toString(),
+            mist: (BigInt(cost.storageCost) * BigInt(costMultiplier)).toString(),
           },
           write: {
             wal: writeCostWal.toFixed(6),
             usd: formatSmallUsd(writeUsd),
-            mist: cost.writeCost.toString(),
+            mist: (BigInt(cost.writeCost) * BigInt(costMultiplier)).toString(),
           },
         },
         walPriceUsd: walPrice,
         // Note: This uses estimated transcoded size - actual size may vary
-        note: 'Cost calculated using empirical Walrus pricing formula (Jan 2025). Includes erasure coding expansion. Add 50x buffer for safety.',
+        note: `Cost calculated using measured Walrus pricing from real uploads (Jan 2025). Formula: ~0.05 WAL/MB including all fees.${costMultiplier > 1 ? ` Total cost is ${costMultiplier}x due to sequential dual upload (DEK + SEAL).` : ''} Actual cost shown is accurate estimate.`,
       },
     });
   } catch (error) {
