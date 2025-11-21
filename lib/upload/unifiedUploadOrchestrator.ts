@@ -131,43 +131,53 @@ export async function uploadVideoUnified(
     }
 
     case 'both': {
-      // Both DEK and SEAL in parallel
+      // Both DEK and SEAL sequentially to avoid coin contention
       console.log('[Unified Upload] Using BOTH (DEK + SEAL) encryption');
       onProgress?.({
         stage: 'encrypting',
         percent: 30,
-        message: 'Starting parallel encryption (DEK + SEAL)...',
+        message: 'Starting DEK encryption...',
       });
 
-      // Run both uploads in parallel
-      const [dekResult, sealResult] = await Promise.all([
-        uploadVideoClientSide(file, qualities, signAndExecute, walletAddress, {
-          network,
-          epochs,
-          onProgress: (progress) => {
-            // Adjust progress for DEK path (30-65%)
-            const adjustedPercent = 30 + ((progress.percent - 30) / 70) * 35;
-            onProgress?.({
-              ...progress,
-              percent: adjustedPercent,
-              message: `[DEK] ${progress.message}`,
-            });
-          },
-        }),
-        uploadVideoWithSEAL(transcoded, creatorSealObjectId!, qualities, signAndExecute, walletAddress, {
-          network,
-          epochs,
-          onProgress: (progress) => {
-            // Adjust progress for SEAL path (30-65%)
-            const adjustedPercent = 30 + ((progress.percent - 30) / 70) * 35;
-            onProgress?.({
-              ...progress,
-              percent: adjustedPercent,
-              message: `[SEAL] ${progress.message}`,
-            });
-          },
-        }),
-      ]);
+      // Run DEK upload first
+      console.log('[Unified Upload] Step 1/2: Uploading DEK version...');
+      const dekResult = await uploadVideoClientSide(file, qualities, signAndExecute, walletAddress, {
+        network,
+        epochs,
+        onProgress: (progress) => {
+          // Adjust progress for DEK path (30-50%)
+          const adjustedPercent = 30 + ((progress.percent - 30) / 70) * 20;
+          onProgress?.({
+            ...progress,
+            percent: adjustedPercent,
+            message: `[DEK] ${progress.message}`,
+          });
+        },
+      });
+
+      console.log('[Unified Upload] ✓ DEK upload complete:', dekResult.videoId);
+
+      // Then run SEAL upload
+      onProgress?.({
+        stage: 'encrypting',
+        percent: 50,
+        message: 'Starting SEAL encryption...',
+      });
+
+      console.log('[Unified Upload] Step 2/2: Uploading SEAL version...');
+      const sealResult = await uploadVideoWithSEAL(transcoded, creatorSealObjectId!, qualities, signAndExecute, walletAddress, {
+        network,
+        epochs,
+        onProgress: (progress) => {
+          // Adjust progress for SEAL path (50-100%)
+          const adjustedPercent = 50 + ((progress.percent - 30) / 70) * 50;
+          onProgress?.({
+            ...progress,
+            percent: adjustedPercent,
+            message: `[SEAL] ${progress.message}`,
+          });
+        },
+      });
 
       result.dekUpload = dekResult;
       result.sealUpload = sealResult;

@@ -206,6 +206,10 @@ export async function uploadVideoWithSEAL(
     blobObjectId: string;
   }> = [];
 
+  // Declare poster variables outside try block so they're accessible throughout
+  let posterBlobId: string | undefined;
+  let posterBlobObjectId: string | undefined;
+
   try {
     // Upload segments in parallel batches
     const PARALLEL_BATCHES = 4;
@@ -238,23 +242,21 @@ export async function uploadVideoWithSEAL(
         message: `Uploading SEAL segments ${i + 1}-${Math.min(i + TOTAL_BATCH_SIZE, blobsToUpload.length)}/${blobsToUpload.length}...`,
       });
 
-      console.log(`[SEAL Upload] Starting ${parallelBatches.length} parallel uploads...`);
+      // Upload batches sequentially to avoid coin contention
+      console.log(`[SEAL Upload] Starting ${parallelBatches.length} sequential batch uploads...`);
 
-      const allResults = await Promise.all(
-        parallelBatches.map((batch, idx) => {
-          console.log(`[SEAL Upload] Batch ${idx + 1}: Uploading ${batch.length} segments...`);
-          return uploadMultipleBlobsWithWallet(batch, signAndExecute, walletAddress, {
-            network,
-            epochs,
-            deletable: true,
-          });
-        })
-      );
+      for (let batchIdx = 0; batchIdx < parallelBatches.length; batchIdx++) {
+        const batch = parallelBatches[batchIdx];
+        console.log(`[SEAL Upload] Batch ${batchIdx + 1}/${parallelBatches.length}: Uploading ${batch.length} segments...`);
 
-      // Flatten results
-      allResults.forEach((results) => {
+        const results = await uploadMultipleBlobsWithWallet(batch, signAndExecute, walletAddress, {
+          network,
+          epochs,
+          deletable: true,
+        });
+
         segmentUploadResults.push(...results);
-      });
+      }
 
       // Free segment data
       const uploadedCount = parallelBatches.reduce((sum, b) => sum + b.length, 0);
@@ -267,8 +269,6 @@ export async function uploadVideoWithSEAL(
     }
 
     // Upload poster if exists
-    let posterBlobId: string | undefined;
-    let posterBlobObjectId: string | undefined;
     if (transcoded.poster) {
       console.log(`[SEAL Upload] Uploading poster...`);
       const posterResults = await uploadMultipleBlobsWithWallet(

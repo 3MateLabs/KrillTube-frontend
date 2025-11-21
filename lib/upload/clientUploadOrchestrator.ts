@@ -282,28 +282,26 @@ export async function uploadVideoClientSide(
         message: `Uploading segments ${i + 1}-${Math.min(i + TOTAL_BATCH_SIZE, blobsToUpload.length)}/${blobsToUpload.length} (${parallelBatches.length}x parallel)...`,
       });
 
-      // Upload all batches in parallel
-      console.log(`[Upload] Starting ${parallelBatches.length} parallel uploads...`);
-      const allResults = await Promise.all(
-        parallelBatches.map((batch, idx) => {
-          console.log(`[Upload] Batch ${idx + 1}: Uploading ${batch.length} segments...`);
-          return uploadMultipleBlobsWithWallet(
-            batch,
-            signAndExecute,
-            walletAddress,
-            {
-              network,
-              epochs,
-              deletable: true,
-            }
-          );
-        })
-      );
+      // Upload batches sequentially to avoid coin contention
+      // (parallel uploads try to use the same WAL coins simultaneously)
+      console.log(`[Upload] Starting ${parallelBatches.length} sequential batch uploads...`);
+      for (let batchIdx = 0; batchIdx < parallelBatches.length; batchIdx++) {
+        const batch = parallelBatches[batchIdx];
+        console.log(`[Upload] Batch ${batchIdx + 1}/${parallelBatches.length}: Uploading ${batch.length} segments...`);
 
-      // Flatten results from all parallel uploads
-      allResults.forEach((results) => {
+        const results = await uploadMultipleBlobsWithWallet(
+          batch,
+          signAndExecute,
+          walletAddress,
+          {
+            network,
+            epochs,
+            deletable: true,
+          }
+        );
+
         segmentUploadResults.push(...results);
-      });
+      }
 
       // Free segment data after upload
       const uploadedCount = parallelBatches.reduce((sum, b) => sum + b.length, 0);
