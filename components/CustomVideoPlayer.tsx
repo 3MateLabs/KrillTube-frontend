@@ -7,11 +7,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useEncryptedVideo } from '@/lib/player/useEncryptedVideo';
+import { useSealVideo } from '@/lib/player/useSealVideo';
 import Hls from 'hls.js';
 import Image from 'next/image';
 import { useWalletContext } from '@/lib/context/WalletContext';
 import { PaymentModal } from './modals/PaymentModal';
 import { NoKrillModal } from './modals/NoKrillModal';
+import { SubscriptionPrompt } from './modals/SubscriptionPrompt';
 import { ChainSelector } from './wallet/ChainSelector';
 import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
@@ -25,6 +27,13 @@ export interface CustomVideoPlayerProps {
   title?: string;
   autoplay?: boolean;
   className?: string;
+  // SEAL encryption props
+  encryptionType?: 'per-video' | 'subscription-acl' | 'both';
+  channelId?: string; // Creator's SEAL channel ID
+  creatorAddress?: string;
+  creatorName?: string;
+  channelPrice?: string;
+  channelChain?: string;
 }
 
 export function CustomVideoPlayer({
@@ -34,32 +43,53 @@ export function CustomVideoPlayer({
   title,
   autoplay = false,
   className = '',
+  encryptionType = 'per-video',
+  channelId,
+  creatorAddress,
+  creatorName,
+  channelPrice,
+  channelChain,
 }: CustomVideoPlayerProps) {
-  const {
-    videoRef,
-    isLoading,
-    isPlaying,
-    error,
-    session,
-    play,
-    pause,
-    hlsInstance,
-  } = useEncryptedVideo({
+  // Subscription state
+  const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+
+  // Determine which video hook to use based on encryption type
+  // Note: SEAL playback requires custom HLS loader implementation
+  // For now, we use DEK for all videos and show subscription prompt for non-subscribers
+  const shouldUseSeal = false; // TODO: Implement SEAL HLS loader for full SEAL support
+
+  // Use DEK hook for video playback
+  // Note: For subscription-only videos, we'll check subscription status separately
+  const dekHook = useEncryptedVideo({
     videoId,
     videoUrl,
     network,
     autoplay,
     onReady: () => {
-      console.log('Video ready to play');
+      console.log('[DEK] Video ready to play');
     },
     onError: (err) => {
-      console.error('Video error:', err);
+      console.error('[DEK] Video error:', err);
     },
     onSessionExpired: () => {
-      console.error('Session expired - please refresh');
+      console.error('[DEK] Session expired - please refresh');
       alert('Your session has expired. Please refresh the page.');
     },
   });
+
+  const {
+    videoRef,
+    isLoading,
+    isPlaying,
+    error,
+    play,
+    pause,
+  } = dekHook;
+
+  // Extract hook-specific values
+  const session = dekHook.session;
+  const hlsInstance = dekHook.hlsInstance;
 
   // Wallet connection check
   const { isConnected, address, chain } = useWalletContext();
@@ -70,6 +100,64 @@ export function CustomVideoPlayer({
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false); // Start hidden, check payment first
   const [checkingPayment, setCheckingPayment] = useState(true); // Loading state for payment check
+
+  // Check subscription status for 'subscription-acl' and 'both' encryption types
+  useEffect(() => {
+    const checkSubscription = async () => {
+      // Skip if not subscription-based video
+      if (encryptionType !== 'both' && encryptionType !== 'subscription-acl') {
+        setIsSubscribed(null);
+        return;
+      }
+
+      // Skip if no creator address or user not connected
+      if (!creatorAddress || !address) {
+        setIsSubscribed(false);
+
+        // Show subscription prompt for subscription-only videos
+        if (encryptionType === 'subscription-acl') {
+          setShowSubscriptionPrompt(true);
+        }
+        return;
+      }
+
+      try {
+        console.log('[CustomVideoPlayer] Checking subscription status for creator:', creatorAddress);
+        const response = await fetch(`/api/v1/profile/${creatorAddress}`);
+
+        if (!response.ok) {
+          console.error('[CustomVideoPlayer] Failed to check subscription');
+          setIsSubscribed(false);
+
+          // Show subscription prompt if not subscribed to subscription-only video
+          if (encryptionType === 'subscription-acl') {
+            setShowSubscriptionPrompt(true);
+          }
+          return;
+        }
+
+        const data = await response.json();
+        const subscribed = data.isSubscribed || false;
+        setIsSubscribed(subscribed);
+        console.log('[CustomVideoPlayer] Subscription status:', subscribed);
+
+        // Show subscription prompt if not subscribed to subscription-only video
+        if (encryptionType === 'subscription-acl' && !subscribed) {
+          setShowSubscriptionPrompt(true);
+        }
+      } catch (error) {
+        console.error('[CustomVideoPlayer] Error checking subscription:', error);
+        setIsSubscribed(false);
+
+        // Show subscription prompt if error checking subscription-only video
+        if (encryptionType === 'subscription-acl') {
+          setShowSubscriptionPrompt(true);
+        }
+      }
+    };
+
+    checkSubscription();
+  }, [encryptionType, creatorAddress, address]);
 
   // No Krill modal state
   const [showNoKrillModal, setShowNoKrillModal] = useState(false);
@@ -109,9 +197,23 @@ export function CustomVideoPlayer({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Check if user has already paid for this video
+  // Check if user has already paid for this video (only for DEK videos)
   useEffect(() => {
     const checkPaymentStatus = async () => {
+      // Skip payment check for subscription-only videos
+      if (encryptionType === 'subscription-acl') {
+        console.log('[CustomVideoPlayer] Subscription-only video - skipping payment check');
+        setCheckingPayment(false);
+        return;
+      }
+
+      // For 'both' type, skip if user is subscribed
+      if (encryptionType === 'both' && isSubscribed === true) {
+        console.log('[CustomVideoPlayer] User is subscribed - skipping payment check');
+        setCheckingPayment(false);
+        return;
+      }
+
       if (!videoId) {
         setCheckingPayment(false);
         return;
@@ -157,7 +259,7 @@ export function CustomVideoPlayer({
     };
 
     checkPaymentStatus();
-  }, [videoId, address, chain, play]);
+  }, [videoId, address, chain, encryptionType, isSubscribed, play]);
 
   // Fetch creator configs for both payment methods
   useEffect(() => {
@@ -576,6 +678,18 @@ export function CustomVideoPlayer({
               setShowPaymentModal(true);
             }}
             onGetDemoTokens={handleGetDemoTokens}
+          />
+        )}
+
+        {/* Subscription Prompt - Shows when user tries to watch subscriber-only content */}
+        {showSubscriptionPrompt && isConnected && (
+          <SubscriptionPrompt
+            isOpen={showSubscriptionPrompt}
+            onClose={() => setShowSubscriptionPrompt(false)}
+            creatorName={creatorName || 'Creator'}
+            creatorAddress={creatorAddress || ''}
+            channelPrice={channelPrice}
+            channelChain={channelChain}
           />
         )}
 
