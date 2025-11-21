@@ -110,6 +110,7 @@ export default function LibraryPage() {
                   title={asset.title}
                   thumbnail={asset.posterUrl}
                   creator={`${asset.creatorId.slice(0, 6)}...${asset.creatorId.slice(-4)}`}
+                  creatorAddress={asset.creatorId}
                   uploadedAt={asset.createdAt}
                   variant="default"
                 />

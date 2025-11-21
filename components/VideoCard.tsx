@@ -10,6 +10,8 @@ interface VideoCardProps {
   title: string;
   thumbnail?: string;
   creator?: string;
+  creatorAddress?: string;
+  creatorAvatar?: string;
   duration?: string;
   views?: number;
   uploadedAt?: Date | string;
@@ -22,6 +24,8 @@ export function VideoCard({
   title,
   thumbnail,
   creator = 'Anonymous',
+  creatorAddress,
+  creatorAvatar,
   duration,
   views,
   uploadedAt,
@@ -71,7 +75,36 @@ export function VideoCard({
               {title}
             </h3>
             <div className="flex items-center gap-3 text-sm text-white/90">
-              <span className="font-medium">{creator}</span>
+              <div className="flex items-center gap-2">
+                {/* Creator Avatar */}
+                <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-white/20">
+                  {creatorAvatar ? (
+                    <img
+                      src={creatorAvatar}
+                      alt={creator}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-walrus-mint to-walrus-grape">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                {/* Creator Name */}
+                {creatorAddress ? (
+                  <Link
+                    href={`/profile/${creatorAddress}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="font-medium hover:underline"
+                  >
+                    {creator}
+                  </Link>
+                ) : (
+                  <span className="font-medium">{creator}</span>
+                )}
+              </div>
               <span>•</span>
               <span>{formattedViews}</span>
             </div>
@@ -131,7 +164,36 @@ export function VideoCard({
             {title}
           </h4>
           <div className="flex flex-col gap-1 text-xs text-text-muted">
-            <span>{creator}</span>
+            <div className="flex items-center gap-2">
+              {/* Creator Avatar */}
+              <div className="w-5 h-5 rounded-full overflow-hidden flex-shrink-0">
+                {creatorAvatar ? (
+                  <img
+                    src={creatorAvatar}
+                    alt={creator}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-walrus-mint to-walrus-grape">
+                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              {/* Creator Name */}
+              {creatorAddress ? (
+                <Link
+                  href={`/profile/${creatorAddress}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="hover:text-walrus-mint transition-colors truncate"
+                >
+                  {creator}
+                </Link>
+              ) : (
+                <span>{creator}</span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <span>{formattedViews}</span>
               <span>•</span>
@@ -182,7 +244,38 @@ export function VideoCard({
           {title}
         </h3>
         <div className="space-y-1">
-          <div className="text-sm text-text-muted truncate">{creator}</div>
+          <div className="flex items-center gap-2">
+            {/* Creator Avatar */}
+            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+              {creatorAvatar ? (
+                <img
+                  src={creatorAvatar}
+                  alt={creator}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-walrus-mint to-walrus-grape">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            {/* Creator Name */}
+            <div className="flex-1 min-w-0">
+              {creatorAddress ? (
+                <Link
+                  href={`/profile/${creatorAddress}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-sm text-text-muted hover:text-walrus-mint transition-colors truncate block"
+                >
+                  {creator}
+                </Link>
+              ) : (
+                <div className="text-sm text-text-muted truncate">{creator}</div>
+              )}
+            </div>
+          </div>
           <div className="flex items-center gap-1.5 text-sm text-text-muted">
             <span>{formattedViews}</span>
             <span>•</span>

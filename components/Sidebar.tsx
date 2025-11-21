@@ -22,28 +22,63 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
   const showText = !isCollapsed || isHovered;
 
   // Fetch user profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!address) {
-        setUserProfile(null);
-        return;
-      }
+  const fetchProfile = async () => {
+    if (!address) {
+      setUserProfile(null);
+      return;
+    }
 
-      try {
-        const response = await fetch(`/api/v1/profile/${address}`);
-        if (response.ok) {
-          const data = await response.json();
-          setUserProfile({
-            name: data.profile.name,
-            avatar: data.profile.avatar,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch profile:', error);
+    try {
+      const response = await fetch(`/api/v1/profile/${address}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile({
+          name: data.profile.name,
+          avatar: data.profile.avatar,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
+    }
+  };
+
+  // Initial fetch when address changes
+  useEffect(() => {
+    fetchProfile();
+  }, [address]);
+
+  // Refetch profile when navigating (especially from edit page)
+  useEffect(() => {
+    if (address && pathname) {
+      // Refetch when navigating to profile or away from edit page
+      if (pathname.startsWith('/profile/') || pathname === '/') {
+        fetchProfile();
+      }
+    }
+  }, [pathname, address]);
+
+  // Refetch profile when window regains focus (in case user edited in another tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (address) {
+        fetchProfile();
       }
     };
 
-    fetchProfile();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [address]);
+
+  // Listen for profile update events (triggered from edit page)
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      if (address) {
+        fetchProfile();
+      }
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
   }, [address]);
 
   // Get display name: profile name > shortened address

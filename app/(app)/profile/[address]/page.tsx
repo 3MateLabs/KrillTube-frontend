@@ -288,6 +288,8 @@ export default function ProfilePage() {
                 title={video.title}
                 thumbnail={video.posterWalrusUri || undefined}
                 creator={profile.name}
+                creatorAddress={profile.walletAddress}
+                creatorAvatar={profile.avatar || undefined}
                 uploadedAt={video.createdAt}
                 duration={video.duration?.toString() || undefined}
                 variant="default"

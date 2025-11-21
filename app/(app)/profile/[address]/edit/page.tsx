@@ -138,6 +138,9 @@ export default function EditProfilePage() {
         throw new Error(data.error || 'Failed to update profile');
       }
 
+      // Dispatch custom event to notify sidebar to refresh
+      window.dispatchEvent(new Event('profileUpdated'));
+
       // Redirect to profile page on success
       router.push(`/profile/${address}`);
     } catch (err) {

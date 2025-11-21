@@ -11,6 +11,7 @@ export default function WatchPage() {
   const videoId = params.id as string;
 
   const [video, setVideo] = useState<any | null>(null);
+  const [creator, setCreator] = useState<any | null>(null);
   const [allVideos, setAllVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,20 @@ export default function WatchPage() {
 
         if (videoData.video) {
           setVideo(videoData.video);
+
+          // Fetch creator profile data
+          if (videoData.video.creatorId) {
+            try {
+              const creatorResponse = await fetch(`/api/v1/profile/${videoData.video.creatorId}`);
+              if (creatorResponse.ok) {
+                const creatorData = await creatorResponse.json();
+                setCreator(creatorData.profile);
+              }
+            } catch (err) {
+              console.error('Error fetching creator profile:', err);
+              // Continue even if creator fetch fails
+            }
+          }
         } else {
           setError('Video not available');
           setLoading(false);
@@ -198,15 +213,45 @@ export default function WatchPage() {
           <div className="flex-1 max-w-[970px]">
             <div className="w-full inline-flex justify-between items-center">
               <div className="flex justify-start items-center gap-4">
-                {/* Profile Picture */}
-                <div className="w-16 h-16 relative">
-                  <Image className="w-16 h-16 rounded-full border-2 border-black object-cover" src="/logos/eason.svg" alt="Creator" width={64} height={64} />
-                </div>
+                {/* Profile Picture - Clickable */}
+                {creator ? (
+                  <Link href={`/profile/${video.creatorId}`} className="w-16 h-16 relative block">
+                    {creator.avatar ? (
+                      <img
+                        className="w-16 h-16 rounded-full border-2 border-black object-cover"
+                        src={creator.avatar}
+                        alt={creator.name}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full border-2 border-black bg-gradient-to-br from-walrus-mint to-walrus-grape flex items-center justify-center">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                    )}
+                  </Link>
+                ) : (
+                  <div className="w-16 h-16 rounded-full border-2 border-black bg-gradient-to-br from-walrus-mint to-walrus-grape flex items-center justify-center">
+                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                )}
 
-                {/* Name and Subscribers */}
+                {/* Name and Subscribers - Clickable */}
                 <div className="flex flex-col justify-start items-start gap-1">
-                  <div className="text-black text-xl font-bold font-['Outfit']">{video.title}</div>
-                  <div className="text-black text-sm font-normal font-['Outfit']">834 Subscribers</div>
+                  {creator ? (
+                    <Link href={`/profile/${video.creatorId}`} className="text-black text-xl font-bold font-['Outfit'] hover:text-walrus-grape transition-colors">
+                      {creator.name}
+                    </Link>
+                  ) : (
+                    <div className="text-black text-xl font-bold font-['Outfit']">
+                      {video.creatorId ? `${video.creatorId.slice(0, 6)}...${video.creatorId.slice(-4)}` : 'Anonymous'}
+                    </div>
+                  )}
+                  <div className="text-black text-sm font-normal font-['Outfit']">
+                    {creator ? `${creator.subscriberCount} ${creator.subscriberCount === 1 ? 'Subscriber' : 'Subscribers'}` : '0 Subscribers'}
+                  </div>
                 </div>
 
                 {/* Subscribe Button */}
