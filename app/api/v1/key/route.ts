@@ -108,36 +108,75 @@ export async function GET(request: NextRequest) {
 
     console.log('[Key API] ✓ Signature verified');
 
-    // Step 2: Check if user has paid for this video and segment
-    const paymentInfo = await prisma.videoPaymentInfo.findFirst({
-      where: {
-        videoId,
-        payerAddress: address,
-        chain,
+    // Step 2: Get video info to check encryption type
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+      select: {
+        id: true,
+        encryptionType: true,
+        creatorId: true,
       },
     });
 
-    if (!paymentInfo) {
-      console.log('[Key API] No payment found for user:', address);
+    if (!video) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    }
+
+    console.log(`[Key API] Video encryption type: ${video.encryptionType}`);
+
+    // Step 3: Check access based on encryption type
+    let hasAccess = false;
+
+    if (video.encryptionType === 'subscription-acl' || video.encryptionType === 'both') {
+      // Check if user has subscription to the creator
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          subscriberAddress: address,
+          creator: {
+            walletAddress: video.creatorId,
+          },
+          chain,
+        },
+      });
+
+      if (subscription) {
+        console.log('[Key API] ✓ User has active subscription');
+        hasAccess = true;
+      } else {
+        console.log('[Key API] No subscription found for creator:', video.creatorId);
+      }
+    }
+
+    if (video.encryptionType === 'per-video' || video.encryptionType === 'both') {
+      // Check if user has paid for this specific video
+      const paymentInfo = await prisma.videoPaymentInfo.findFirst({
+        where: {
+          videoId,
+          payerAddress: address,
+          chain,
+        },
+      });
+
+      if (paymentInfo && paymentInfo.paidSegmentIds.includes(segIdx)) {
+        console.log('[Key API] ✓ User has paid for this video segment');
+        hasAccess = true;
+      } else if (!hasAccess) {
+        console.log('[Key API] No payment found for video segment');
+      }
+    }
+
+    if (!hasAccess) {
+      console.log('[Key API] Access denied - no payment or subscription found');
       return NextResponse.json(
-        { error: 'Payment required. Please pay to access this video.' },
+        { error: 'Payment required. Please pay to access this video or subscribe to the creator.' },
         { status: 401 }
       );
     }
 
-    // Check if user has access to this segment index
-    if (!paymentInfo.paidSegmentIds.includes(segIdx)) {
-      console.log('[Key API] User has not paid for segment:', segIdx);
-      return NextResponse.json(
-        { error: `Access denied. You have not paid for segment ${segIdx}.` },
-        { status: 401 }
-      );
-    }
+    console.log('[Key API] ✓ Access granted for segment:', segIdx);
 
-    console.log('[Key API] ✓ Payment verified for segment:', segIdx);
-
-    // Step 3: Find video and segment
-    const video = await prisma.video.findUnique({
+    // Step 4: Find video rendition and segment
+    const videoWithSegments = await prisma.video.findUnique({
       where: { id: videoId },
       include: {
         renditions: {
@@ -151,19 +190,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!video) {
+    if (!videoWithSegments) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
     // Verify rendition exists
-    if (!video.renditions || video.renditions.length === 0) {
+    if (!videoWithSegments.renditions || videoWithSegments.renditions.length === 0) {
       return NextResponse.json(
         { error: `Rendition ${rendition} not found` },
         { status: 404 }
       );
     }
 
-    const videoRendition = video.renditions[0];
+    const videoRendition = videoWithSegments.renditions[0];
 
     // Verify segment exists
     if (!videoRendition.segments || videoRendition.segments.length === 0) {
@@ -294,24 +333,73 @@ export async function POST(request: NextRequest) {
 
     console.log('[Key Batch API] ✓ Signature verified');
 
-    // Step 2: Check if user has paid for this video
-    const paymentInfo = await prisma.videoPaymentInfo.findFirst({
-      where: {
-        videoId,
-        payerAddress: address,
-        chain,
+    // Step 2: Get video info to check encryption type
+    const videoInfo = await prisma.video.findUnique({
+      where: { id: videoId },
+      select: {
+        id: true,
+        encryptionType: true,
+        creatorId: true,
       },
     });
 
-    if (!paymentInfo) {
-      console.log('[Key Batch API] No payment found for user:', address);
+    if (!videoInfo) {
+      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+    }
+
+    console.log(`[Key Batch API] Video encryption type: ${videoInfo.encryptionType}`);
+
+    // Step 3: Check access based on encryption type
+    let hasAccess = false;
+    let paymentInfo = null;
+
+    if (videoInfo.encryptionType === 'subscription-acl' || videoInfo.encryptionType === 'both') {
+      // Check if user has subscription to the creator
+      const subscription = await prisma.subscription.findFirst({
+        where: {
+          subscriberAddress: address,
+          creator: {
+            walletAddress: videoInfo.creatorId,
+          },
+          chain,
+        },
+      });
+
+      if (subscription) {
+        console.log('[Key Batch API] ✓ User has active subscription');
+        hasAccess = true;
+      } else {
+        console.log('[Key Batch API] No subscription found for creator:', videoInfo.creatorId);
+      }
+    }
+
+    if (videoInfo.encryptionType === 'per-video' || videoInfo.encryptionType === 'both') {
+      // Check if user has paid for this specific video
+      paymentInfo = await prisma.videoPaymentInfo.findFirst({
+        where: {
+          videoId,
+          payerAddress: address,
+          chain,
+        },
+      });
+
+      if (paymentInfo) {
+        console.log('[Key Batch API] ✓ User has paid for this video');
+        hasAccess = true;
+      } else if (!hasAccess) {
+        console.log('[Key Batch API] No payment found for video');
+      }
+    }
+
+    if (!hasAccess) {
+      console.log('[Key Batch API] Access denied - no payment or subscription found');
       return NextResponse.json(
-        { error: 'Payment required. Please pay to access this video.' },
+        { error: 'Payment required. Please pay to access this video or subscribe to the creator.' },
         { status: 401 }
       );
     }
 
-    console.log(`[Key Batch API] ✓ Payment verified`);
+    console.log(`[Key Batch API] ✓ Access granted`);
     console.log(`[Key Batch API] Processing batch request: ${segIndices.length} segments`);
 
     // Step 3: Get video and segments
@@ -346,11 +434,14 @@ export async function POST(request: NextRequest) {
     const keys = [];
 
     for (const segIdx of segIndices) {
-      // Check if user has access to this segment
-      if (!paymentInfo.paidSegmentIds.includes(segIdx)) {
-        console.warn(`[Key Batch API] User has not paid for segment ${segIdx}, skipping`);
-        continue;
+      // For per-video encryption, check if user has paid for this specific segment
+      if (videoInfo.encryptionType === 'per-video' && paymentInfo) {
+        if (!paymentInfo.paidSegmentIds.includes(segIdx)) {
+          console.warn(`[Key Batch API] User has not paid for segment ${segIdx}, skipping`);
+          continue;
+        }
       }
+      // For subscription-acl or both, access is already granted above
 
       // Find segment
       const segment = videoRendition.segments.find((s) => s.segIdx === segIdx);
