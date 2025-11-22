@@ -9,6 +9,7 @@ import { useWalletContext } from '@/lib/context/WalletContext';
 import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 import { suiToMist } from '@/lib/seal';
+import { Toast } from '@/components/ui/Toast';
 
 interface CreatorProfile {
   id: string;
@@ -45,6 +46,7 @@ export default function ProfilePage() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [subscribeError, setSubscribeError] = useState<string | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   // Check if this is the user's own profile
   const isOwnProfile = userAddress?.toLowerCase() === address?.toLowerCase();
@@ -117,16 +119,24 @@ export default function ProfilePage() {
         return;
       }
       const priceInSui = parseFloat(priceMatch[1]);
-      const priceInMist = suiToMist(priceInSui);
+      const priceInMist = Math.floor(priceInSui * 1_000_000_000); // Convert to MIST (u64)
 
-      console.log('[Subscribe] Parsed price:', { priceInSui, priceInMist });
+      console.log('[Subscribe] Parsed price:', {
+        priceInSui,
+        priceInMist,
+        channelPrice: profile.channelPrice
+      });
 
       // Build subscription transaction
       const tx = new Transaction();
       tx.setSender(userAddress);
 
-      // Split payment from gas coin
-      const [paymentCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(priceInMist)]);
+      // Use coinWithBalance to create payment coin from gas
+      const { coinWithBalance } = await import('@mysten/sui/transactions');
+      const paymentCoin = coinWithBalance({
+        balance: priceInMist,
+        type: '0x2::sui::SUI',
+      })(tx);
 
       // Call subscribe_entry function
       tx.moveCall({
@@ -172,8 +182,8 @@ export default function ProfilePage() {
       setIsSubscribed(true);
       setSubscribeError(null);
 
-      // Show success message
-      alert('Successfully subscribed! You now have access to all videos from this creator.');
+      // Show success toast
+      setShowSuccessToast(true);
     } catch (error) {
       console.error('[Subscribe] Error:', error);
       setSubscribeError(
@@ -428,6 +438,16 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Success Toast */}
+      {showSuccessToast && (
+        <Toast
+          message="Successfully subscribed! You now have access to all videos from this creator."
+          type="success"
+          duration={5000}
+          onClose={() => setShowSuccessToast(false)}
+        />
+      )}
     </div>
   );
 }
