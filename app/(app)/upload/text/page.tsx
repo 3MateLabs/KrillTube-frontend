@@ -13,6 +13,9 @@ import { Step2Monetization } from '@/components/upload/Step2Monetization';
 import { Step3FeeSharing } from '@/components/upload/Step3FeeSharing';
 import { UploadStepIndicator } from '@/components/upload/UploadStepIndicator';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
+import { useWalrusNetwork } from '@/contexts/NetworkContext';
+import { useDelegatorWallet } from '@/contexts/DelegatorWalletContext';
+import { uploadTextEncrypted, type UploadProgress } from '@/lib/upload/textUploadOrchestrator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -42,6 +45,8 @@ function TextUploadContent() {
   const account = useCurrentAccount();
   const { network } = useCurrentWalletMultiChain();
   const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
+  const { walrusNetwork } = useWalrusNetwork();
+  const { delegatorAddress, executeWithDelegator } = useDelegatorWallet();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [title, setTitle] = useState('');
@@ -62,6 +67,8 @@ function TextUploadContent() {
   const [coinPriceCache, setCoinPriceCache] = useState<Record<string, CoinPrice>>({});
   const [referrerSharePercent, setReferrerSharePercent] = useState<number>(30);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   // Format number helper
   const formatNumber = (value: number): string => {
@@ -118,6 +125,138 @@ function TextUploadContent() {
     );
   };
 
+  // Upload handler
+  const handleUpload = async () => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      setProgress({ stage: 'encrypting', percent: 0, message: 'Preparing upload...' });
+
+      // Validate wallet connection
+      if (!account) {
+        throw new Error('Please connect your wallet');
+      }
+
+      // Generate unique content ID
+      const contentId = crypto.randomUUID();
+
+      // Create text file from content
+      const blob = new Blob([content], { type: 'text/plain' });
+      const file = new File([blob], `${title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`, { type: 'text/plain' });
+
+      // Determine wallet setup based on network
+      let effectiveSignAndExecute: any;
+      let effectiveUploadAddress: string;
+
+      if (walrusNetwork === 'mainnet') {
+        // Use delegator wallet for mainnet
+        if (!delegatorAddress || !executeWithDelegator) {
+          throw new Error('Delegator wallet not initialized');
+        }
+
+        effectiveSignAndExecute = async (args: { transaction: any }) => {
+          const result = await executeWithDelegator(args.transaction);
+          if (!result) {
+            throw new Error('Delegator transaction failed');
+          }
+          return {
+            digest: result.digest,
+            effects: result.success
+              ? { status: { status: 'success' } }
+              : { status: { status: 'failure' } },
+          };
+        };
+        effectiveUploadAddress = delegatorAddress;
+
+        console.log('[Text Upload] Using delegator wallet for mainnet:', delegatorAddress);
+      } else {
+        // Use user's own wallet for testnet
+        const { mutateAsync: suiSignAndExecuteTransaction } = await import('@mysten/dapp-kit');
+        effectiveSignAndExecute = suiSignAndExecuteTransaction;
+        effectiveUploadAddress = account.address;
+
+        console.log('[Text Upload] Using user wallet for testnet:', account.address);
+      }
+
+      // Encrypt and upload text document
+      console.log('[Text Upload] Starting encryption and upload...');
+      const uploadResult = await uploadTextEncrypted(
+        file,
+        effectiveSignAndExecute,
+        effectiveUploadAddress,
+        {
+          network: walrusNetwork,
+          epochs: 53,
+          onProgress: setProgress,
+        }
+      );
+
+      console.log('[Text Upload] ✓ Encryption and upload complete');
+
+      // Prepare creator configs for monetization
+      const creatorConfigs = feeConfigs.map(config => ({
+        objectId: crypto.randomUUID(), // TODO: Replace with actual on-chain object ID
+        chain: 'sui',
+        coinType: config.tokenType,
+        pricePerView: config.amountPer1000Views,
+        decimals: 9, // TODO: Fetch actual decimals from coin metadata
+        metadata: tags || undefined,
+      }));
+
+      // Register text content with server
+      setProgress({ stage: 'registering', percent: 90, message: 'Registering document...' });
+
+      const registerResponse = await fetch('/api/v1/register-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contentId,
+          title,
+          description: tags,
+          creatorId: account.address,
+          network: walrusNetwork,
+          document: uploadResult.document,
+          creatorConfigs,
+        }),
+      });
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        throw new Error(errorData.error || 'Failed to register text content');
+      }
+
+      const registerData = await registerResponse.json();
+      console.log('[Text Upload] ✓ Text content registered:', registerData.content.id);
+
+      setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
+
+      // Redirect to viewing page
+      setTimeout(() => {
+        router.push(`/text/${registerData.content.id}`);
+      }, 1500);
+
+    } catch (err) {
+      console.error('[Text Upload] Error:', err);
+
+      // Provide user-friendly error messages
+      let errorMessage = err instanceof Error ? err.message : 'Upload failed';
+
+      if (errorMessage.includes('No WAL tokens')) {
+        if (walrusNetwork === 'mainnet') {
+          errorMessage = 'Delegator wallet needs WAL tokens. Please contact support or fund the delegator wallet with WAL tokens to enable mainnet uploads.';
+        } else {
+          errorMessage = 'No WAL tokens found. Please get testnet WAL from the faucet: https://faucet.walrus-testnet.walrus.space';
+        }
+      } else if (errorMessage.includes('Delegator wallet not initialized')) {
+        errorMessage = 'Delegator wallet is not set up. Please configure the delegator wallet for mainnet uploads or switch to testnet.';
+      }
+
+      setError(errorMessage);
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE] pl-20 pr-12 pt-12 pb-6">
@@ -378,20 +517,46 @@ function TextUploadContent() {
             <div className="flex justify-between mt-4">
               <button
                 onClick={() => setCurrentStep(2)}
-                className="px-6 py-3 bg-white text-black rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                disabled={isUploading}
+                className="px-6 py-3 bg-white text-black rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Back
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement upload logic
-                  alert('Text content upload coming soon!');
-                }}
-                className="px-6 py-3 bg-[#EF4330] text-white rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-white hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                onClick={handleUpload}
+                disabled={isUploading}
+                className="px-6 py-3 bg-[#EF4330] text-white rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-white hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Publish Article
+                {isUploading ? 'Publishing...' : 'Publish Article'}
               </button>
             </div>
+
+            {/* Upload Progress */}
+            {isUploading && progress && (
+              <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-base font-semibold text-black font-['Outfit']">
+                    {progress.message}
+                  </span>
+                  <span className="text-base font-bold text-[#EF4330] font-['Outfit']">
+                    {progress.percent}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#EF4330] transition-all duration-300"
+                    style={{ width: `${progress.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="p-4 bg-[#EF4330]/10 border-2 border-[#EF4330] rounded-lg">
+                <p className="text-[#EF4330] font-semibold font-['Outfit']">{error}</p>
+              </div>
+            )}
           </div>
         )}
       </div>
