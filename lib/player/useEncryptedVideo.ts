@@ -272,7 +272,7 @@ export function useEncryptedVideo(
         workerPoolRef.current = null;
       }
     };
-  }, [options.videoId, options.videoUrl, options.apiBaseUrl]);
+  }, [options.videoId, options.videoUrl, options.apiBaseUrl, options.enabled]);
 
   /**
    * Track playing state

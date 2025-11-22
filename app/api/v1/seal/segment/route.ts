@@ -104,10 +104,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get segment metadata
+    // Get segment metadata (through rendition)
     const segment = await prisma.videoSegment.findFirst({
       where: {
-        videoId,
+        rendition: {
+          videoId,
+        },
         segIdx,
       },
       select: {
@@ -243,10 +245,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all requested segments
+    // Get all requested segments (through rendition)
     const segments = await prisma.videoSegment.findMany({
       where: {
-        videoId,
+        rendition: {
+          videoId,
+        },
         segIdx: {
           in: segmentIndices,
         },

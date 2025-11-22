@@ -55,17 +55,49 @@ export function CustomVideoPlayer({
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
 
   // Determine which video hook to use based on encryption type
-  // Note: SEAL playback requires custom HLS loader implementation
-  // For now, we use DEK for all videos and show subscription prompt for non-subscribers
-  const shouldUseSeal = false; // TODO: Implement SEAL HLS loader for full SEAL support
+  // For subscription-acl videos, use SEAL decryption with wallet signing
+  // For per-video videos, use KMS/DEK decryption
+  const shouldUseSeal = encryptionType === 'subscription-acl' && isSubscribed === true;
 
-  // Use DEK hook for video playback
-  // Note: For subscription-only videos, we'll check subscription status separately
+  console.log('[CustomVideoPlayer] Encryption type:', {
+    encryptionType,
+    isSubscribed,
+    shouldUseSeal,
+    channelId,
+  });
+
+  // SEAL hook for subscription-only videos (requires wallet signing)
+  const sealHook = useSealVideo({
+    videoId,
+    videoUrl,
+    channelId: channelId || '',
+    packageId: process.env.NEXT_PUBLIC_SEAL_PACKAGE_ID || '',
+    network,
+    enabled: shouldUseSeal, // Only initialize if this is a subscription-only video with subscription
+    autoplay: false, // Don't autoplay until user signs
+    onReady: () => {
+      console.log('[SEAL] Video ready to play - session key signed');
+    },
+    onError: (err) => {
+      console.error('[SEAL] Video error:', err);
+    },
+    onAccessDenied: () => {
+      console.log('[SEAL] Access denied - showing subscription prompt');
+      setShowSubscriptionPrompt(true);
+    },
+    onSigningRequired: () => {
+      console.log('[SEAL] Wallet signing required - popup will appear');
+      // User will see wallet popup to sign session key
+    },
+  });
+
+  // DEK hook for per-video and "both" encryption types
   const dekHook = useEncryptedVideo({
     videoId,
     videoUrl,
     network,
     autoplay,
+    enabled: !shouldUseSeal, // Only initialize when SEAL is NOT active
     onReady: () => {
       console.log('[DEK] Video ready to play');
     },
@@ -78,6 +110,9 @@ export function CustomVideoPlayer({
     },
   });
 
+  // Select the appropriate hook based on encryption type
+  const activeHook = shouldUseSeal ? sealHook : dekHook;
+
   const {
     videoRef,
     isLoading,
@@ -85,11 +120,11 @@ export function CustomVideoPlayer({
     error,
     play,
     pause,
-  } = dekHook;
+  } = activeHook;
 
-  // Extract hook-specific values
-  const session = dekHook.session;
-  const hlsInstance = dekHook.hlsInstance;
+  // Extract hook-specific values (only available for DEK hook)
+  const session = 'session' in activeHook ? activeHook.session : undefined;
+  const hlsInstance = 'hlsInstance' in activeHook ? activeHook.hlsInstance : undefined;
 
   // Wallet connection check
   const { isConnected, address, chain } = useWalletContext();

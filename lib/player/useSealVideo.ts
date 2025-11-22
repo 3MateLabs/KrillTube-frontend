@@ -1,25 +1,29 @@
 /**
  * React hook for SEAL-encrypted video playback
- * Handles subscription-based video decryption using SEAL
+ * Handles subscription-based video decryption using SEAL with wallet signing
  */
 
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { loadSealSegment, checkSealAccess } from './sealDecryptionLoader';
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { fromHex } from '@mysten/sui/utils';
+import { checkSealAccess, SealDecryptingLoader } from './sealDecryptingLoader';
+import { useCurrentAccount, useSignPersonalMessage } from '@mysten/dapp-kit';
+import { SessionKey } from '@mysten/seal';
+import { SuiClient } from '@mysten/sui/client';
 
 export interface UseSealVideoOptions {
   videoId: string;
   videoUrl: string; // Master playlist URL (unencrypted playlist structure)
   channelId: string; // Creator's SEAL channel ID
-  userPrivateKey?: string; // User's wallet private key for signing (hex format)
+  packageId: string; // SEAL package ID
+  network?: 'mainnet' | 'testnet'; // Walrus network
   autoplay?: boolean;
+  enabled?: boolean; // Whether this hook should be active
   onReady?: () => void;
   onError?: (error: Error) => void;
   onAccessDenied?: () => void;
+  onSigningRequired?: () => void; // Called when user needs to sign
 }
 
 export interface UseSealVideoReturn {
@@ -57,38 +61,45 @@ export interface UseSealVideoReturn {
 export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const keypairRef = useRef<Ed25519Keypair | null>(null);
+  const sessionKeyRef = useRef<SessionKey | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
 
+  // Wallet hooks
+  const currentAccount = useCurrentAccount();
+  const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
+
   /**
-   * Initialize and check access
+   * Initialize and check access with wallet signing
    */
   useEffect(() => {
     let mounted = true;
 
     const initialize = async () => {
       try {
+        // Skip if this hook is disabled
+        if (options.enabled === false) {
+          console.log('[useSealVideo] Hook disabled, skipping initialization');
+          setIsLoading(false);
+          return;
+        }
+
         console.log('[useSealVideo] Initializing SEAL video player...');
 
         // Validate options
-        if (!options.videoId || !options.channelId) {
-          throw new Error('videoId and channelId are required');
+        if (!options.videoId || !options.channelId || !options.packageId) {
+          throw new Error('videoId, channelId, and packageId are required');
         }
 
-        // Create user keypair from private key
-        if (!options.userPrivateKey) {
-          throw new Error('User wallet private key is required for SEAL decryption');
+        // Check wallet connection
+        if (!currentAccount?.address) {
+          throw new Error('Wallet not connected');
         }
 
-        keypairRef.current = Ed25519Keypair.fromSecretKey(
-          fromHex(options.userPrivateKey)
-        );
-
-        const userAddress = keypairRef.current.toSuiAddress();
+        const userAddress = currentAccount.address;
         console.log('[useSealVideo] User address:', userAddress);
 
         // Check if user has access to this channel
@@ -112,14 +123,99 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
         console.log('[useSealVideo] ✓ Access granted');
         setHasAccess(true);
 
-        // For now, we'll use a simplified approach
-        // In production, you'd create a custom HLS loader like the DEK version
-        console.log('[useSealVideo] SEAL decryption ready');
-        setIsLoading(false);
-
-        if (options.onReady) {
-          options.onReady();
+        // Create session key for SEAL decryption
+        console.log('[useSealVideo] Creating session key...');
+        if (options.onSigningRequired) {
+          options.onSigningRequired();
         }
+
+        const suiClient = new SuiClient({
+          url: process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443'
+        });
+
+        const sessionKey = await SessionKey.create({
+          address: userAddress,
+          packageId: options.packageId,
+          ttlMin: 10, // 10 minute TTL
+          suiClient,
+        });
+
+        // Sign the personal message with wallet
+        const message = sessionKey.getPersonalMessage();
+        const { signature } = await signPersonalMessage({
+          message: Buffer.from(message),
+        });
+
+        sessionKey.setPersonalMessageSignature(signature);
+        sessionKeyRef.current = sessionKey;
+
+        console.log('[useSealVideo] ✓ Session key created and signed');
+
+        // Initialize HLS.js with SEAL decrypting loader
+        console.log('[useSealVideo] Initializing HLS.js with SEAL loader...');
+
+        if (!Hls.isSupported()) {
+          throw new Error('HLS.js is not supported in this browser');
+        }
+
+        // Create HLS instance with custom SEAL loader
+        const hls = new Hls({
+          debug: false,
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+          // Use custom loader for SEAL decryption
+          loader: SealDecryptingLoader as any,
+          // Pass config to loader via xhrSetup (loader will access it via context)
+          xhrSetup: function(xhr: any, url: string) {
+            // This won't be used since we have a custom loader
+          },
+        });
+
+        // Store loader config in HLS config for loader to access
+        (hls.config as any).sealLoaderConfig = {
+          videoId: options.videoId,
+          channelId: options.channelId,
+          packageId: options.packageId,
+          sessionKey: sessionKeyRef.current,
+          network: options.network || 'mainnet',
+        };
+
+        // Attach video element
+        if (videoRef.current) {
+          hls.attachMedia(videoRef.current);
+          console.log('[useSealVideo] ✓ HLS attached to video element');
+        }
+
+        // Handle HLS events
+        hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+          console.log('[useSealVideo] ✓ Media attached, loading playlist...');
+          hls.loadSource(options.videoUrl);
+        });
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('[useSealVideo] ✓ Manifest parsed');
+          setIsLoading(false);
+
+          if (options.onReady) {
+            options.onReady();
+          }
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error('[useSealVideo] HLS error:', data);
+
+          if (data.fatal) {
+            setError(new Error(data.details || 'HLS fatal error'));
+
+            if (options.onError) {
+              options.onError(new Error(data.details || 'HLS fatal error'));
+            }
+          }
+        });
+
+        hlsRef.current = hls;
+        console.log('[useSealVideo] ✓ SEAL video player ready');
 
       } catch (err) {
         console.error('[useSealVideo] Initialization error:', err);
@@ -141,7 +237,7 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
     return () => {
       mounted = false;
     };
-  }, [options.videoId, options.channelId, options.userPrivateKey]);
+  }, [options.videoId, options.channelId, options.packageId, options.enabled, options.network, currentAccount?.address, signPersonalMessage]);
 
   /**
    * Play video
