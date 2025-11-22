@@ -313,7 +313,7 @@ export default function TestExtendPage() {
               className="px-4 py-2 border-2 border-black rounded-xl w-32"
             />
             <span className="text-sm text-gray-600">
-              (1 epoch ≈ 1 day on mainnet)
+              (1 epoch ≈ 14 days on mainnet)
             </span>
           </div>
         </div>

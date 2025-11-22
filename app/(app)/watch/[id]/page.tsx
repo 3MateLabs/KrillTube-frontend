@@ -496,7 +496,7 @@ export default function WatchPage() {
               <div className="mb-6 p-4 bg-[#FFEEE5] rounded-2xl border-2 border-black">
                 <p className="text-sm text-black font-semibold mb-1 font-['Outfit']">Current End Epoch:</p>
                 <p className="text-lg text-black font-bold font-['Outfit']">{video.masterEndEpoch}</p>
-                <p className="text-xs text-black/70 mt-2 font-['Outfit']">(1 epoch ≈ 1 day on mainnet)</p>
+                <p className="text-xs text-black/70 mt-2 font-['Outfit']">(1 epoch ≈ 14 days on mainnet)</p>
               </div>
             )}
 
