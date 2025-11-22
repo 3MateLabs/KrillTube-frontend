@@ -207,11 +207,23 @@ export function CustomVideoPlayer({
         return;
       }
 
-      // For 'both' type, skip if user is subscribed
-      if (encryptionType === 'both' && isSubscribed === true) {
-        console.log('[CustomVideoPlayer] User is subscribed - skipping payment check');
-        setCheckingPayment(false);
-        return;
+      // For 'both' type, wait for subscription check to complete
+      if (encryptionType === 'both') {
+        // If still checking subscription, wait
+        if (isSubscribed === null) {
+          console.log('[CustomVideoPlayer] Waiting for subscription check to complete...');
+          return; // Don't set checkingPayment to false yet
+        }
+
+        // If user is subscribed, skip payment check
+        if (isSubscribed === true) {
+          console.log('[CustomVideoPlayer] User is subscribed - skipping payment check');
+          setCheckingPayment(false);
+          return;
+        }
+
+        // If not subscribed, continue to payment check
+        console.log('[CustomVideoPlayer] User not subscribed - checking payment status');
       }
 
       if (!videoId) {
