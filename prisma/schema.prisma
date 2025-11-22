@@ -93,10 +93,17 @@ model VideoSegment {
   walrusUri    String         @map("walrus_uri")
   blobObjectId String?        @map("blob_object_id") // Sui blob object ID (mainnet only)
   endEpoch     Int?           @map("end_epoch") // Walrus storage expiry epoch (mainnet only)
-  iv           Bytes
+
+  // Per-video encryption (DEK)
+  dekEnc       Bytes?         @map("dek_enc") // KMS-encrypted DEK (null for SEAL-only)
+  iv           Bytes?         // IV for AES-GCM (null for SEAL-only)
+
+  // Subscription-ACL encryption (SEAL)
+  sealDocumentId String?      @map("seal_document_id") // SEAL document ID for decryption
+  sealBlobId     String?      @map("seal_blob_id") // Walrus blob ID for SEAL-encrypted data
+
   duration     Float
   size         Int
-  dekEnc       Bytes          @map("dek_enc")
   rendition    VideoRendition @relation("VideoRenditionToVideoSegment", fields: [renditionId], references: [id], onDelete: Cascade)
 
   @@unique([renditionId, segIdx])
