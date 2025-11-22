@@ -278,12 +278,47 @@ export default function EditProfilePage() {
                 <label htmlFor="channelPrice" className="block text-black text-base font-bold font-['Outfit'] mb-3">
                   Subscription Price (Optional)
                 </label>
+
+                {/* Warning Box */}
+                {!profile?.sealObjectId && (
+                  <div className="mb-4 p-4 bg-[#EF4330]/10 rounded-2xl outline outline-2 outline-offset-[-2px] outline-[#EF4330] flex items-start gap-3">
+                    <svg className="w-6 h-6 text-[#EF4330] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-[#EF4330] text-sm font-bold font-['Outfit'] mb-1">
+                        Warning: Price Cannot Be Changed
+                      </p>
+                      <p className="text-black/70 text-sm font-normal font-['Outfit']">
+                        Once you set a subscription price and save, it will be recorded on-chain and <strong className="font-bold">cannot be changed</strong>. Choose your price carefully!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {profile?.sealObjectId && (
+                  <div className="mb-4 p-4 bg-blue-500/10 rounded-2xl outline outline-2 outline-offset-[-2px] outline-blue-500 flex items-start gap-3">
+                    <svg className="w-6 h-6 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-blue-600 text-sm font-bold font-['Outfit'] mb-1">
+                        Channel Already Created
+                      </p>
+                      <p className="text-black/70 text-sm font-normal font-['Outfit']">
+                        Your subscription channel is already on-chain. The price displayed here is for reference only and cannot be changed via this form.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <input
                   type="text"
                   id="channelPrice"
                   value={channelPrice}
                   onChange={(e) => setChannelPrice(e.target.value)}
-                  className="w-full px-6 py-4 bg-white rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black text-black text-base font-medium font-['Outfit'] focus:outline-[#EF4330] focus:outline-[3px] transition-all"
+                  disabled={!!profile?.sealObjectId}
+                  className="w-full px-6 py-4 bg-white rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black text-black text-base font-medium font-['Outfit'] focus:outline-[#EF4330] focus:outline-[3px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="e.g., 10 SUI"
                 />
                 <p className="text-black/60 text-sm font-normal font-['Outfit'] mt-2">
