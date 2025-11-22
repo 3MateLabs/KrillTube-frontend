@@ -18,6 +18,7 @@ interface VideoCardProps {
   uploadedAt?: Date | string;
   variant?: 'default' | 'featured' | 'compact';
   accentColor?: string;
+  encryptionType?: 'per-video' | 'subscription-acl' | 'both';
 }
 
 export function VideoCard({
@@ -32,11 +33,43 @@ export function VideoCard({
   uploadedAt,
   variant = 'default',
   accentColor,
+  encryptionType = 'per-video',
 }: VideoCardProps) {
   const router = useRouter();
   const [imageError, setImageError] = useState(false);
   const formattedViews = views ? formatViews(views) : '0 views';
   const formattedDate = uploadedAt ? formatDate(uploadedAt) : 'Just now';
+
+  // Get encryption badge config
+  const getEncryptionBadge = () => {
+    switch (encryptionType) {
+      case 'per-video':
+        return {
+          label: 'Pay Per View',
+          icon: '💳',
+          bgColor: 'bg-blue-500',
+          textColor: 'text-white',
+        };
+      case 'subscription-acl':
+        return {
+          label: 'Subscription',
+          icon: '🔒',
+          bgColor: 'bg-walrus-grape',
+          textColor: 'text-white',
+        };
+      case 'both':
+        return {
+          label: 'PPV/Sub',
+          icon: '🎫',
+          bgColor: 'bg-gradient-to-r from-blue-500 to-walrus-grape',
+          textColor: 'text-white',
+        };
+      default:
+        return null;
+    }
+  };
+
+  const badge = getEncryptionBadge();
 
   if (variant === 'featured') {
     return (
@@ -63,7 +96,14 @@ export function VideoCard({
         <div className="relative h-full p-6 flex flex-col justify-between">
           {/* Top badges */}
           <div className="flex items-start justify-between">
-            <WalrusBadgeInline className="bg-white/90 text-walrus-black" />
+            <div className="flex items-center gap-2">
+              <WalrusBadgeInline className="bg-white/90 text-walrus-black" />
+              {badge && (
+                <span className={`px-2 py-1 ${badge.bgColor} ${badge.textColor} text-xs font-semibold rounded border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
+                  {badge.icon} {badge.label}
+                </span>
+              )}
+            </div>
             {duration && (
               <span className="px-2 py-1 bg-black/70 text-white text-xs font-semibold rounded">
                 {duration}
@@ -156,6 +196,12 @@ export function VideoCard({
               </svg>
             </div>
           )}
+          {/* Encryption badge */}
+          {badge && (
+            <div className={`absolute top-1 left-1 px-1.5 py-0.5 ${badge.bgColor} ${badge.textColor} text-xs font-semibold rounded border border-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]`}>
+              {badge.icon} {badge.label}
+            </div>
+          )}
           {duration && (
             <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/80 text-white text-xs font-semibold rounded">
               {duration}
@@ -232,6 +278,13 @@ export function VideoCard({
             <svg className="w-16 h-16 text-white/30" fill="currentColor" viewBox="0 0 20 20">
               <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
             </svg>
+          </div>
+        )}
+
+        {/* Encryption badge */}
+        {badge && (
+          <div className={`absolute top-2 left-2 px-2 py-1 ${badge.bgColor} ${badge.textColor} text-xs font-semibold rounded border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
+            {badge.icon} {badge.label}
           </div>
         )}
 

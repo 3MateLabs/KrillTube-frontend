@@ -433,6 +433,7 @@ export default function ProfilePage() {
                 uploadedAt={video.createdAt}
                 duration={video.duration?.toString() || undefined}
                 variant="default"
+                encryptionType={video.encryptionType as 'per-video' | 'subscription-acl' | 'both'}
               />
             ))}
           </div>
