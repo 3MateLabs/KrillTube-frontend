@@ -260,10 +260,13 @@ export default function WatchPage() {
                   </div>
                 </div>
 
-                {/* Subscribe Button */}
-                <div className="px-6 py-2.5 bg-white rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+                {/* Subscribe Button - Links to Creator Profile */}
+                <Link
+                  href={`/profile/${video.creatorId}`}
+                  className="px-6 py-2.5 bg-white rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                >
                   <div className="text-black text-base font-bold font-['Outfit']">Subscribe</div>
-                </div>
+                </Link>
               </div>
 
               {/* Action Buttons */}
