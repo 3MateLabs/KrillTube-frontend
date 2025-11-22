@@ -37,7 +37,7 @@ export interface ImageUploadResult {
 export async function uploadImagesEncrypted(
   files: File[],
   signAndExecute: any,
-  walletAddress: string,
+  uploadAddress: string, // Can be user wallet OR delegator wallet
   options: ImageUploadOptions
 ): Promise<ImageUploadResult> {
   const { network = 'mainnet', epochs = 53, onProgress } = options;
@@ -92,7 +92,7 @@ export async function uploadImagesEncrypted(
     const uploadResults = await uploadMultipleBlobsWithWallet(
       [{ contents: encryptedData, identifier: file.name }],
       signAndExecute,
-      walletAddress,
+      uploadAddress, // Use delegator address on mainnet, user address on testnet
       {
         network,
         epochs: epochs || 53,

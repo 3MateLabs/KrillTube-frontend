@@ -7,14 +7,14 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from '@iota/dapp-kit';
 import { Step2Monetization } from '@/components/upload/Step2Monetization';
 import { Step3FeeSharing } from '@/components/upload/Step3FeeSharing';
 import { UploadStepIndicator } from '@/components/upload/UploadStepIndicator';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
-import { useWalrusNetwork } from '@/contexts/NetworkContext';
-import { useDelegatorWallet } from '@/contexts/DelegatorWalletContext';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
 import { uploadTextEncrypted, type UploadProgress } from '@/lib/upload/textUploadOrchestrator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -44,9 +44,10 @@ function TextUploadContent() {
   const router = useRouter();
   const account = useCurrentAccount();
   const { network } = useCurrentWalletMultiChain();
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
-  const { walrusNetwork } = useWalrusNetwork();
-  const { delegatorAddress, executeWithDelegator } = useDelegatorWallet();
+  const { walrusNetwork } = useNetwork();
+  const { buildFundingTransaction, estimateGasNeeded, executeWithDelegator, delegatorAddress, autoReclaimGas } = usePersonalDelegator();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [title, setTitle] = useState('');
@@ -144,6 +145,56 @@ function TextUploadContent() {
       const blob = new Blob([content], { type: 'text/plain' });
       const file = new File([blob], `${title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`, { type: 'text/plain' });
 
+      // Fund delegator wallet (mainnet only) via PTB
+      if (walrusNetwork === 'mainnet' && account) {
+        console.log('[Text Upload] Funding delegator wallet with PTB...');
+
+        // Calculate text file size
+        const fileSizeMB = file.size / 1024 / 1024;
+
+        // Rough estimate: 0.05 WAL per MB with 10x safety buffer
+        // Text files are very small, so conservative estimate
+        const estimatedWalMist = BigInt(Math.ceil(fileSizeMB * 0.05 * 1_000_000_000));
+        const walAmountMist = estimatedWalMist * BigInt(10); // 10x buffer for safety
+
+        // Estimate gas needed (text uses minimal transactions)
+        const gasNeeded = estimateGasNeeded(2); // 2 transactions for text upload
+
+        console.log('[Text Upload] PTB Funding:', {
+          fileSizeMB: fileSizeMB.toFixed(4),
+          estimatedWal: `${Number(estimatedWalMist) / 1_000_000_000} WAL`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (10x buffer)`,
+          gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
+        });
+
+        setProgress({ stage: 'encrypting', percent: 5, message: 'Funding delegator wallet...' });
+
+        try {
+          // Build PTB that funds BOTH SUI gas and WAL storage in one transaction
+          const fundingTx = await buildFundingTransaction(
+            account.address,
+            gasNeeded,
+            walAmountMist
+          );
+
+          if (!fundingTx) {
+            throw new Error('Failed to build funding transaction');
+          }
+
+          // User signs ONCE to fund both SUI gas + WAL storage
+          setProgress({ stage: 'encrypting', percent: 8, message: 'Approve funding transaction...' });
+          console.log('[Text Upload] ⏳ Waiting for user to approve PTB...');
+
+          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
+
+          console.log('[Text Upload] ✓ Delegator funded:', fundingResult.digest);
+          setProgress({ stage: 'encrypting', percent: 10, message: 'Delegator wallet funded!' });
+        } catch (fundingError) {
+          console.error('[Text Upload] Funding failed:', fundingError);
+          throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
+        }
+      }
+
       // Determine wallet setup based on network
       let effectiveSignAndExecute: any;
       let effectiveUploadAddress: string;
@@ -171,8 +222,7 @@ function TextUploadContent() {
         console.log('[Text Upload] Using delegator wallet for mainnet:', delegatorAddress);
       } else {
         // Use user's own wallet for testnet
-        const { mutateAsync: suiSignAndExecuteTransaction } = await import('@mysten/dapp-kit');
-        effectiveSignAndExecute = suiSignAndExecuteTransaction;
+        effectiveSignAndExecute = signAndExecuteTransaction;
         effectiveUploadAddress = account.address;
 
         console.log('[Text Upload] Using user wallet for testnet:', account.address);
@@ -232,6 +282,11 @@ function TextUploadContent() {
 
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
 
+      // Auto-reclaim gas
+      if (walrusNetwork === 'mainnet' && account) {
+        await autoReclaimGas(account.address);
+      }
+
       // Redirect to viewing page
       setTimeout(() => {
         router.push(`/text/${registerData.content.id}`);
@@ -255,6 +310,11 @@ function TextUploadContent() {
 
       setError(errorMessage);
       setIsUploading(false);
+
+      // Auto-reclaim on error too if on mainnet
+      if (walrusNetwork === 'mainnet' && account) {
+        await autoReclaimGas(account.address).catch(console.error);
+      }
     }
   };
 

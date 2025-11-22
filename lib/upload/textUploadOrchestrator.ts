@@ -39,7 +39,7 @@ export interface TextUploadResult {
 export async function uploadTextEncrypted(
   file: File,
   signAndExecute: any,
-  walletAddress: string,
+  uploadAddress: string, // Can be user wallet OR delegator wallet
   options: TextUploadOptions
 ): Promise<TextUploadResult> {
   const { network = 'mainnet', epochs = 53, onProgress } = options;
@@ -92,7 +92,7 @@ export async function uploadTextEncrypted(
   const uploadResults = await uploadMultipleBlobsWithWallet(
     [{ contents: encryptedData, identifier: file.name }],
     signAndExecute,
-    walletAddress,
+    uploadAddress, // Use delegator address on mainnet, user address on testnet
     {
       network,
       epochs: epochs || 53,

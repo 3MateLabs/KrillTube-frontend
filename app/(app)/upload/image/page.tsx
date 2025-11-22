@@ -326,8 +326,61 @@ function ImagesUploadContent() {
         // TODO: Import and execute tunnel config creation
       }
 
-      // STEP 2: Encrypt and upload images
-      setProgress({ stage: 'encrypting', percent: 10, message: 'Encrypting images...' });
+      // STEP 2: Fund delegator wallet (mainnet only) via PTB
+      if (walrusNetwork === 'mainnet' && !debugMode && account) {
+        console.log('[Image Upload] Funding delegator wallet with PTB...');
+
+        // Calculate total image size
+        const totalImageSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+        const imageSizeMB = totalImageSize / 1024 / 1024;
+
+        // Rough estimate: 0.1 WAL per MB with 10x safety buffer
+        // Images are smaller than videos, so this conservative estimate should be sufficient
+        const estimatedWalMist = BigInt(Math.ceil(imageSizeMB * 0.1 * 1_000_000_000));
+        const walAmountMist = estimatedWalMist * BigInt(10); // 10x buffer for safety
+
+        // Estimate gas needed (images use fewer transactions than video segments)
+        // Each image requires ~2 transactions (register + certify)
+        const gasNeeded = estimateGasNeeded(selectedFiles.length * 2);
+
+        console.log('[Image Upload] PTB Funding:', {
+          totalSizeMB: imageSizeMB.toFixed(2),
+          estimatedWal: `${Number(estimatedWalMist) / 1_000_000_000} WAL`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (10x buffer)`,
+          gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
+          images: selectedFiles.length,
+        });
+
+        setProgress({ stage: 'uploading', percent: 5, message: 'Funding delegator wallet...' });
+
+        try {
+          // Build PTB that funds BOTH SUI gas and WAL storage in one transaction
+          const fundingTx = await buildFundingTransaction(
+            account.address,
+            gasNeeded,
+            walAmountMist
+          );
+
+          if (!fundingTx) {
+            throw new Error('Failed to build funding transaction');
+          }
+
+          // User signs ONCE to fund both SUI gas + WAL storage
+          setProgress({ stage: 'uploading', percent: 8, message: 'Approve funding transaction...' });
+          console.log('[Image Upload] ⏳ Waiting for user to approve PTB...');
+
+          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
+
+          console.log('[Image Upload] ✓ Delegator funded:', fundingResult.digest);
+          setProgress({ stage: 'uploading', percent: 10, message: 'Delegator wallet funded!' });
+        } catch (fundingError) {
+          console.error('[Image Upload] Funding failed:', fundingError);
+          throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
+        }
+      }
+
+      // STEP 3: Encrypt and upload images
+      setProgress({ stage: 'encrypting', percent: 15, message: 'Encrypting images...' });
 
       const { uploadImagesEncrypted } = await import('@/lib/upload/imageUploadOrchestrator');
 
@@ -368,7 +421,7 @@ function ImagesUploadContent() {
 
       console.log('[Image Upload] Upload complete:', uploadResult);
 
-      // STEP 3: Register with server
+      // STEP 4: Register with server
       setProgress({ stage: 'registering', percent: 95, message: 'Registering images...' });
 
       const registerResponse = await fetch('/api/v1/register-images', {
