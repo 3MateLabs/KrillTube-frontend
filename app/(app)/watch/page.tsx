@@ -12,6 +12,12 @@ interface Video {
   posterWalrusUri?: string;
   walrusMasterUri: string;
   duration?: number;
+  network?: string;
+  creator?: {
+    name: string;
+    avatar?: string;
+    subscriberCount: number;
+  };
   renditions: Array<{
     id: string;
     name: string;
@@ -20,9 +26,36 @@ interface Video {
   }>;
 }
 
+// Helper function to fix Walrus URLs
+const fixWalrusUrl = (url: string, network: string = 'mainnet'): string => {
+  if (!url) return url;
+
+  const AGGREGATOR_DOMAIN = 'aggregator.walrus.space';
+  const TESTNET_AGGREGATOR = 'aggregator.walrus-testnet.walrus.space';
+  const AGGREGATOR_REPLACEMENT = 'aggregator.mainnet.walrus.mirai.cloud';
+
+  const targetAggregator = network === 'testnet'
+    ? TESTNET_AGGREGATOR
+    : AGGREGATOR_REPLACEMENT;
+
+  let fixed = url;
+  if (fixed.includes(TESTNET_AGGREGATOR)) {
+    fixed = fixed.replace(TESTNET_AGGREGATOR, targetAggregator);
+  } else if (fixed.includes(AGGREGATOR_DOMAIN)) {
+    fixed = fixed.replace(AGGREGATOR_DOMAIN, targetAggregator);
+  }
+
+  return fixed;
+};
+
 // Video Card Component matching the design
 const VideoCard = ({ video }: { video: Video }) => {
   const [imgError, setImgError] = useState(false);
+
+  // Fix thumbnail URL
+  const thumbnailUrl = video.posterWalrusUri
+    ? fixWalrusUrl(video.posterWalrusUri, video.network)
+    : null;
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -50,10 +83,10 @@ const VideoCard = ({ video }: { video: Video }) => {
         <div className="w-full relative flex flex-col justify-start items-start gap-4">
           {/* Thumbnail */}
           <div className="relative w-full">
-            {video.posterWalrusUri && !imgError ? (
+            {thumbnailUrl && !imgError ? (
               <img
                 className="w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
-                src={video.posterWalrusUri}
+                src={thumbnailUrl}
                 alt={video.title}
                 onError={() => setImgError(true)}
               />
@@ -85,14 +118,41 @@ const VideoCard = ({ video }: { video: Video }) => {
           </div>
 
           {/* Video Info */}
-          <div className="w-full flex flex-col justify-start items-start gap-1">
-            <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">
-              {video.creatorId.slice(0, 6)}...{video.creatorId.slice(-4)}
+          <div className="w-full flex flex-col justify-start items-start gap-2">
+            {/* Creator Info with Avatar */}
+            <div className="flex items-center gap-2">
+              {/* Creator Avatar */}
+              {video.creator?.avatar ? (
+                <img
+                  src={video.creator.avatar}
+                  alt={video.creator.name}
+                  className="w-8 h-8 rounded-full object-cover border border-black"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-walrus-mint to-walrus-grape flex items-center justify-center border border-black">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+              )}
+              {/* Creator Name */}
+              <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">
+                {video.creator?.name || `${video.creatorId.slice(0, 6)}...${video.creatorId.slice(-4)}`}
+              </div>
             </div>
+
             <div className="w-full inline-flex justify-between items-start gap-2">
               <div className="flex-1 inline-flex flex-col justify-start items-start gap-1">
                 <div className="text-black text-lg font-bold font-['Outfit'] line-clamp-1">{video.title}</div>
                 <div className="inline-flex justify-start items-center gap-[5px]">
+                  {video.creator && (
+                    <>
+                      <div className="text-black text-xs font-medium font-['Outfit']">
+                        {video.creator.subscriberCount} {video.creator.subscriberCount === 1 ? 'subscriber' : 'subscribers'}
+                      </div>
+                      <div className="text-black text-xs font-medium font-['Outfit']">•</div>
+                    </>
+                  )}
                   <div className="text-black text-xs font-medium font-['Outfit']">0 views</div>
                   <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•{formatTimeAgo(video.createdAt)}</div>
                 </div>
