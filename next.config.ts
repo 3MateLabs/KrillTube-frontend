@@ -60,6 +60,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'aggregator.mainnet.walrus.mirai.cloud',
+        pathname: '/v1/blobs/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'placehold.co',
       },
     ],
