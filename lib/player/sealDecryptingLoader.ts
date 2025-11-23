@@ -11,18 +11,20 @@
 
 'use client';
 
-import type { SessionKey } from '@mysten/seal';
-import { initializeSealClient, decryptWithSeal } from '@/lib/seal';
-import { SEAL_CONFIG } from '@/lib/seal/config';
-import { Transaction } from '@mysten/sui/transactions';
+import type { SessionKey, SealClient } from '@mysten/seal';
+import { decryptWithSeal } from '@/lib/seal';
+import { Transaction, Inputs } from '@mysten/sui/transactions';
 import { fromHex } from '@mysten/sui/utils';
-import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
+import { SuiClient } from '@mysten/sui/client';
 
 export interface SealDecryptingLoaderConfig {
   videoId: string;
   channelId: string;
   packageId: string;
   sessionKey: SessionKey;
+  sealClient: SealClient; // Pre-initialized SealClient to reuse across all segments
+  suiClient: SuiClient; // Pre-initialized SuiClient to reuse for all transactions
+  channelObjectRef?: { objectId: string; version: string; digest: string }; // Fully qualified channel object reference
   maxRetries?: number;
   retryDelay?: number;
   network?: 'mainnet' | 'testnet';
@@ -69,6 +71,14 @@ export class SealDecryptingLoader {
       throw new Error('SEAL loader config not found in HLS config');
     }
 
+    if (!sealConfig.sealClient) {
+      throw new Error('SealClient not provided in loader config - must be initialized in useSealVideo');
+    }
+
+    if (!sealConfig.suiClient) {
+      throw new Error('SuiClient not provided in loader config - must be initialized in useSealVideo');
+    }
+
     this.config = {
       maxRetries: 3,
       retryDelay: 1000,
@@ -80,6 +90,8 @@ export class SealDecryptingLoader {
       videoId: this.config.videoId,
       channelId: this.config.channelId,
       hasSessionKey: !!this.config.sessionKey,
+      hasSealClient: !!this.config.sealClient,
+      hasSuiClient: !!this.config.suiClient,
     });
   }
 
@@ -166,20 +178,16 @@ export class SealDecryptingLoader {
     console.log('[SealDecryptingLoader] Loading:', { url, type });
 
     // For playlists, just fetch them normally (they're not encrypted)
-    if (type === 'manifest' || url.endsWith('.m3u8')) {
+    // type === 'manifest' = master playlist
+    // type === 'level' = rendition/level playlist
+    if (type === 'manifest' || type === 'level' || url.endsWith('.m3u8')) {
       console.log('[SealDecryptingLoader] Loading playlist (unencrypted)');
       return this.loadPlaintext();
     }
 
     // For segments, use SEAL decryption
-    if (type === 'level') {
-      console.log('[SealDecryptingLoader] Loading SEAL-encrypted segment');
-      return this.loadSealSegment();
-    }
-
-    // Unknown type, load as plaintext
-    console.log('[SealDecryptingLoader] Unknown type, loading as plaintext');
-    return this.loadPlaintext();
+    console.log('[SealDecryptingLoader] Loading SEAL-encrypted segment');
+    return this.loadSealSegment();
   }
 
   /**
@@ -194,7 +202,19 @@ export class SealDecryptingLoader {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const data = await response.text();
+    let data = await response.text();
+
+    // WORKAROUND: Rewrite testnet URLs to mainnet URLs
+    // This is needed because the master playlist blob was uploaded with testnet URLs
+    // but the actual blobs exist on mainnet
+    const testnetPattern = /https:\/\/aggregator\.walrus-testnet\.walrus\.space/g;
+    const mainnetUrl = 'https://aggregator.mainnet.walrus.mirai.cloud';
+
+    if (testnetPattern.test(data)) {
+      console.log('[SealDecryptingLoader] Rewriting testnet URLs to mainnet');
+      data = data.replace(testnetPattern, mainnetUrl);
+    }
+
     this._stats.loaded = data.length;
     this._stats.total = data.length;
     this._stats.loading.end = Date.now();
@@ -214,30 +234,53 @@ export class SealDecryptingLoader {
    * Load and decrypt SEAL-encrypted segment
    */
   private async loadSealSegment(): Promise<void> {
-    const url = this.context.url;
+    const urlString = this.context.url;
 
-    // Extract segment info from URL
-    // URL format: https://aggregator.../by-quilt-patch-id/{blobId}@{start}:{end}
-    const match = url.match(/\/by-quilt-patch-id\/([^@]+)@(\d+):(\d+)/);
-    if (!match) {
-      throw new Error('Invalid segment URL format');
+    // Parse segment info from URL query parameters (new format after manifest rewriting)
+    // or from frag data (fallback)
+    let videoId = this.config.videoId;
+    let segIdx: number;
+    let rendition: string;
+
+    try {
+      const url = new URL(urlString);
+      const videoIdParam = url.searchParams.get('videoId');
+      const segIdxParam = url.searchParams.get('segIdx');
+      const renditionParam = url.searchParams.get('rendition');
+
+      if (videoIdParam && segIdxParam && renditionParam) {
+        // New format with query parameters
+        videoId = videoIdParam;
+        segIdx = parseInt(segIdxParam);
+        rendition = renditionParam;
+        console.log('[SealDecryptingLoader] Using query params from URL');
+      } else {
+        // Fallback: use frag data
+        const fragSn = this.context.frag?.sn;
+        // Handle init segments: HLS.js uses string 'initSegment', we need -1
+        segIdx = typeof fragSn === 'number' ? fragSn : -1;
+        rendition = this.getRenditionName();
+        console.log('[SealDecryptingLoader] Using frag data (no query params)');
+      }
+    } catch (err) {
+      // URL parsing failed, use frag data
+      const fragSn = this.context.frag?.sn;
+      // Handle init segments: HLS.js uses string 'initSegment', we need -1
+      segIdx = typeof fragSn === 'number' ? fragSn : -1;
+      rendition = this.getRenditionName();
+      console.log('[SealDecryptingLoader] URL parsing failed, using frag data');
     }
 
-    const [, blobId] = match;
-
-    // Parse segment index from frag data
-    const segIdx = this.context.frag?.sn ?? -1;
-    const rendition = this.getRenditionName();
-
     console.log('[SealDecryptingLoader] Fetching SEAL metadata:', {
-      videoId: this.config.videoId,
+      videoId,
       rendition,
       segIdx
     });
 
     // Fetch SEAL metadata from our API
+    let t1 = Date.now();
     const metadataResponse = await fetch(
-      `/api/v1/seal/segment?videoId=${this.config.videoId}&segIdx=${segIdx}`,
+      `/api/v1/seal/segment?videoId=${videoId}&segIdx=${segIdx}`,
       {
         signal: this.abortController?.signal,
       }
@@ -249,10 +292,11 @@ export class SealDecryptingLoader {
     }
 
     const metadata = await metadataResponse.json();
-    console.log('[SealDecryptingLoader] Got SEAL metadata:', metadata);
+    console.log(`[SealDecryptingLoader] Got SEAL metadata in ${Date.now() - t1}ms:`, metadata);
 
     // Download encrypted segment from Walrus
     console.log('[SealDecryptingLoader] Downloading encrypted segment from Walrus...');
+    t1 = Date.now();
     const segmentResponse = await fetch(metadata.walrusUri, {
       signal: this.abortController?.signal,
     });
@@ -262,27 +306,36 @@ export class SealDecryptingLoader {
     }
 
     const encryptedData = new Uint8Array(await segmentResponse.arrayBuffer());
-    console.log('[SealDecryptingLoader] Downloaded encrypted segment:', encryptedData.length, 'bytes');
+    console.log(`[SealDecryptingLoader] Downloaded encrypted segment: ${encryptedData.length} bytes in ${Date.now() - t1}ms`);
 
-    // Initialize SEAL client
-    const suiClient = createSuiClientWithRateLimitHandling();
-    const sealClient = initializeSealClient({
-      network: this.config.network || SEAL_CONFIG.NETWORK,
-      packageId: this.config.packageId,
-      suiClient,
-    });
+    // Use pre-initialized SealClient and SuiClient from config (created once in useSealVideo)
+    // This prevents redundant key server fetches and RPC initialization for every segment
+    const sealClient = this.config.sealClient;
+    const suiClient = this.config.suiClient;
+    console.log('[SealDecryptingLoader] Using cached SEAL client and SUI client (no re-initialization)');
 
     // Build seal_approve transaction
     console.log('[SealDecryptingLoader] Building seal_approve transaction...');
+    t1 = Date.now();
     const tx = new Transaction();
 
     const documentIdBytes = fromHex(metadata.sealDocumentId.replace('0x', ''));
+
+    // Use fully qualified object reference if available (SEAL performance optimization)
+    // This prevents key servers from making additional RPC calls to resolve object versions
+    const channelArg = this.config.channelObjectRef
+      ? tx.object(Inputs.ObjectRef({
+          objectId: this.config.channelObjectRef.objectId,
+          version: this.config.channelObjectRef.version,
+          digest: this.config.channelObjectRef.digest,
+        }))
+      : tx.object(this.config.channelId);
 
     tx.moveCall({
       target: `${this.config.packageId}::creator_channel::seal_approve`,
       arguments: [
         tx.pure.vector('u8', Array.from(documentIdBytes)),
-        tx.object(this.config.channelId),
+        channelArg,
         tx.object('0x6'), // Clock object
       ],
     });
@@ -291,17 +344,35 @@ export class SealDecryptingLoader {
       client: suiClient,
       onlyTransactionKind: true,
     });
+    console.log(`[SealDecryptingLoader] Transaction built in ${Date.now() - t1}ms`);
 
     // Decrypt with SEAL
     console.log('[SealDecryptingLoader] Decrypting with SEAL...');
-    const decryptedData = await decryptWithSeal(
-      sealClient,
-      encryptedData,
-      this.config.sessionKey,
-      txBytes
-    );
+    const decryptStartTime = Date.now();
+    let decryptedData: Uint8Array;
 
-    console.log('[SealDecryptingLoader] ✓ Segment decrypted:', decryptedData.length, 'bytes');
+    try {
+      // Don't pass abortController signal to SEAL - it has its own timeout handling
+      // and the loader's signal can be too aggressive
+      decryptedData = await decryptWithSeal(
+        sealClient,
+        encryptedData,
+        this.config.sessionKey,
+        txBytes
+      );
+      const decryptDuration = Date.now() - decryptStartTime;
+      console.log(`[SealDecryptingLoader] ✓ Segment decrypted: ${decryptedData.length} bytes in ${decryptDuration}ms`);
+    } catch (err) {
+      const decryptDuration = Date.now() - decryptStartTime;
+      console.error(`[SealDecryptingLoader] SEAL decryption failed after ${decryptDuration}ms:`, err);
+      console.error('[SealDecryptingLoader] Error details:', {
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        error: err,
+        duration: decryptDuration,
+      });
+      throw new Error(`SEAL decryption failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
     this._stats.loaded = decryptedData.byteLength;
     this._stats.total = decryptedData.byteLength;
@@ -368,14 +439,20 @@ export class SealDecryptingLoader {
  *
  * @param channelId - Creator's channel ID
  * @param userAddress - User's wallet address
+ * @param packageId - SEAL package ID
+ * @param suiClient - Optional SuiClient instance (creates new if not provided)
  * @returns true if subscribed, false otherwise
  */
 export async function checkSealAccess(
   channelId: string,
-  userAddress: string
+  userAddress: string,
+  packageId: string,
+  suiClient?: SuiClient
 ): Promise<boolean> {
-  const packageId = SEAL_CONFIG.PACKAGE_ID;
-  const suiClient = createSuiClientWithRateLimitHandling();
+  // Use provided client or create a new one (only for initial access check)
+  const client = suiClient || new SuiClient({
+    url: process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443'
+  });
 
   try {
     // Use devInspectTransactionBlock to check subscription status
@@ -389,7 +466,7 @@ export async function checkSealAccess(
       ],
     });
 
-    const result = await suiClient.devInspectTransactionBlock({
+    const result = await client.devInspectTransactionBlock({
       transactionBlock: tx,
       sender: userAddress,
     });
