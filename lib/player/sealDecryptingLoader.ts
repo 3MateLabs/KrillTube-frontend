@@ -24,7 +24,6 @@ export interface SealDecryptingLoaderConfig {
   sessionKey: SessionKey;
   sealClient: SealClient; // Pre-initialized SealClient to reuse across all segments
   suiClient: SuiClient; // Pre-initialized SuiClient to reuse for all transactions
-  channelObjectRef?: { objectId: string; version: string; digest: string }; // Fully qualified channel object reference
   maxRetries?: number;
   retryDelay?: number;
   network?: 'mainnet' | 'testnet';
@@ -321,21 +320,15 @@ export class SealDecryptingLoader {
 
     const documentIdBytes = fromHex(metadata.sealDocumentId.replace('0x', ''));
 
-    // Use fully qualified object reference if available (SEAL performance optimization)
-    // This prevents key servers from making additional RPC calls to resolve object versions
-    const channelArg = this.config.channelObjectRef
-      ? tx.object(Inputs.ObjectRef({
-          objectId: this.config.channelObjectRef.objectId,
-          version: this.config.channelObjectRef.version,
-          digest: this.config.channelObjectRef.digest,
-        }))
-      : tx.object(this.config.channelId);
-
+    // IMPORTANT: Don't use fully qualified object references in seal_approve PTB
+    // The key server's full node may be behind and not have the latest version yet
+    // causing "PTB contains an invalid parameter" errors during dry-run
+    // Let the key server's node resolve the object version it knows about
     tx.moveCall({
       target: `${this.config.packageId}::creator_channel::seal_approve`,
       arguments: [
         tx.pure.vector('u8', Array.from(documentIdBytes)),
-        channelArg,
+        tx.object(this.config.channelId), // Use objectId only, not versioned reference
         tx.object('0x6'), // Clock object
       ],
     });
