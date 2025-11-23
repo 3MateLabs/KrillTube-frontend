@@ -148,26 +148,6 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
         });
         console.log('[useSealVideo] ✓ SEAL client initialized and cached');
 
-        // Fetch the channel object with full reference (version + digest)
-        // This is a SEAL performance optimization - passing fully qualified object refs
-        // prevents key servers from making additional RPC calls to resolve versions
-        console.log('[useSealVideo] Fetching channel object reference...');
-        const channelObject = await suiClientRef.current.getObject({
-          id: options.channelId,
-          options: { showContent: false }, // We only need the object reference
-        });
-
-        if (channelObject.error) {
-          throw new Error(`Failed to fetch channel object: ${channelObject.error}`);
-        }
-
-        const channelObjectRef = {
-          objectId: channelObject.data!.objectId,
-          version: channelObject.data!.version,
-          digest: channelObject.data!.digest,
-        };
-        console.log('[useSealVideo] ✓ Channel object reference fetched:', channelObjectRef);
-
         // Create session key for SEAL decryption
         console.log('[useSealVideo] Creating session key...');
         if (options.onSigningRequired) {
@@ -221,7 +201,6 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
 
         // Store loader config in HLS config for loader to access
         // Pass pre-initialized SealClient and SuiClient to prevent re-initialization on every segment
-        // Pass channelObjectRef for SEAL performance optimization
         (hls.config as any).sealLoaderConfig = {
           videoId: options.videoId,
           channelId: options.channelId,
@@ -229,7 +208,6 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
           sessionKey: sessionKeyRef.current,
           sealClient: sealClientRef.current,
           suiClient: suiClientRef.current,
-          channelObjectRef,
           network: options.network || 'mainnet',
         };
 
