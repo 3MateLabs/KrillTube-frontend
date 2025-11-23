@@ -12,7 +12,7 @@ import { fromHex, toHex } from '@mysten/sui/utils';
 import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 // SEAL Key Server Object IDs and URLs
-// Mainnet: Using 1-of-1 threshold with H2O nodes key server (open/public)
+// Mainnet: Using 1-of-2 threshold with H2O nodes key servers (open + permission-based)
 const SEAL_KEY_SERVERS = {
   testnet: [
     {
@@ -23,7 +23,11 @@ const SEAL_KEY_SERVERS = {
   mainnet: [
     {
       objectId: '0x4a65b4ff7ba8f4b538895ee35959f982a95f0db7e2a202ec989d261ea927286a',
-      url: 'https://seal.sui-mainnet.h2o-nodes.com', // Fetched from on-chain KeyServerV1
+      url: 'https://seal.sui-mainnet.h2o-nodes.com', // Open key server
+    },
+    {
+      objectId: '0x9fdf4002789d11a9c933ce0d05c1832d64107d90bedee0eddf2820a3677d24c2',
+      url: 'https://rpc.h2o-nodes.com/dsn/0a2370f5b45dcd214257fe25f3c1b3690fa89889492/v1/service', // Permission-based key server
     },
   ],
 } as const;
