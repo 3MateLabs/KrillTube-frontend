@@ -708,11 +708,17 @@ export function CustomVideoPlayer({
             onClose={() => setShowPaymentModal(false)}
             onPayWithDKRILL={handlePayWithDKRILL}
             onPayWithSUI={handlePayWithSUI}
+            onSubscribe={() => {
+              setShowPaymentModal(false);
+              setShowSubscriptionPrompt(true);
+            }}
             onGetDemoTokens={handleGetDemoTokens}
             dKrillPrice={dKrillConfig?.pricePerView}
             suiPrice={suiConfig?.pricePerView}
+            subscriptionPrice={channelPrice}
             dKrillDecimals={dKrillConfig?.decimals}
             suiDecimals={suiConfig?.decimals}
+            encryptionType={encryptionType}
           />
         )}
 
