@@ -20,6 +20,10 @@ import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
 import { processPayment } from '@/lib/utils/processPayment';
 import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+
+// Initialize SuiClient for fetching coin metadata
+const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
 
 export interface CustomVideoPlayerProps {
   videoId: string;
@@ -217,6 +221,7 @@ export function CustomVideoPlayer({
     chain: string;
     decimals: number;
     objectId: string;
+    iconUrl?: string | null;
   }>>([]);
 
   // Quality switching state
@@ -314,6 +319,44 @@ export function CustomVideoPlayer({
 
   // Fetch creator configs for both payment methods
   useEffect(() => {
+    const fetchCoinMetadata = async (coinType: string, chainName: string) => {
+      try {
+        console.log(`[CustomVideoPlayer] Fetching metadata for ${coinType} on ${chainName}`);
+
+        if (chainName === 'iota') {
+          // Use IOTA metadata API
+          const response = await fetch(`/api/v1/iota/coin-metadata/${encodeURIComponent(coinType)}`);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.metadata) {
+              let iconUrl = data.metadata.iconUrl;
+              // Use fallback icon for IOTA if metadata doesn't have one
+              if (!iconUrl && coinType === '0x2::iota::IOTA') {
+                iconUrl = 'https://iota.org/logo.png';
+              }
+              return iconUrl ?? null;
+            }
+          }
+        } else {
+          // Use Sui client for Sui tokens
+          const metadata = await suiClient.getCoinMetadata({ coinType });
+          if (metadata) {
+            let iconUrl = metadata.iconUrl;
+            // Use fallback icon for SUI if metadata doesn't have one
+            if (!iconUrl && coinType === '0x2::sui::SUI') {
+              iconUrl = 'https://imagedelivery.net/cBNDGgkrsEA-b_ixIp9SkQ/sui-coin.svg/public';
+            }
+            return iconUrl ?? null;
+          }
+        }
+      } catch (error) {
+        console.error(`[CustomVideoPlayer] Failed to fetch metadata for ${coinType}:`, error);
+      }
+
+      return null;
+    };
+
     const fetchCreatorConfigs = async () => {
       if (!videoId || !chain) return;
 
@@ -329,11 +372,24 @@ export function CustomVideoPlayer({
         const data = await response.json();
         const video = data.video;
 
-        // Filter creator configs for current chain and set all of them
+        // Filter creator configs for current chain
         const configs = video.creatorConfigs?.filter((c: any) => c.chain === chain) || [];
 
         console.log(`[CustomVideoPlayer] Found ${configs.length} creator configs for chain ${chain}:`, configs);
-        setCreatorConfigs(configs);
+
+        // Fetch metadata for each config
+        const configsWithMetadata = await Promise.all(
+          configs.map(async (config: any) => {
+            const iconUrl = await fetchCoinMetadata(config.coinType, config.chain);
+            return {
+              ...config,
+              iconUrl,
+            };
+          })
+        );
+
+        console.log('[CustomVideoPlayer] Configs with metadata:', configsWithMetadata);
+        setCreatorConfigs(configsWithMetadata);
       } catch (error) {
         console.error('[CustomVideoPlayer] Error fetching creator configs:', error);
       }

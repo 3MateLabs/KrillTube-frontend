@@ -14,6 +14,7 @@ interface CreatorConfig {
   pricePerView: string; // Price in smallest unit
   decimals: number; // Token decimals
   chain: string; // "iota", "sui", etc.
+  iconUrl?: string | null; // On-chain token icon URL
 }
 
 interface PaymentModalProps {
@@ -51,21 +52,37 @@ export function PaymentModal({
   };
 
   // Helper to get token display name and icon
-  const getTokenInfo = (coinType: string) => {
+  const getTokenInfo = (config: CreatorConfig) => {
+    const { coinType, iconUrl } = config;
+
+    // Check for dKRILL token
     if (coinType.includes('dkrill') || coinType.toLowerCase().includes('krill')) {
       return {
         symbol: '$dKRILL',
         icon: '/logos/krilll.png',
         isImage: true,
       };
-    } else if (coinType.includes('0x2::sui::SUI')) {
+    }
+
+    // Check for SUI token
+    if (coinType.includes('0x2::sui::SUI')) {
       return {
         symbol: '$SUI',
         icon: 'sui', // Will use SVG
         isImage: false,
       };
     }
-    // Default fallback for unknown tokens
+
+    // Use on-chain iconUrl if available
+    if (iconUrl) {
+      return {
+        symbol: coinType.split('::').pop() || 'TOKEN',
+        icon: iconUrl,
+        isImage: true,
+      };
+    }
+
+    // Default fallback for unknown tokens without icon
     return {
       symbol: coinType.split('::').pop() || 'TOKEN',
       icon: null,
@@ -78,7 +95,7 @@ export function PaymentModal({
     if (creatorConfigs.length === 0) return '0.00';
     return creatorConfigs
       .map(config => {
-        const tokenInfo = getTokenInfo(config.coinType);
+        const tokenInfo = getTokenInfo(config);
         return `${formatPrice(config.pricePerView, config.decimals)} ${tokenInfo.symbol}`;
       })
       .join(' or ');
@@ -185,7 +202,7 @@ export function PaymentModal({
       {creatorConfigs.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12 max-w-6xl mx-auto px-8">
           {creatorConfigs.map((config) => {
-            const tokenInfo = getTokenInfo(config.coinType);
+            const tokenInfo = getTokenInfo(config);
             const formattedPrice = formatPrice(config.pricePerView, config.decimals);
 
             return (
