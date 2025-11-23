@@ -18,6 +18,7 @@ export interface UseEncryptedVideoOptions {
   network?: 'mainnet' | 'testnet'; // Walrus network for correct aggregator URLs
   autoplay?: boolean;
   apiBaseUrl?: string;
+  enabled?: boolean; // Whether this hook should be active (default: true)
   onReady?: () => void;
   onError?: (error: Error) => void;
   onSessionExpired?: () => void;
@@ -78,6 +79,12 @@ export function useEncryptedVideo(
 
     const initialize = async () => {
       try {
+        // Skip if this hook is disabled
+        if (options.enabled === false) {
+          console.log('[useEncryptedVideo] Hook disabled, skipping initialization');
+          setIsLoading(false);
+          return;
+        }
 
         // Wait for video element to be ready
         if (!videoRef.current) {
@@ -273,7 +280,7 @@ export function useEncryptedVideo(
         workerPoolRef.current = null;
       }
     };
-  }, [options.videoId, options.videoUrl, options.apiBaseUrl]);
+  }, [options.videoId, options.videoUrl, options.apiBaseUrl, options.enabled]);
 
   /**
    * Track playing state

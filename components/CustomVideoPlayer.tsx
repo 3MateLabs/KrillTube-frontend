@@ -53,6 +53,7 @@ export function CustomVideoPlayer({
   // Subscription state
   const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+  const [subscriptionCheckComplete, setSubscriptionCheckComplete] = useState(false);
 
   // Determine which video hook to use based on encryption type
   // For subscription-acl videos, use SEAL decryption with wallet signing
@@ -73,7 +74,7 @@ export function CustomVideoPlayer({
     channelId: channelId || '',
     packageId: process.env.NEXT_PUBLIC_SEAL_PACKAGE_ID || '',
     network,
-    enabled: shouldUseSeal, // Only initialize if this is a subscription-only video with subscription
+    enabled: subscriptionCheckComplete && shouldUseSeal, // Only initialize after subscription check completes AND user is subscribed
     autoplay: false, // Don't autoplay until user signs
     onReady: () => {
       console.log('[SEAL] Video ready to play - session key signed');
@@ -97,6 +98,7 @@ export function CustomVideoPlayer({
     videoUrl,
     network,
     autoplay,
+    enabled: subscriptionCheckComplete && !shouldUseSeal, // Only initialize after subscription check completes AND this is NOT subscription-only with subscription
     onReady: () => {
       console.log('[DEK] Video ready to play');
     },
@@ -141,12 +143,14 @@ export function CustomVideoPlayer({
       // Skip if not subscription-based video
       if (encryptionType !== 'both' && encryptionType !== 'subscription-acl') {
         setIsSubscribed(null);
+        setSubscriptionCheckComplete(true);
         return;
       }
 
       // Skip if no creator address or user not connected
       if (!creatorAddress || !address) {
         setIsSubscribed(false);
+        setSubscriptionCheckComplete(true);
 
         // Show subscription prompt for subscription-only videos
         if (encryptionType === 'subscription-acl') {
@@ -162,6 +166,7 @@ export function CustomVideoPlayer({
         if (!response.ok) {
           console.error('[CustomVideoPlayer] Failed to check subscription');
           setIsSubscribed(false);
+          setSubscriptionCheckComplete(true);
 
           // Show subscription prompt if not subscribed to subscription-only video
           if (encryptionType === 'subscription-acl') {
@@ -173,6 +178,7 @@ export function CustomVideoPlayer({
         const data = await response.json();
         const subscribed = data.isSubscribed || false;
         setIsSubscribed(subscribed);
+        setSubscriptionCheckComplete(true);
         console.log('[CustomVideoPlayer] Subscription status:', subscribed);
 
         // Show subscription prompt if not subscribed to subscription-only video
@@ -182,6 +188,7 @@ export function CustomVideoPlayer({
       } catch (error) {
         console.error('[CustomVideoPlayer] Error checking subscription:', error);
         setIsSubscribed(false);
+        setSubscriptionCheckComplete(true);
 
         // Show subscription prompt if error checking subscription-only video
         if (encryptionType === 'subscription-acl') {
