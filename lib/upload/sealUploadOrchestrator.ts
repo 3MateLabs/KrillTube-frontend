@@ -35,7 +35,8 @@ export interface SealUploadResult {
   videoId: string;
   walrusMasterUri: string;
   masterBlobObjectId?: string;
-  posterWalrusUri?: string;
+  poster?: string; // Base64 data URL for thumbnail
+  posterWalrusUri?: string; // DEPRECATED: Legacy Walrus-based thumbnails
   posterBlobObjectId?: string;
   duration: number;
   renditions: Array<{
@@ -206,9 +207,8 @@ export async function uploadVideoWithSEAL(
     blobObjectId: string;
   }> = [];
 
-  // Declare poster variables outside try block so they're accessible throughout
-  let posterBlobId: string | undefined;
-  let posterBlobObjectId: string | undefined;
+  // Declare poster variable outside try block so it's accessible throughout
+  let posterBase64: string | undefined;
 
   try {
     // Upload segments in parallel batches
@@ -268,18 +268,22 @@ export async function uploadVideoWithSEAL(
       console.log(`[SEAL Upload] ✓ Uploaded ${uploadedCount} SEAL segments`);
     }
 
-    // Upload poster if exists
+    // Convert poster to base64 for database storage (instead of uploading to Walrus)
     if (transcoded.poster) {
-      console.log(`[SEAL Upload] Uploading poster...`);
-      const posterResults = await uploadMultipleBlobsWithWallet(
-        [{ contents: transcoded.poster, identifier: 'poster' }],
-        signAndExecute,
-        walletAddress,
-        { network, epochs, deletable: true }
-      );
-      posterBlobId = posterResults[0].blobId;
-      posterBlobObjectId = posterResults[0].blobObjectId;
-      console.log('[SEAL Upload] ✓ Poster uploaded');
+      console.log(`[SEAL Upload] Converting poster to base64...`);
+
+      // Determine MIME type from poster data
+      const mimeType = transcoded.poster[0] === 0xFF && transcoded.poster[1] === 0xD8
+        ? 'image/jpeg'
+        : transcoded.poster[0] === 0x89 && transcoded.poster[1] === 0x50
+        ? 'image/png'
+        : 'image/jpeg'; // Default to JPEG
+
+      // Convert Uint8Array to base64 data URL
+      const base64String = btoa(String.fromCharCode(...transcoded.poster));
+      posterBase64 = `data:${mimeType};base64,${base64String}`;
+
+      console.log(`[SEAL Upload] ✓ Poster converted to base64 (${posterBase64.length} chars)`);
     }
 
     console.log('[SEAL Upload] ✓ All SEAL segments uploaded');
@@ -407,7 +411,6 @@ export async function uploadVideoWithSEAL(
 
   const masterWalrusUri = `${aggregatorUrl}/v1/blobs/${masterResults[0].blobId}`;
   const masterBlobObjectId = masterResults[0].blobObjectId;
-  const posterWalrusUri = posterBlobId ? `${aggregatorUrl}/v1/blobs/${posterBlobId}` : undefined;
   const masterBlobId = masterResults[0].blobId;
 
   // Build result
@@ -468,8 +471,7 @@ export async function uploadVideoWithSEAL(
     videoId: masterBlobId,
     walrusMasterUri: masterWalrusUri,
     masterBlobObjectId: network === 'mainnet' ? masterBlobObjectId : undefined,
-    posterWalrusUri,
-    posterBlobObjectId: network === 'mainnet' ? posterBlobObjectId : undefined,
+    poster: posterBase64, // Base64 thumbnail for database storage
     duration: transcoded.duration,
     renditions,
     sealObjectId: creatorSealObjectId,

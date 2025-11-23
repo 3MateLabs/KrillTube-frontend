@@ -35,7 +35,8 @@ export interface ClientUploadResult {
   videoId: string;
   walrusMasterUri: string;
   masterBlobObjectId?: string; // Mainnet only - for extend/delete operations
-  posterWalrusUri?: string;
+  poster?: string; // Base64 data URL for thumbnail
+  posterWalrusUri?: string; // DEPRECATED: Legacy Walrus-based thumbnails
   posterBlobObjectId?: string; // Mainnet only - for extend/delete operations
   duration: number;
   renditions: Array<{
@@ -319,22 +320,23 @@ export async function uploadVideoClientSide(
       }
     }
 
-    // Upload poster separately if exists
-    let posterBlobId: string | undefined;
-    let posterBlobObjectId: string | undefined;
+    // Convert poster to base64 for database storage (instead of uploading to Walrus)
+    let posterBase64: string | undefined;
     if (transcoded.poster) {
-      console.log(`[Upload] Uploading poster (${(transcoded.poster.length / 1024).toFixed(2)}KB)...`);
+      console.log(`[Upload] Converting poster to base64 (${(transcoded.poster.length / 1024).toFixed(2)}KB)...`);
 
-      const posterResults = await uploadMultipleBlobsWithWallet(
-        [{ contents: transcoded.poster, identifier: 'poster' }],
-        signAndExecute,
-        walletAddress,
-        { network, epochs, deletable: true }
-      );
+      // Determine MIME type from poster data
+      const mimeType = transcoded.poster[0] === 0xFF && transcoded.poster[1] === 0xD8
+        ? 'image/jpeg'
+        : transcoded.poster[0] === 0x89 && transcoded.poster[1] === 0x50
+        ? 'image/png'
+        : 'image/jpeg'; // Default to JPEG
 
-      posterBlobId = posterResults[0].blobId;
-      posterBlobObjectId = posterResults[0].blobObjectId;
-      console.log(`[Upload] ✓ Uploaded poster: ${posterBlobId}`);
+      // Convert Uint8Array to base64 data URL
+      const base64String = btoa(String.fromCharCode(...transcoded.poster));
+      posterBase64 = `data:${mimeType};base64,${base64String}`;
+
+      console.log(`[Upload] ✓ Poster converted to base64 (${posterBase64.length} chars)`);
     }
 
     console.log(`[Upload] ✓ All segments uploaded!`);
@@ -472,9 +474,6 @@ export async function uploadVideoClientSide(
 
   const masterWalrusUri = `${aggregatorUrl}/v1/blobs/${masterResults[0].blobId}`;
   const masterBlobObjectId = masterResults[0].blobObjectId;
-  const posterWalrusUri = posterBlobId
-    ? `${aggregatorUrl}/v1/blobs/${posterBlobId}`
-    : undefined;
 
   // Use master playlist blob ID as the video ID for cleaner URLs
   const masterBlobId = masterResults[0].blobId;
@@ -546,8 +545,7 @@ export async function uploadVideoClientSide(
     videoId: masterBlobId, // Use blob ID for clean URLs like /watch/{blobId}
     walrusMasterUri: masterWalrusUri,
     masterBlobObjectId: network === 'mainnet' ? masterBlobObjectId : undefined, // Mainnet only
-    posterWalrusUri,
-    posterBlobObjectId: network === 'mainnet' ? posterBlobObjectId : undefined, // Mainnet only
+    poster: posterBase64, // Base64 thumbnail for database storage
     duration: transcoded.duration,
     renditions,
     paymentInfo: {
