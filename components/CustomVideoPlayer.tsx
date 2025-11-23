@@ -208,20 +208,14 @@ export function CustomVideoPlayer({
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string } | null>(null);
 
-  // Creator config state - separate configs for dKRILL and IOTA
-  const [dKrillConfig, setDKrillConfig] = useState<{
-    objectId: string;
+  // Creator config state - all accepted payment tokens
+  const [creatorConfigs, setCreatorConfigs] = useState<Array<{
+    coinType: string;
     pricePerView: string;
     chain: string;
     decimals: number;
-  } | null>(null);
-
-  const [suiConfig, setSuiConfig] = useState<{
     objectId: string;
-    pricePerView: string;
-    chain: string;
-    decimals: number;
-  } | null>(null);
+  }>>([]);
 
   // Quality switching state
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -333,46 +327,11 @@ export function CustomVideoPlayer({
         const data = await response.json();
         const video = data.video;
 
-        // Find dKRILL creator config
-        const dKrillCoinType = chain === 'sui'
-          ? process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN!
-          : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
+        // Filter creator configs for current chain and set all of them
+        const configs = video.creatorConfigs?.filter((c: any) => c.chain === chain) || [];
 
-        const dKrillCfg = video.creatorConfigs?.find(
-          (c: any) => c.chain === chain && c.coinType === dKrillCoinType
-        );
-
-        if (dKrillCfg) {
-          console.log('[CustomVideoPlayer] Found dKRILL creator config:', dKrillCfg);
-          setDKrillConfig({
-            objectId: dKrillCfg.objectId,
-            pricePerView: dKrillCfg.pricePerView,
-            chain: dKrillCfg.chain,
-            decimals: dKrillCfg.decimals,
-          });
-        } else {
-          console.warn('[CustomVideoPlayer] No dKRILL creator config found for chain:', chain);
-        }
-
-        // Find native SUI creator config (only for Sui chain)
-        if (chain === 'sui') {
-          const nativeSuiCoinType = '0x2::sui::SUI';
-          const suiCfg = video.creatorConfigs?.find(
-            (c: any) => c.chain === chain && c.coinType === nativeSuiCoinType
-          );
-
-          if (suiCfg) {
-            console.log('[CustomVideoPlayer] Found native SUI creator config:', suiCfg);
-            setSuiConfig({
-              objectId: suiCfg.objectId,
-              pricePerView: suiCfg.pricePerView,
-              chain: suiCfg.chain,
-              decimals: suiCfg.decimals,
-            });
-          } else {
-            console.warn('[CustomVideoPlayer] No native SUI creator config found');
-          }
-        }
+        console.log(`[CustomVideoPlayer] Found ${configs.length} creator configs for chain ${chain}:`, configs);
+        setCreatorConfigs(configs);
       } catch (error) {
         console.error('[CustomVideoPlayer] Error fetching creator configs:', error);
       }
@@ -452,38 +411,43 @@ export function CustomVideoPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Payment handlers
-  const handlePayWithDKRILL = async () => {
-    console.log('[CustomVideoPlayer] Pay with dKRILL clicked');
+  // Generic payment handler - accepts any coin type
+  const handlePayWithToken = async (coinType: string) => {
+    console.log('[CustomVideoPlayer] Pay with token clicked:', coinType);
 
     if (!address || !chain) {
       setToast({ message: 'Please connect your wallet first', type: 'error' });
       return;
     }
 
-    if (!dKrillConfig) {
-      setToast({ message: 'dKRILL creator config not found', type: 'error' });
+    // Find the config for this coin type
+    const config = creatorConfigs.find(c => c.coinType === coinType);
+    if (!config) {
+      setToast({ message: `Payment config not found for ${coinType}`, type: 'error' });
       return;
     }
 
-    if (chain !== 'sui') {
-      setToast({ message: 'Please connect Sui wallet to pay with dKRILL', type: 'error' });
+    // Check chain compatibility
+    if (config.chain !== chain) {
+      setToast({ message: `Please connect ${config.chain} wallet to pay with this token`, type: 'error' });
       return;
     }
 
     try {
-      console.log('[CustomVideoPlayer] Processing dKRILL payment on SUI...', {
-        creatorConfigId: dKrillConfig.objectId,
-        pricePerView: dKrillConfig.pricePerView,
+      console.log('[CustomVideoPlayer] Processing payment...', {
+        coinType,
+        creatorConfigId: config.objectId,
+        pricePerView: config.pricePerView,
       });
 
       const digest = await processPayment({
-        network: 'sui',
-        creatorConfigId: dKrillConfig.objectId,
+        network: config.chain as 'sui' | 'iota',
+        creatorConfigId: config.objectId,
         referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(dKrillConfig.pricePerView),
+        paymentAmount: parseInt(config.pricePerView),
         signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
         userAddress: address,
+        coinType: coinType, // Pass the specific coin type
         videoId,
       });
 
@@ -494,87 +458,27 @@ export function CustomVideoPlayer({
         type: 'success',
         link: `https://suiscan.xyz/mainnet/tx/${digest}`
       });
-      setShowPaymentModal(false); // Close payment modal after successful payment
-      setCheckingPayment(false); // Clear checking state
+      setShowPaymentModal(false);
+      setCheckingPayment(false);
 
-      // Refresh page after short delay to ensure backend has processed the payment
+      // Refresh page after short delay
       setTimeout(() => {
         window.location.reload();
       }, 2000);
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
 
-      // Check if the error is due to no dKRILL tokens
+      // Check if the error is due to no tokens (e.g., dKRILL)
       const errorMessage = error instanceof Error ? error.message : 'Payment failed';
-      if (errorMessage.includes('No dKRILL coins found')) {
-        // Show the No Krill modal instead of a toast error
+      if (errorMessage.includes('No dKRILL coins found') || errorMessage.includes('No coins found')) {
         setShowPaymentModal(false);
         setShowNoKrillModal(true);
       } else {
-        // Show toast for other errors
         setToast({
           message: errorMessage,
           type: 'error'
         });
       }
-    }
-  };
-
-  const handlePayWithSUI = async () => {
-    console.log('[CustomVideoPlayer] Pay with native SUI clicked');
-
-    if (!address || !chain) {
-      setToast({ message: 'Please connect your wallet first', type: 'error' });
-      return;
-    }
-
-    if (!suiConfig) {
-      setToast({ message: 'Native SUI creator config not found', type: 'error' });
-      return;
-    }
-
-    if (chain !== 'sui') {
-      setToast({ message: 'Please connect Sui wallet to pay with SUI', type: 'error' });
-      return;
-    }
-
-    try {
-      console.log('[CustomVideoPlayer] Processing native SUI payment...', {
-        creatorConfigId: suiConfig.objectId,
-        pricePerView: suiConfig.pricePerView,
-      });
-
-      const digest = await processPayment({
-        network: 'sui',
-        creatorConfigId: suiConfig.objectId,
-        referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(suiConfig.pricePerView),
-        signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
-        userAddress: address,
-        coinType: '0x2::sui::SUI', // Use native SUI coin
-        videoId,
-      });
-
-      console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
-
-      setToast({
-        message: 'Payment successful! Refreshing page...',
-        type: 'success',
-        link: `https://suiscan.xyz/mainnet/tx/${digest}`
-      });
-      setShowPaymentModal(false); // Close payment modal after successful payment
-      setCheckingPayment(false); // Clear checking state
-
-      // Refresh page after short delay to ensure backend has processed the payment
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      console.error('[CustomVideoPlayer] Payment failed:', error);
-      setToast({
-        message: error instanceof Error ? error.message : 'Payment failed',
-        type: 'error'
-      });
     }
   };
 
@@ -715,18 +619,14 @@ export function CustomVideoPlayer({
           <PaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
-            onPayWithDKRILL={handlePayWithDKRILL}
-            onPayWithSUI={handlePayWithSUI}
+            onPayWithToken={handlePayWithToken}
             onSubscribe={() => {
               setShowPaymentModal(false);
               setShowSubscriptionPrompt(true);
             }}
             onGetDemoTokens={handleGetDemoTokens}
-            dKrillPrice={dKrillConfig?.pricePerView}
-            suiPrice={suiConfig?.pricePerView}
+            creatorConfigs={creatorConfigs}
             subscriptionPrice={channelPrice}
-            dKrillDecimals={dKrillConfig?.decimals}
-            suiDecimals={suiConfig?.decimals}
             encryptionType={encryptionType}
           />
         )}
