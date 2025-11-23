@@ -143,7 +143,8 @@ model Video {
   walrusMasterUri      String            @map("walrus_master_uri")
   masterBlobObjectId   String?           @map("master_blob_object_id") // Sui blob object ID for master playlist (mainnet only)
   masterEndEpoch       Int?              @map("master_end_epoch") // Walrus storage expiry epoch for master (mainnet only)
-  posterWalrusUri      String?           @map("poster_walrus_uri")
+  poster               String?           // Base64 data URL for thumbnail (like avatar)
+  posterWalrusUri      String?           @map("poster_walrus_uri") // DEPRECATED: Legacy Walrus-based thumbnails
   posterBlobObjectId   String?           @map("poster_blob_object_id") // Sui blob object ID for poster (mainnet only)
   posterEndEpoch       Int?              @map("poster_end_epoch") // Walrus storage expiry epoch for poster (mainnet only)
   duration             Float?
