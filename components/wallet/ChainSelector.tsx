@@ -2,9 +2,9 @@
 
 /**
  * Chain Selector Component
- * Shows Sui, IOTA, Solana, and Ethereum wallet options
- * Sui and IOTA are fully functional
- * Solana and Ethereum show "Coming Soon" (UI only)
+ * Shows wallet options for multiple blockchains
+ * Active chains: Sui, IOTA
+ * Coming soon: Solana, Ethereum, BNB Chain, Base, Tron, Monad, Hyperliquid, Avalanche
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -127,6 +127,62 @@ const EthereumIcon = () => (
     <path fill="#141414" d="M127.961 287.958l127.96-75.637-127.96-58.162z" />
     <path fill="#393939" d="M0 212.32l127.96 75.638v-133.8z" />
   </svg>
+);
+
+// Placeholder icons for new chains - can be replaced with actual logos
+const BNBIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-5 w-5"
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="12" cy="12" r="12" fill="#F3BA2F" />
+    <path
+      fill="white"
+      d="M12 4.5l2.5 2.5L12 9.5 9.5 7 12 4.5zm-5 5l2.5 2.5L7 14.5 4.5 12 7 9.5zm10 0l2.5 2.5L17 14.5 14.5 12 17 9.5zM12 14.5l2.5 2.5L12 19.5 9.5 17 12 14.5zm0-2.5l2.5-2.5L12 7 9.5 9.5 12 12z"
+    />
+  </svg>
+);
+
+const BaseIcon = () => (
+  <img
+    src="https://i.imgur.com/Jgwmt2p.png"
+    alt="Base"
+    className="h-5 w-5 object-contain"
+  />
+);
+
+const TronIcon = () => (
+  <img
+    src="https://i.imgur.com/hzf7OzH.png"
+    alt="Tron"
+    className="h-5 w-5 object-contain"
+  />
+);
+
+const MonadIcon = () => (
+  <img
+    src="https://i.imgur.com/dBRUsNN.png"
+    alt="Monad"
+    className="h-5 w-5 object-contain"
+  />
+);
+
+const HyperliquidIcon = () => (
+  <img
+    src="https://i.imgur.com/3tsuV5X.png"
+    alt="Hyperliquid"
+    className="h-5 w-5 object-contain"
+  />
+);
+
+const AvalancheIcon = () => (
+  <img
+    src="https://i.imgur.com/rm28hPd.png"
+    alt="Avalanche"
+    className="h-5 w-5 object-contain"
+  />
 );
 
 export function ChainSelector() {
@@ -366,7 +422,7 @@ export function ChainSelector() {
           />
 
           {/* Wallet Modal */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] bg-white rounded-3xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1.00)] border-[3px] border-black z-[99999] overflow-hidden">
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] max-h-[80vh] bg-white rounded-3xl shadow-[5px_5px_0px_0px_rgba(0,0,0,1.00)] border-[3px] border-black z-[99999] overflow-hidden flex flex-col">
             {/* Close Button */}
             <button
               onClick={() => setIsOpen(false)}
@@ -387,7 +443,7 @@ export function ChainSelector() {
               </svg>
             </button>
 
-            <div className="p-8">
+            <div className="p-8 overflow-y-auto">
               {/* Header */}
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-black mb-2 font-['Outfit']">
@@ -452,6 +508,96 @@ export function ChainSelector() {
                   <div className="flex-1 text-left">
                     <div className="text-black text-base font-semibold font-['Outfit']">Ethereum</div>
                     <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect Ethereum wallets</div>
+                  </div>
+                  <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
+                    Coming Soon
+                  </span>
+                </button>
+
+                {/* BNB - Coming Soon */}
+                <button
+                  disabled
+                  className="w-full p-4 bg-gray-100 rounded-xl border-[3px] border-gray-300 flex items-center gap-3 cursor-not-allowed opacity-60 relative"
+                >
+                  <BNBIcon />
+                  <div className="flex-1 text-left">
+                    <div className="text-black text-base font-semibold font-['Outfit']">BNB Chain</div>
+                    <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect BNB Smart Chain wallets</div>
+                  </div>
+                  <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
+                    Coming Soon
+                  </span>
+                </button>
+
+                {/* Base - Coming Soon */}
+                <button
+                  disabled
+                  className="w-full p-4 bg-gray-100 rounded-xl border-[3px] border-gray-300 flex items-center gap-3 cursor-not-allowed opacity-60 relative"
+                >
+                  <BaseIcon />
+                  <div className="flex-1 text-left">
+                    <div className="text-black text-base font-semibold font-['Outfit']">Base</div>
+                    <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect Base wallets</div>
+                  </div>
+                  <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
+                    Coming Soon
+                  </span>
+                </button>
+
+                {/* Tron - Coming Soon */}
+                <button
+                  disabled
+                  className="w-full p-4 bg-gray-100 rounded-xl border-[3px] border-gray-300 flex items-center gap-3 cursor-not-allowed opacity-60 relative"
+                >
+                  <TronIcon />
+                  <div className="flex-1 text-left">
+                    <div className="text-black text-base font-semibold font-['Outfit']">Tron</div>
+                    <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect Tron wallets</div>
+                  </div>
+                  <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
+                    Coming Soon
+                  </span>
+                </button>
+
+                {/* Monad - Coming Soon */}
+                <button
+                  disabled
+                  className="w-full p-4 bg-gray-100 rounded-xl border-[3px] border-gray-300 flex items-center gap-3 cursor-not-allowed opacity-60 relative"
+                >
+                  <MonadIcon />
+                  <div className="flex-1 text-left">
+                    <div className="text-black text-base font-semibold font-['Outfit']">Monad</div>
+                    <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect Monad wallets</div>
+                  </div>
+                  <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
+                    Coming Soon
+                  </span>
+                </button>
+
+                {/* Hyperliquid - Coming Soon */}
+                <button
+                  disabled
+                  className="w-full p-4 bg-gray-100 rounded-xl border-[3px] border-gray-300 flex items-center gap-3 cursor-not-allowed opacity-60 relative"
+                >
+                  <HyperliquidIcon />
+                  <div className="flex-1 text-left">
+                    <div className="text-black text-base font-semibold font-['Outfit']">Hyperliquid</div>
+                    <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect Hyperliquid wallets</div>
+                  </div>
+                  <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
+                    Coming Soon
+                  </span>
+                </button>
+
+                {/* Avalanche - Coming Soon */}
+                <button
+                  disabled
+                  className="w-full p-4 bg-gray-100 rounded-xl border-[3px] border-gray-300 flex items-center gap-3 cursor-not-allowed opacity-60 relative"
+                >
+                  <AvalancheIcon />
+                  <div className="flex-1 text-left">
+                    <div className="text-black text-base font-semibold font-['Outfit']">Avalanche</div>
+                    <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect Avalanche wallets</div>
                   </div>
                   <span className="px-2 py-1 bg-black/10 rounded text-black/70 text-xs font-bold font-['Outfit']">
                     Coming Soon
