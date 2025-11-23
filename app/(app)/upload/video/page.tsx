@@ -296,20 +296,28 @@ function UploadContent() {
         setError('Please select a valid image file for thumbnail');
         return;
       }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Thumbnail size must be less than 10MB');
+        return;
+      }
+
       setCustomThumbnail(file);
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file);
-      setThumbnailPreview(previewUrl);
+
+      // Convert to base64 (like profile photos)
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string); // base64 data URL
+      };
+      reader.readAsDataURL(file);
       setError(null);
     }
   };
 
   const handleRemoveThumbnail = () => {
     setCustomThumbnail(null);
-    if (thumbnailPreview) {
-      URL.revokeObjectURL(thumbnailPreview);
-      setThumbnailPreview(null);
-    }
+    setThumbnailPreview(null);
   };
 
   const handleQualityToggle = (quality: RenditionQuality) => {
@@ -1001,6 +1009,9 @@ function UploadContent() {
       console.log('[Upload V2] Registering with server...');
       setProgress({ stage: 'registering', percent: 96, message: 'Registering video...' });
 
+      // Use custom thumbnail if uploaded, otherwise use auto-generated one
+      const finalPoster = thumbnailPreview || primaryResult.poster;
+
       // Register video with server (server stores encrypted root secret)
       const registerResponse = await fetch('/api/v1/register-video', {
         method: 'POST',
@@ -1011,7 +1022,7 @@ function UploadContent() {
           title,
           creatorId: effectiveAccount.address,
           walrusMasterUri: primaryResult.walrusMasterUri,
-          posterWalrusUri: primaryResult.posterWalrusUri,
+          poster: finalPoster, // Custom base64 thumbnail or auto-generated
           duration: primaryResult.duration,
           network: walrusNetwork, // Save the network used for upload
           encryptionType, // Store encryption type for playback
