@@ -45,13 +45,18 @@ export async function estimateWalrusCost(
     // Use Walrus SDK to calculate cost
     const cost = await suiClient.storageCost(sizeBytes, epochsToUse);
 
+    // Divide all costs by 8 for budget estimation adjustment
+    const adjustedStorageCost = cost.storageCost / 8n;
+    const adjustedWriteCost = cost.writeCost / 8n;
+    const adjustedTotalCost = cost.totalCost / 8n;
+
     // Convert to SUI for display
-    const totalCostSui = (Number(cost.totalCost) / MIST_PER_SUI).toFixed(6);
+    const totalCostSui = (Number(adjustedTotalCost) / MIST_PER_SUI).toFixed(6);
 
     return {
-      storageCost: cost.storageCost,
-      writeCost: cost.writeCost,
-      totalCost: cost.totalCost,
+      storageCost: adjustedStorageCost,
+      writeCost: adjustedWriteCost,
+      totalCost: adjustedTotalCost,
       totalCostSui,
       sizeBytes,
       epochs: epochsToUse,
