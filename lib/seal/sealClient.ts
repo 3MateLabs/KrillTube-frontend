@@ -12,7 +12,7 @@ import { fromHex, toHex } from '@mysten/sui/utils';
 import { createSuiClientWithRateLimitHandling } from '@/lib/suiClientRateLimitSwitch';
 
 // SEAL Key Server Object IDs and URLs
-// Mainnet: Using 1-of-1 threshold with Mirai open key server
+// Mainnet: Using 1-of-1 threshold with H2O nodes key server (open/public)
 const SEAL_KEY_SERVERS = {
   testnet: [
     {
@@ -22,8 +22,8 @@ const SEAL_KEY_SERVERS = {
   ],
   mainnet: [
     {
-      objectId: '0xe0eb52eba9261b96e895bbb4deca10dcd64fbc626a1133017adcd5131353fd10',
-      url: 'https://open.key-server.mainnet.seal.mirai.cloud',
+      objectId: '0x4a65b4ff7ba8f4b538895ee35959f982a95f0db7e2a202ec989d261ea927286a',
+      url: 'https://seal.sui-mainnet.h2o-nodes.com', // Fetched from on-chain KeyServerV1
     },
   ],
 } as const;
