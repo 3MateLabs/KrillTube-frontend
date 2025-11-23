@@ -167,7 +167,6 @@ function UploadContent() {
   const [storageOptionIndex, setStorageOptionIndex] = useState<number>(0); // Index into STORAGE_OPTIONS (default: 1 day) - for mainnet
   const [testnetStorageDays, setTestnetStorageDays] = useState<number>(7); // 1-53 days for testnet (default: 7 days)
   const [referrerSharePercent, setReferrerSharePercent] = useState<number>(30); // 0-90% (platform always takes 10%, default: 30%)
-  const [allowSubscription, setAllowSubscription] = useState<boolean>(true); // Allow subscribers to watch for free (default: true)
   const [encryptionType, setEncryptionType] = useState<'per-video' | 'subscription-acl' | 'both'>('per-video'); // Encryption type for video
   const [creatorProfile, setCreatorProfile] = useState<any>(null); // Creator profile with sealObjectId
   const [isTranscoding, setIsTranscoding] = useState(false);
@@ -276,6 +275,14 @@ function UploadContent() {
 
     fetchCreatorProfile();
   }, [effectiveAccount?.address, debugMode]);
+
+  // Auto-select "both" encryption type if user has subscription configured
+  useEffect(() => {
+    if (creatorProfile?.sealObjectId) {
+      console.log('[Upload] Subscription configured, defaulting to "both" encryption type');
+      setEncryptionType('both');
+    }
+  }, [creatorProfile]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1404,8 +1411,6 @@ function UploadContent() {
                 feeConfigs={feeConfigs}
                 coinMetadataCache={coinMetadataCache}
                 coinPriceCache={coinPriceCache}
-                allowSubscription={allowSubscription}
-                onToggleSubscription={() => setAllowSubscription(!allowSubscription)}
                 onAddFeeConfig={handleAddFeeConfig}
                 onRemoveFeeConfig={handleRemoveFeeConfig}
                 onUpdateTokenType={(id, value) => handleUpdateFeeConfig(id, 'tokenType', value)}

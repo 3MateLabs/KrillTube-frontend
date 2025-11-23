@@ -2,23 +2,38 @@
 
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function UploadNetworkSwitcher() {
   const { walrusNetwork, setWalrusNetwork } = useNetwork();
   const { network } = useCurrentWalletMultiChain();
   const [showInfo, setShowInfo] = useState(false);
 
-  // Detect if IOTA wallet is connected
-  const isIotaWallet = network === 'iota';
+  // Track previous wallet network to detect wallet changes
+  const prevNetworkRef = useRef<typeof network>(null);
 
-  // Force testnet when IOTA wallet is connected
+  // Detect which wallet is connected
+  const isIotaWallet = network === 'iota';
+  const isSuiWallet = network === 'sui';
+
+  // Auto-select network based on connected wallet
   useEffect(() => {
+    const walletChanged = prevNetworkRef.current !== network;
+
+    // IOTA wallet → Always force Walrus Testnet (cannot be changed)
     if (isIotaWallet && walrusNetwork !== 'testnet') {
       console.log('[UploadNetworkSwitcher] IOTA wallet detected, forcing Walrus testnet');
       setWalrusNetwork('testnet');
     }
-  }, [isIotaWallet, walrusNetwork, setWalrusNetwork]);
+    // Sui wallet → Default to Walrus Mainnet only on wallet change (user can manually switch later)
+    else if (isSuiWallet && walletChanged && walrusNetwork !== 'mainnet') {
+      console.log('[UploadNetworkSwitcher] Sui wallet connected, defaulting to Walrus mainnet');
+      setWalrusNetwork('mainnet');
+    }
+
+    // Update previous network ref
+    prevNetworkRef.current = network;
+  }, [isIotaWallet, isSuiWallet, walrusNetwork, setWalrusNetwork, network]);
 
   // IOTA wallets can only use testnet
   const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -133,6 +148,7 @@ export function UploadNetworkSwitcher() {
                     <li>• Production-ready reliability</li>
                     <li>• User pays with WAL from their wallet</li>
                     <li>• Requires Sui wallet</li>
+                    {isSuiWallet && <li className="text-[#EF4330] font-semibold">• Default for Sui wallets</li>}
                   </ul>
                 </div>
 
@@ -145,7 +161,7 @@ export function UploadNetworkSwitcher() {
                     <li>• Completely free to use</li>
                     <li>• Perfect for testing uploads</li>
                     <li>• Files may be wiped after some time (~100 days)</li>
-                    {isIotaWallet && <li className="text-[#1AAACE] font-semibold">• IOTA wallets can only use testnet</li>}
+                    {isIotaWallet && <li className="text-[#1AAACE] font-semibold">• Default for IOTA wallets (required)</li>}
                   </ul>
                 </div>
               </div>

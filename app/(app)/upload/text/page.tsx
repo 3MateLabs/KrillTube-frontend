@@ -55,7 +55,6 @@ function TextUploadContent() {
   const [tags, setTags] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
   const [wordsPerChunk, setWordsPerChunk] = useState<number>(500); // Default: 500 words per chunk
-  const [allowSubscription, setAllowSubscription] = useState<boolean>(true);
   const [feeConfigs, setFeeConfigs] = useState<FeeConfig[]>([
     {
       id: crypto.randomUUID(),
@@ -536,8 +535,6 @@ function TextUploadContent() {
               feeConfigs={feeConfigs}
               coinMetadataCache={coinMetadataCache}
               coinPriceCache={coinPriceCache}
-              allowSubscription={allowSubscription}
-              onToggleSubscription={() => setAllowSubscription(!allowSubscription)}
               onAddFeeConfig={handleAddFeeConfig}
               onRemoveFeeConfig={handleRemoveFeeConfig}
               onUpdateTokenType={(id, value) => handleUpdateFeeConfig(id, 'tokenType', value)}
