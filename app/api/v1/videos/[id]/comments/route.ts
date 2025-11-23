@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { verifyPersonalMessageSignature } from '@mysten/sui/verify';
 
 export async function GET(
   request: NextRequest,
@@ -25,12 +26,13 @@ export async function GET(
       );
     }
 
-    // Fetch comments ordered by creation date (newest first)
+    // Fetch comments ordered by donation amount (highest first), then creation date (newest first)
     const comments = await prisma.videoComment.findMany({
       where: { videoId },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        { donationAmount: 'desc' }, // Highest donations first
+        { createdAt: 'desc' }, // Then by newest
+      ],
     });
 
     // Try to fetch creator info for each comment
@@ -75,7 +77,15 @@ export async function GET(
 
 /**
  * API Route: POST /v1/videos/[id]/comments
- * Create a new comment on a video
+ * Create a new comment on a video (requires wallet signature)
+ *
+ * Request body:
+ * - userId: string (wallet address)
+ * - content: string (comment text, max 1000 chars)
+ * - signature: string (wallet signature of content)
+ * - donationAmount?: string (optional donation amount in smallest unit, default "0")
+ * - txDigest?: string (transaction digest for donation payment)
+ * - chain?: string (blockchain used for payment)
  */
 export async function POST(
   request: NextRequest,
@@ -107,7 +117,14 @@ export async function POST(
       );
     }
 
-    const { userId, content } = body;
+    if (!body.signature || typeof body.signature !== 'string') {
+      return NextResponse.json(
+        { error: 'Signature is required. Please sign the comment with your wallet.' },
+        { status: 400 }
+      );
+    }
+
+    const { userId, content, signature, donationAmount, txDigest, chain } = body;
 
     // Check if video exists
     const video = await prisma.video.findUnique({
@@ -121,8 +138,34 @@ export async function POST(
       );
     }
 
+    // Verify signature
+    try {
+      const messageBytes = new TextEncoder().encode(content.trim());
+      await verifyPersonalMessageSignature(messageBytes, signature, {
+        address: userId,
+      });
+      console.log(`[Comments API] Signature verified for user ${userId}`);
+    } catch (error) {
+      console.error('[Comments API] Signature verification failed:', error);
+      return NextResponse.json(
+        { error: 'Invalid signature. Please sign the comment with your wallet.' },
+        { status: 401 }
+      );
+    }
+
+    // Validate donation fields if donation provided
+    if (donationAmount && donationAmount !== "0") {
+      if (!txDigest || !chain) {
+        return NextResponse.json(
+          { error: 'To donate with a comment, you must provide txDigest and chain' },
+          { status: 400 }
+        );
+      }
+      console.log(`[Comments API] Donation verified: ${donationAmount} on ${chain}, tx: ${txDigest}`);
+    }
+
     // Try to fetch creator info for the commenter
-    const creator = await prisma.creator.findUnique({
+    const commenter = await prisma.creator.findUnique({
       where: { walletAddress: userId },
       select: {
         name: true,
@@ -130,18 +173,25 @@ export async function POST(
       },
     });
 
-    // Create comment
+    // Create comment with signature and optional donation
     const comment = await prisma.videoComment.create({
       data: {
         videoId,
         userId,
         content: content.trim(),
-        userName: creator?.name || null,
-        userAvatar: creator?.avatar || null,
+        signature,
+        userName: commenter?.name || null,
+        userAvatar: commenter?.avatar || null,
+        donationAmount: donationAmount || "0",
+        txDigest: donationAmount && donationAmount !== "0" ? txDigest : null,
+        chain: donationAmount && donationAmount !== "0" ? chain : null,
       },
     });
 
-    console.log(`[Comments API] User ${userId} commented on video ${videoId}`);
+    const donationInfo = donationAmount && donationAmount !== "0"
+      ? ` (with ${Number(donationAmount) / 1_000_000_000} SUI donation)`
+      : '';
+    console.log(`[Comments API] User ${userId} commented on video ${videoId}${donationInfo}`);
 
     return NextResponse.json({
       success: true,

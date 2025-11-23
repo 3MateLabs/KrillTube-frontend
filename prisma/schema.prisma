@@ -191,17 +191,22 @@ model VideoLike {
 }
 
 model VideoComment {
-  id         String   @id @default(cuid())
-  videoId    String   @map("video_id")
-  userId     String   @map("user_id") // Wallet address
-  userName   String?  @map("user_name") // Optional creator name
-  userAvatar String?  @map("user_avatar") // Optional avatar
-  content    String   // Comment text
-  createdAt  DateTime @default(now()) @map("created_at")
-  video      Video    @relation("VideoToComments", fields: [videoId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  videoId         String   @map("video_id")
+  userId          String   @map("user_id") // Wallet address
+  userName        String?  @map("user_name") // Optional creator name
+  userAvatar      String?  @map("user_avatar") // Optional avatar
+  content         String   // Comment text
+  signature       String?  // Wallet signature for verification (required for new comments)
+  donationAmount  String   @default("0") @map("donation_amount") // Donation amount (in smallest unit) - higher = higher ranking
+  txDigest        String?  @map("tx_digest") // Transaction digest for donation payment
+  chain           String?  // Blockchain used for payment (sui, iota, etc.)
+  createdAt       DateTime @default(now()) @map("created_at")
+  video           Video    @relation("VideoToComments", fields: [videoId], references: [id], onDelete: Cascade)
 
   @@index([videoId])
   @@index([userId])
+  @@index([videoId, donationAmount]) // For efficient donation-based sorting
   @@map("video_comments")
 }
 
@@ -217,6 +222,7 @@ model Creator {
   channelChain    String?        @map("channel_chain")
   channelCoinType String?        @map("channel_coin_type")
   sealObjectId    String?        @map("seal_object_id")
+
   subscriptions   Subscription[] @relation("CreatorToSubscriptions")
 
   @@index([walletAddress])
