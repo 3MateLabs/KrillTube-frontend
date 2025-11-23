@@ -70,16 +70,18 @@ model PlaybackSession {
 }
 
 model VideoRendition {
-  id                     String         @id @default(cuid())
-  videoId                String         @map("video_id")
-  name                   String
-  walrusPlaylistUri      String         @map("walrus_playlist_uri")
-  playlistBlobObjectId   String?        @map("playlist_blob_object_id") // Sui blob object ID (mainnet only)
-  playlistEndEpoch       Int?           @map("playlist_end_epoch") // Walrus storage expiry epoch (mainnet only)
-  resolution             String
-  bitrate                Int
-  video                  Video          @relation("VideoToVideoRendition", fields: [videoId], references: [id], onDelete: Cascade)
-  segments               VideoSegment[] @relation("VideoRenditionToVideoSegment")
+  id                      String         @id @default(cuid())
+  videoId                 String         @map("video_id")
+  name                    String
+  walrusPlaylistUri       String         @map("walrus_playlist_uri")
+  resolution              String
+  bitrate                 Int
+  playlistBlobObjectId    String?        @map("playlist_blob_object_id")
+  playlistEndEpoch        Int?           @map("playlist_end_epoch")
+  seal_playlist_blob_id   String?
+  seal_playlist_object_id String?
+  video                   Video          @relation("VideoToVideoRendition", fields: [videoId], references: [id], onDelete: Cascade)
+  segments                VideoSegment[] @relation("VideoRenditionToVideoSegment")
 
   @@unique([videoId, name])
   @@index([playlistBlobObjectId])
@@ -87,24 +89,19 @@ model VideoRendition {
 }
 
 model VideoSegment {
-  id           String         @id @default(cuid())
-  renditionId  String         @map("rendition_id")
-  segIdx       Int            @map("seg_idx")
-  walrusUri    String         @map("walrus_uri")
-  blobObjectId String?        @map("blob_object_id") // Sui blob object ID (mainnet only)
-  endEpoch     Int?           @map("end_epoch") // Walrus storage expiry epoch (mainnet only)
-
-  // Per-video encryption (DEK)
-  dekEnc       Bytes?         @map("dek_enc") // KMS-encrypted DEK (null for SEAL-only)
-  iv           Bytes?         // IV for AES-GCM (null for SEAL-only)
-
-  // Subscription-ACL encryption (SEAL)
-  sealDocumentId String?      @map("seal_document_id") // SEAL document ID for decryption
-  sealBlobId     String?      @map("seal_blob_id") // Walrus blob ID for SEAL-encrypted data
-
-  duration     Float
-  size         Int
-  rendition    VideoRendition @relation("VideoRenditionToVideoSegment", fields: [renditionId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  renditionId    String         @map("rendition_id")
+  segIdx         Int            @map("seg_idx")
+  walrusUri      String         @map("walrus_uri")
+  iv             Bytes?
+  duration       Float
+  size           Int
+  blobObjectId   String?        @map("blob_object_id")
+  dekEnc         Bytes?         @map("dek_enc")
+  endEpoch       Int?           @map("end_epoch")
+  sealBlobId     String?        @map("seal_blob_id")
+  sealDocumentId String?        @map("seal_document_id")
+  rendition      VideoRendition @relation("VideoRenditionToVideoSegment", fields: [renditionId], references: [id], onDelete: Cascade)
 
   @@unique([renditionId, segIdx])
   @@index([renditionId])
@@ -115,16 +112,16 @@ model VideoSegment {
 model CreatorConfig {
   id           String   @id @default(cuid())
   videoId      String   @map("video_id")
-  objectId     String   @map("object_id") // On-chain creator config object ID
-  chain        String   // Blockchain: "iota", "sui", etc.
-  coinType     String   @map("coin_type") // Coin type (e.g., "0x2::sui::SUI")
-  pricePerView String   @map("price_per_view") // Raw price per single view (in smallest unit with decimals)
-  decimals     Int      // Coin decimals for display/calculation
-  metadata     String?  // Optional metadata about this config
+  objectId     String   @map("object_id")
+  chain        String
+  coinType     String   @map("coin_type")
+  pricePerView String   @map("price_per_view")
+  decimals     Int
+  metadata     String?
   createdAt    DateTime @default(now()) @map("created_at")
   video        Video    @relation("VideoToCreatorConfig", fields: [videoId], references: [id], onDelete: Cascade)
 
-  @@unique([videoId, coinType]) // One config per coin type per video
+  @@unique([videoId, coinType])
   @@index([videoId])
   @@index([objectId])
   @@index([chain])
@@ -132,31 +129,29 @@ model CreatorConfig {
 }
 
 model Video {
-  id                   String            @id @default(cuid())
-  title                String
-  walrusMasterUri      String            @map("walrus_master_uri")
-  masterBlobObjectId   String?           @map("master_blob_object_id") // Sui blob object ID for master playlist (mainnet only)
-  masterEndEpoch       Int?              @map("master_end_epoch") // Walrus storage expiry epoch for master (mainnet only)
-  posterWalrusUri      String?           @map("poster_walrus_uri")
-  posterBlobObjectId   String?           @map("poster_blob_object_id") // Sui blob object ID for poster (mainnet only)
-  posterEndEpoch       Int?              @map("poster_end_epoch") // Walrus storage expiry epoch for poster (mainnet only)
-  duration             Float?
-  network              String            @default("mainnet") // Walrus network: "mainnet" or "testnet"
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
-  creatorId            String            @map("creator_id")
-
-  // Encryption type: "per-video" (pay per video) or "subscription-acl" (subscribers only) or "both"
-  encryptionType       String            @default("per-video") @map("encryption_type")
-
-  // SEAL encryption fields (for subscription-acl videos)
-  sealObjectId         String?           @map("seal_object_id") // SEAL channel/apology object ID
-  sealDocumentId       String?           @map("seal_document_id") // SEAL document ID for decryption
-  sealBlobId           String?           @map("seal_blob_id") // Walrus blob ID for SEAL-encrypted data
-
-  sessions             PlaybackSession[] @relation("VideoToPlaybackSession")
-  renditions           VideoRendition[]  @relation("VideoToVideoRendition")
-  creatorConfigs       CreatorConfig[]   @relation("VideoToCreatorConfig")
+  id                  String            @id @default(cuid())
+  title               String
+  walrusMasterUri     String            @map("walrus_master_uri")
+  posterWalrusUri     String?           @map("poster_walrus_uri")
+  duration            Float?
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  creatorId           String            @map("creator_id")
+  encryptionType      String            @default("per-video") @map("encryption_type")
+  masterBlobObjectId  String?           @map("master_blob_object_id")
+  masterEndEpoch      Int?              @map("master_end_epoch")
+  network             String            @default("mainnet")
+  posterBlobObjectId  String?           @map("poster_blob_object_id")
+  posterEndEpoch      Int?              @map("poster_end_epoch")
+  sealObjectId        String?           @map("seal_object_id")
+  poster              String?
+  seal_master_blob_id String?
+  seal_poster_blob_id String?
+  creatorConfigs      CreatorConfig[]   @relation("VideoToCreatorConfig")
+  sessions            PlaybackSession[] @relation("VideoToPlaybackSession")
+  renditions          VideoRendition[]  @relation("VideoToVideoRendition")
+  likes               VideoLike[]       @relation("VideoToLikes")
+  comments            VideoComment[]    @relation("VideoToComments")
 
   @@index([creatorId])
   @@index([masterBlobObjectId])
@@ -166,38 +161,63 @@ model Video {
 }
 
 model VideoPaymentInfo {
-  id        String   @id @default(cuid())
-  videoId   String   @map("video_id")
-  payerAddress String   @map("payer_address")
-  chain String   @map("chain")
-  tunnelObjectId String?   @map("tunnel_object_id")
-  maxAllowedPayAmount String?   @map("max_allowed_pay_amount")
-  currentPayAmount String?   @map("current_pay_amount")
-  authorizeSignature String?   @map("authorize_signature")
-  paidSegmentIds  Int[] @map("paid_segment_ids")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(cuid())
+  videoId             String   @map("video_id")
+  payerAddress        String   @map("payer_address")
+  chain               String   @map("chain")
+  tunnelObjectId      String?  @map("tunnel_object_id")
+  maxAllowedPayAmount String?  @map("max_allowed_pay_amount")
+  currentPayAmount    String?  @map("current_pay_amount")
+  authorizeSignature  String?  @map("authorize_signature")
+  paidSegmentIds      Int[]    @map("paid_segment_ids")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@index([videoId])
   @@map("video_payment_infos")
 }
 
+model VideoLike {
+  id        String   @id @default(cuid())
+  videoId   String   @map("video_id")
+  userId    String   @map("user_id") // Wallet address
+  createdAt DateTime @default(now()) @map("created_at")
+  video     Video    @relation("VideoToLikes", fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, userId])
+  @@index([videoId])
+  @@index([userId])
+  @@map("video_likes")
+}
+
+model VideoComment {
+  id         String   @id @default(cuid())
+  videoId    String   @map("video_id")
+  userId     String   @map("user_id") // Wallet address
+  userName   String?  @map("user_name") // Optional creator name
+  userAvatar String?  @map("user_avatar") // Optional avatar
+  content    String   // Comment text
+  createdAt  DateTime @default(now()) @map("created_at")
+  video      Video    @relation("VideoToComments", fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@index([userId])
+  @@map("video_comments")
+}
+
 model Creator {
-  id            String   @id @default(cuid())
-  walletAddress String   @unique @map("wallet_address")
-  name          String
-  bio           String?
-  avatar        String?  // Walrus blob ID or URL for avatar image
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  // Channel subscription settings
-  channelPrice  String?  @map("channel_price") // Subscription price (one-time payment)
-  channelChain  String?  @map("channel_chain") // "sui" or "iota"
-  channelCoinType String? @map("channel_coin_type") // Coin type for subscriptions
-  sealObjectId  String?  @map("seal_object_id") // SEAL channel object ID for ACL
-
-  subscriptions Subscription[] @relation("CreatorToSubscriptions")
+  id              String         @id @default(cuid())
+  walletAddress   String         @unique @map("wallet_address")
+  name            String
+  bio             String?
+  avatar          String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  channelPrice    String?        @map("channel_price")
+  channelChain    String?        @map("channel_chain")
+  channelCoinType String?        @map("channel_coin_type")
+  sealObjectId    String?        @map("seal_object_id")
+  subscriptions   Subscription[] @relation("CreatorToSubscriptions")
 
   @@index([walletAddress])
   @@map("creators")
@@ -207,10 +227,9 @@ model Subscription {
   id                String   @id @default(cuid())
   subscriberAddress String   @map("subscriber_address")
   creatorId         String   @map("creator_id")
-  chain             String   // "sui" or "iota"
-  txDigest          String   @map("tx_digest") // Payment transaction digest
+  chain             String
+  txDigest          String   @map("tx_digest")
   createdAt         DateTime @default(now()) @map("created_at")
-
   creator           Creator  @relation("CreatorToSubscriptions", fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@unique([subscriberAddress, creatorId, chain])
@@ -220,15 +239,15 @@ model Subscription {
 }
 
 model ImageContent {
-  id              String                 @id @default(cuid())
-  title           String
-  description     String?
-  creatorId       String                 @map("creator_id")
-  network         String                 @default("mainnet") // Walrus network: "mainnet" or "testnet"
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
-  images          Image[]                @relation("ImageContentToImage")
-  creatorConfigs  ImageCreatorConfig[]   @relation("ImageContentToCreatorConfig")
+  id             String               @id @default(cuid())
+  title          String
+  description    String?
+  creatorId      String               @map("creator_id")
+  network        String               @default("mainnet")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  creatorConfigs ImageCreatorConfig[] @relation("ImageContentToCreatorConfig")
+  images         Image[]              @relation("ImageContentToImage")
 
   @@index([creatorId])
   @@index([createdAt])
@@ -236,18 +255,18 @@ model ImageContent {
 }
 
 model Image {
-  id            String        @id @default(cuid())
-  contentId     String        @map("content_id")
-  filename      String
-  walrusUri     String        @map("walrus_uri")
-  blobObjectId  String?       @map("blob_object_id") // Sui blob object ID (mainnet only)
-  endEpoch      Int?          @map("end_epoch") // Walrus storage expiry epoch (mainnet only)
-  dekEnc        Bytes         @map("dek_enc") // Encrypted DEK with master key
-  iv            Bytes         // IV for AES-GCM encryption
-  size          Int           // Original file size
-  mimeType      String        @map("mime_type")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  content       ImageContent  @relation("ImageContentToImage", fields: [contentId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  contentId    String       @map("content_id")
+  filename     String
+  walrusUri    String       @map("walrus_uri")
+  blobObjectId String?      @map("blob_object_id")
+  endEpoch     Int?         @map("end_epoch")
+  dekEnc       Bytes        @map("dek_enc")
+  iv           Bytes
+  size         Int
+  mimeType     String       @map("mime_type")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  content      ImageContent @relation("ImageContentToImage", fields: [contentId], references: [id], onDelete: Cascade)
 
   @@index([contentId])
   @@index([blobObjectId])
@@ -257,16 +276,16 @@ model Image {
 model ImageCreatorConfig {
   id           String       @id @default(cuid())
   contentId    String       @map("content_id")
-  objectId     String       @map("object_id") // On-chain creator config object ID
-  chain        String       // Blockchain: "iota", "sui", etc.
-  coinType     String       @map("coin_type") // Coin type (e.g., "0x2::sui::SUI")
-  pricePerView String       @map("price_per_view") // Raw price per single view (in smallest unit with decimals)
-  decimals     Int          // Coin decimals for display/calculation
-  metadata     String?      // Optional metadata about this config
+  objectId     String       @map("object_id")
+  chain        String
+  coinType     String       @map("coin_type")
+  pricePerView String       @map("price_per_view")
+  decimals     Int
+  metadata     String?
   createdAt    DateTime     @default(now()) @map("created_at")
   content      ImageContent @relation("ImageContentToCreatorConfig", fields: [contentId], references: [id], onDelete: Cascade)
 
-  @@unique([contentId, coinType]) // One config per coin type per content
+  @@unique([contentId, coinType])
   @@index([contentId])
   @@index([objectId])
   @@index([chain])
@@ -274,15 +293,15 @@ model ImageCreatorConfig {
 }
 
 model TextContent {
-  id              String                @id @default(cuid())
-  title           String
-  description     String?
-  creatorId       String                @map("creator_id")
-  network         String                @default("mainnet") // Walrus network: "mainnet" or "testnet"
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
-  document        TextDocument?         @relation("TextContentToDocument")
-  creatorConfigs  TextCreatorConfig[]   @relation("TextContentToCreatorConfig")
+  id             String              @id @default(cuid())
+  title          String
+  description    String?
+  creatorId      String              @map("creator_id")
+  network        String              @default("mainnet")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  creatorConfigs TextCreatorConfig[] @relation("TextContentToCreatorConfig")
+  document       TextDocument?       @relation("TextContentToDocument")
 
   @@index([creatorId])
   @@index([createdAt])
@@ -290,20 +309,20 @@ model TextContent {
 }
 
 model TextDocument {
-  id            String       @id @default(cuid())
-  contentId     String       @unique @map("content_id")
-  filename      String
-  walrusUri     String       @map("walrus_uri")
-  blobObjectId  String?      @map("blob_object_id") // Sui blob object ID (mainnet only)
-  endEpoch      Int?         @map("end_epoch") // Walrus storage expiry epoch (mainnet only)
-  dekEnc        Bytes        @map("dek_enc") // Encrypted DEK with master key
-  iv            Bytes        // IV for AES-GCM encryption
-  size          Int          // Original file size in bytes
-  mimeType      String       @map("mime_type") // text/plain, text/markdown, etc.
-  charCount     Int?         @map("char_count") // Character count for display
-  wordCount     Int?         @map("word_count") // Word count for display
-  createdAt     DateTime     @default(now()) @map("created_at")
-  content       TextContent  @relation("TextContentToDocument", fields: [contentId], references: [id], onDelete: Cascade)
+  id           String      @id @default(cuid())
+  contentId    String      @unique @map("content_id")
+  filename     String
+  walrusUri    String      @map("walrus_uri")
+  blobObjectId String?     @map("blob_object_id")
+  endEpoch     Int?        @map("end_epoch")
+  dekEnc       Bytes       @map("dek_enc")
+  iv           Bytes
+  size         Int
+  mimeType     String      @map("mime_type")
+  charCount    Int?        @map("char_count")
+  wordCount    Int?        @map("word_count")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  content      TextContent @relation("TextContentToDocument", fields: [contentId], references: [id], onDelete: Cascade)
 
   @@index([contentId])
   @@index([blobObjectId])
@@ -313,16 +332,16 @@ model TextDocument {
 model TextCreatorConfig {
   id           String      @id @default(cuid())
   contentId    String      @map("content_id")
-  objectId     String      @map("object_id") // On-chain creator config object ID
-  chain        String      // Blockchain: "iota", "sui", etc.
-  coinType     String      @map("coin_type") // Coin type (e.g., "0x2::sui::SUI")
-  pricePerView String      @map("price_per_view") // Raw price per single view (in smallest unit with decimals)
-  decimals     Int         // Coin decimals for display/calculation
-  metadata     String?     // Optional metadata about this config
+  objectId     String      @map("object_id")
+  chain        String
+  coinType     String      @map("coin_type")
+  pricePerView String      @map("price_per_view")
+  decimals     Int
+  metadata     String?
   createdAt    DateTime    @default(now()) @map("created_at")
   content      TextContent @relation("TextContentToCreatorConfig", fields: [contentId], references: [id], onDelete: Cascade)
 
-  @@unique([contentId, coinType]) // One config per coin type per content
+  @@unique([contentId, coinType])
   @@index([contentId])
   @@index([objectId])
   @@index([chain])
