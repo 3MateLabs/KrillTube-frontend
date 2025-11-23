@@ -51,12 +51,6 @@ export async function GET(request: NextRequest) {
         encryptionType: true,
         sealObjectId: true,
         creatorId: true,
-        creator: {
-          select: {
-            walletAddress: true,
-            sealObjectId: true,
-          },
-        },
       },
     });
 
@@ -76,7 +70,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify creator has a channel
-    if (!video.creator?.sealObjectId) {
+    if (!video.sealObjectId) {
       return NextResponse.json(
         { error: 'Creator channel not found' },
         { status: 404 }
@@ -142,7 +136,7 @@ export async function GET(request: NextRequest) {
       sealBlobId: segment.sealBlobId,
       walrusUri: segment.walrusUri,
       duration: segment.duration || 0,
-      channelId: video.creator.sealObjectId,
+      channelId: video.sealObjectId,
       creatorAddress: video.creatorId,
     });
 
@@ -192,12 +186,6 @@ export async function POST(request: NextRequest) {
         encryptionType: true,
         sealObjectId: true,
         creatorId: true,
-        creator: {
-          select: {
-            walletAddress: true,
-            sealObjectId: true,
-          },
-        },
       },
     });
 
@@ -217,7 +205,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify creator has a channel
-    if (!video.creator?.sealObjectId) {
+    if (!video.sealObjectId) {
       return NextResponse.json(
         { error: 'Creator channel not found' },
         { status: 404 }
