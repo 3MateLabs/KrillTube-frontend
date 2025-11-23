@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       creatorId,
       walrusMasterUri,
       masterBlobObjectId,
+      poster,
       posterWalrusUri,
       posterBlobObjectId,
       duration,
@@ -46,7 +47,8 @@ export async function POST(request: NextRequest) {
       creatorId: string;
       walrusMasterUri: string;
       masterBlobObjectId?: string; // Mainnet only - for extend/delete operations
-      posterWalrusUri?: string;
+      poster?: string; // Base64 data URL for thumbnail
+      posterWalrusUri?: string; // DEPRECATED: Legacy Walrus-based thumbnails
       posterBlobObjectId?: string; // Mainnet only - for extend/delete operations
       duration: number;
       network?: 'mainnet' | 'testnet'; // Walrus network (optional, defaults to mainnet)
@@ -151,7 +153,8 @@ export async function POST(request: NextRequest) {
         walrusMasterUri,
         masterBlobObjectId: masterBlobObjectId || null, // Mainnet only
         masterEndEpoch: masterEndEpoch, // Mainnet only
-        posterWalrusUri: posterWalrusUri || null,
+        poster: poster || null, // Base64 thumbnail
+        posterWalrusUri: posterWalrusUri || null, // DEPRECATED
         posterBlobObjectId: posterBlobObjectId || null, // Mainnet only
         posterEndEpoch: posterEndEpoch, // Mainnet only
         duration,
@@ -241,6 +244,7 @@ export async function POST(request: NextRequest) {
         id: video.id,
         title: video.title,
         walrusMasterUri: video.walrusMasterUri,
+        poster: video.poster,
         posterWalrusUri: video.posterWalrusUri,
         duration: video.duration,
         createdAt: video.createdAt,

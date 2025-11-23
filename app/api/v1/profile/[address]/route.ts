@@ -55,6 +55,7 @@ export async function GET(
       select: {
         id: true,
         title: true,
+        poster: true,
         posterWalrusUri: true,
         duration: true,
         createdAt: true,
