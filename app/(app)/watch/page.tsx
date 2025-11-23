@@ -9,7 +9,8 @@ interface Video {
   title: string;
   creatorId: string;
   createdAt: string;
-  posterWalrusUri?: string;
+  poster?: string; // Base64 data URL
+  posterWalrusUri?: string; // DEPRECATED: Legacy Walrus-based thumbnails
   walrusMasterUri: string;
   duration?: number;
   network?: string;
@@ -53,10 +54,23 @@ const fixWalrusUrl = (url: string, network: string = 'mainnet'): string => {
 const VideoCard = ({ video }: { video: Video }) => {
   const [imgError, setImgError] = useState(false);
 
-  // Fix thumbnail URL
-  const thumbnailUrl = video.posterWalrusUri
+  // Use base64 poster if available, otherwise fall back to Walrus URL
+  const thumbnailUrl = video.poster
+    ? video.poster
+    : video.posterWalrusUri
     ? fixWalrusUrl(video.posterWalrusUri, video.network)
     : null;
+
+  console.log(`[VideoCard] ${video.title}:`, {
+    hasPoster: !!video.poster,
+    posterLength: video.poster?.length,
+    posterType: typeof video.poster,
+    posterStart: video.poster?.substring(0, 50),
+    hasPosterWalrusUri: !!video.posterWalrusUri,
+    thumbnailUrl: thumbnailUrl?.substring(0, 50),
+    startsWithData: thumbnailUrl?.startsWith('data:'),
+    imgError,
+  });
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -83,17 +97,29 @@ const VideoCard = ({ video }: { video: Video }) => {
       <div className="w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.34px] outline-offset-[-1.34px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:shadow-[5px_5px_0_0_black] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:scale-105 transition-all cursor-pointer">
         <div className="w-full relative flex flex-col justify-start items-start gap-4">
           {/* Thumbnail */}
-          <div className="relative w-full">
+          <div className="relative w-full h-56">
             {thumbnailUrl && !imgError ? (
-              <img
-                className="w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
-                src={thumbnailUrl}
-                alt={video.title}
-                onError={() => setImgError(true)}
-              />
+              thumbnailUrl.startsWith('data:') ? (
+                <img
+                  className="absolute inset-0 w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover z-0"
+                  src={thumbnailUrl}
+                  alt={video.title}
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <div className="absolute inset-0 w-full h-56 z-0">
+                  <Image
+                    className="rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
+                    src={thumbnailUrl}
+                    alt={video.title}
+                    fill
+                    onError={() => setImgError(true)}
+                  />
+                </div>
+              )
             ) : (
               <Image
-                className="w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
+                className="w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover z-0"
                 src="/logos/theorigin.png"
                 alt="Default thumbnail"
                 width={400}
@@ -102,7 +128,7 @@ const VideoCard = ({ video }: { video: Video }) => {
             )}
 
             {/* Play Button Overlay */}
-            <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
+            <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center z-10">
               <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
               </svg>
@@ -110,7 +136,7 @@ const VideoCard = ({ video }: { video: Video }) => {
 
             {/* Encryption Type Badge */}
             {video.encryptionType && (
-              <div className={`absolute top-2 left-2 px-2 py-1 text-xs font-semibold rounded border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
+              <div className={`absolute top-2 left-2 px-2 py-1 text-xs font-semibold rounded border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] z-10 ${
                 video.encryptionType === 'per-video'
                   ? 'bg-blue-500 text-white'
                   : video.encryptionType === 'subscription-acl'
@@ -123,7 +149,7 @@ const VideoCard = ({ video }: { video: Video }) => {
 
             {/* Duration Badge */}
             {video.duration && (
-              <div className="p-1 absolute bottom-2 right-2 bg-white rounded outline outline-1 outline-offset-[-1px] outline-black inline-flex justify-center items-center">
+              <div className="p-1 absolute bottom-2 right-2 bg-white rounded outline outline-1 outline-offset-[-1px] outline-black inline-flex justify-center items-center z-10">
                 <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">
                   {formatDuration(video.duration)}
                 </div>
@@ -193,6 +219,7 @@ export default function Home() {
         const response = await fetch('/api/v1/videos?limit=50');
         if (response.ok) {
           const data = await response.json();
+          console.log('[Watch] First video data:', data.videos?.[0]);
           setVideos(data.videos || []);
         }
       } catch (error) {
