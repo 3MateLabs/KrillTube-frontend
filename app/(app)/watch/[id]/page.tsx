@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CustomVideoPlayer } from '@/components/CustomVideoPlayer';
-import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 
 // Helper function to fix Walrus URLs
 const fixWalrusUrl = (url: string, network: string = 'mainnet'): string => {
@@ -34,6 +34,7 @@ export default function WatchPage() {
   const videoId = params.id as string;
   const account = useCurrentAccount();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const suiClient = useSuiClient();
 
   const [video, setVideo] = useState<any | null>(null);
   const [creator, setCreator] = useState<any | null>(null);
@@ -47,6 +48,13 @@ export default function WatchPage() {
   const [epochs, setEpochs] = useState(5);
   const [extendError, setExtendError] = useState<string | null>(null);
   const [extendSuccess, setExtendSuccess] = useState<string | null>(null);
+
+  // Delete storage state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -222,6 +230,91 @@ export default function WatchPage() {
       setExtendError(err instanceof Error ? err.message : 'Failed to extend storage');
     } finally {
       setExtending(false);
+    }
+  };
+
+  // Handler for deleting video
+  const handleDeleteVideo = async () => {
+    if (!account?.address || !video) {
+      setDeleteError('Please connect your wallet');
+      return;
+    }
+
+    if (account.address !== video.creatorId) {
+      setDeleteError('Only the video creator can delete this video');
+      return;
+    }
+
+    if (confirmText !== 'DELETE') {
+      setDeleteError('Please type DELETE to confirm');
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError(null);
+    setDeleteSuccess(null);
+
+    try {
+      console.log('[Watch] Requesting delete transaction...');
+
+      // Step 1: Get delete transaction from API
+      const res = await fetch(`/api/v1/videos/${videoId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorId: account.address,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to get delete transaction');
+      }
+
+      const deleteResponse = await res.json();
+      console.log('[Watch] Delete response:', deleteResponse);
+
+      // Step 2: Sign and execute transaction
+      const { Transaction } = await import('@mysten/sui/transactions');
+      const unsignedTx = deleteResponse.unsignedTransaction;
+
+      const result = await signAndExecute({
+        transaction: Transaction.from(unsignedTx),
+      });
+
+      console.log('[Watch] ✅ Delete transaction complete:', result.digest);
+
+      // Step 3: Wait for transaction confirmation
+      await suiClient.waitForTransaction({ digest: result.digest });
+
+      // Step 4: Finalize deletion - remove from database
+      const finalizeRes = await fetch(`/api/v1/videos/${videoId}/delete/finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transactionDigest: result.digest,
+          creatorId: account.address,
+        }),
+      });
+
+      if (!finalizeRes.ok) {
+        const finalizeError = await finalizeRes.json();
+        throw new Error(finalizeError.error || 'Failed to finalize deletion');
+      }
+
+      console.log('[Watch] ✅ Video deleted successfully');
+      setDeleteSuccess('Video deleted successfully! Redirecting to home...');
+
+      // Redirect to home after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/home';
+      }, 2000);
+
+    } catch (err) {
+      console.error('[Watch] Delete error:', err);
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete video');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -443,17 +536,31 @@ export default function WatchPage() {
                   <Image src="/logos/sui-logo.png" alt="SUI" width={16} height={16} className="object-contain" />
                 </div>
 
-                {/* Extend Storage Button - Only visible to video owner */}
+                {/* Creator Action Buttons - Only visible to video owner */}
                 {account?.address === video.creatorId && (
-                  <button
-                    onClick={() => setShowExtendModal(true)}
-                    className="px-4 py-2 bg-[#1AAACE] text-white font-bold rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex items-center gap-2 cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-['Outfit']">Extend Storage</span>
-                  </button>
+                  <>
+                    {/* Extend Storage Button */}
+                    <button
+                      onClick={() => setShowExtendModal(true)}
+                      className="px-4 py-2 bg-[#1AAACE] text-white font-bold rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex items-center gap-2 cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm font-['Outfit']">Extend Storage</span>
+                    </button>
+
+                    {/* Delete Video Button */}
+                    <button
+                      onClick={() => setShowDeleteModal(true)}
+                      className="px-4 py-2 bg-[#EF4330] text-white font-bold rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex items-center gap-2 cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span className="text-sm font-['Outfit']">Delete Video</span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -573,6 +680,83 @@ export default function WatchPage() {
                 className="flex-1 px-6 py-3 bg-[#1AAACE] text-white font-bold rounded-[32px] shadow-[3px_3px_0_0_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-['Outfit']"
               >
                 {extending ? 'Extending...' : 'Extend Storage'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Video Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowDeleteModal(false)}>
+          <div className="bg-white rounded-[32px] shadow-[5px_5px_0_0_rgba(0,0,0,1)] outline outline-[3px] outline-black p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-[#EF4330] rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-black font-['Outfit']">Delete Video</h2>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-base text-black mb-4 font-['Outfit']">
+                This action is <span className="font-bold text-[#EF4330]">permanent and cannot be undone</span>.
+                All video data, renditions, and segments will be permanently deleted from Walrus storage.
+              </p>
+              <p className="text-sm text-black/70 mb-4 font-['Outfit']">
+                Video Title: <span className="font-semibold">{video.title}</span>
+              </p>
+              <p className="text-sm text-black/70 font-['Outfit']">
+                Type <span className="font-bold">DELETE</span> to confirm:
+              </p>
+            </div>
+
+            {/* Confirmation input */}
+            <div className="mb-6">
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="Type DELETE here"
+                disabled={deleting}
+                className="w-full px-4 py-3 border-2 border-black rounded-xl font-['Outfit'] text-black placeholder-black/50 focus:outline-none focus:ring-2 focus:ring-[#EF4330]"
+              />
+            </div>
+
+            {/* Error message */}
+            {deleteError && (
+              <div className="mb-4 p-4 bg-red-100 rounded-xl border-2 border-red-600">
+                <p className="text-sm text-red-800 font-['Outfit']">{deleteError}</p>
+              </div>
+            )}
+
+            {/* Success message */}
+            {deleteSuccess && (
+              <div className="mb-4 p-4 bg-green-100 rounded-xl border-2 border-green-600">
+                <p className="text-sm text-green-800 font-['Outfit']">{deleteSuccess}</p>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setConfirmText('');
+                  setDeleteError(null);
+                }}
+                disabled={deleting}
+                className="flex-1 px-6 py-3 bg-white text-black font-bold rounded-[32px] shadow-[3px_3px_0_0_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-['Outfit']"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteVideo}
+                disabled={deleting || confirmText !== 'DELETE'}
+                className="flex-1 px-6 py-3 bg-[#EF4330] text-white font-bold rounded-[32px] shadow-[3px_3px_0_0_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-['Outfit']"
+              >
+                {deleting ? 'Deleting...' : 'Delete Forever'}
               </button>
             </div>
           </div>
