@@ -7,6 +7,28 @@ import Image from 'next/image';
 import { CustomVideoPlayer } from '@/components/CustomVideoPlayer';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 
+// Helper function to fix Walrus URLs
+const fixWalrusUrl = (url: string, network: string = 'mainnet'): string => {
+  if (!url) return url;
+
+  const AGGREGATOR_DOMAIN = 'aggregator.walrus.space';
+  const TESTNET_AGGREGATOR = 'aggregator.walrus-testnet.walrus.space';
+  const AGGREGATOR_REPLACEMENT = 'aggregator.mainnet.walrus.mirai.cloud';
+
+  const targetAggregator = network === 'testnet'
+    ? TESTNET_AGGREGATOR
+    : AGGREGATOR_REPLACEMENT;
+
+  let fixed = url;
+  if (fixed.includes(TESTNET_AGGREGATOR)) {
+    fixed = fixed.replace(TESTNET_AGGREGATOR, targetAggregator);
+  } else if (fixed.includes(AGGREGATOR_DOMAIN)) {
+    fixed = fixed.replace(AGGREGATOR_DOMAIN, targetAggregator);
+  }
+
+  return fixed;
+};
+
 export default function WatchPage() {
   const params = useParams();
   const videoId = params.id as string;
@@ -272,6 +294,7 @@ export default function WatchPage() {
                 network={video.network || 'mainnet'}
                 title={video.title}
                 autoplay={false}
+                posterUrl={video.poster || (video.posterWalrusUri ? fixWalrusUrl(video.posterWalrusUri, video.network || 'mainnet') : undefined)}
                 encryptionType={video.encryptionType || 'per-video'}
                 channelId={video.sealObjectId}
                 creatorAddress={video.creatorId}
