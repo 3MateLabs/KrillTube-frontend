@@ -424,7 +424,7 @@ export default function WatchPage() {
                   <div className="self-stretch inline-flex justify-center items-center gap-2">
                     <Image
                       className="w-32 h-24 rounded-lg shadow-[1.4795299768447876px_1.4795299768447876px_0px_0px_rgba(0,0,0,1.00)] border-1 border-black object-cover"
-                      src="/logos/theorigin.png"
+                      src="https://i.imgur.com/pkTKVOL.png"
                       alt="Video thumbnail"
                       width={136}
                       height={96}
@@ -438,7 +438,7 @@ export default function WatchPage() {
                       </div>
                       <div className="self-stretch inline-flex justify-start items-end gap-4">
                         <div className="inline-flex flex-col justify-start items-start gap-2">
-                          <div className="justify-start text-black text-base font-bold font-['Outfit']">IOTA Moveathon</div>
+                          <div className="justify-start text-black text-base font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                           <div className="self-stretch inline-flex justify-start items-start gap-1">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>

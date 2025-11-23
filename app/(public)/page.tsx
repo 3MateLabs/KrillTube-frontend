@@ -153,12 +153,12 @@ export default function KrillTubeLanding() {
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="p-3 md:p-4 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-2 md:gap-2.5 flex-shrink-0 w-[280px] md:w-[320px] lg:w-[392px]">
                     <div className="w-full flex flex-col gap-4 md:gap-6">
-                      <img className="w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black object-cover" src="/logos/theorigin.png" alt={`Video ${i + 1}`} />
+                      <img className="w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt={`Video ${i + 1}`} />
                       <div className="w-full flex flex-col gap-2">
                         <div className="text-black text-sm md:text-base font-semibold font-['Outfit']">Walrus</div>
                         <div className="w-full flex justify-between items-start gap-2">
                           <div className="flex flex-col gap-1 md:gap-2 flex-1">
-                            <div className="text-black text-lg md:text-xl lg:text-2xl font-bold font-['Outfit'] line-clamp-2">IOTA Moveathon</div>
+                            <div className="text-black text-lg md:text-xl lg:text-2xl font-bold font-['Outfit'] line-clamp-2">Walrus Haulout Hackathon</div>
                             <div className="text-black text-xs md:text-sm font-normal font-['Outfit']">Stand a chance to win</div>
                           </div>
                           <div className="w-10 h-10 md:w-12 md:h-12 p-2 md:p-3 bg-black rounded-3xl flex justify-center items-center flex-shrink-0">

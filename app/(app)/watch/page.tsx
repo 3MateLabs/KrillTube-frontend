@@ -120,7 +120,7 @@ const VideoCard = ({ video }: { video: Video }) => {
             ) : (
               <Image
                 className="w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover z-0"
-                src="/logos/theorigin.png"
+                src="https://i.imgur.com/pkTKVOL.png"
                 alt="Default thumbnail"
                 width={400}
                 height={224}
@@ -267,7 +267,7 @@ export default function Home() {
                 <div className="w-full p-4 bg-white rounded-2xl shadow-[3.1499998569488525px_3.1499998569488525px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.41px] outline-offset-[-1.41px] outline-black flex flex-col gap-2 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                   <div className="self-stretch flex flex-col justify-start items-start gap-4">
                     <div className="relative w-full">
-                      <Image className="self-stretch h-56 rounded-xl shadow-[2.113614082336426px_2.113614082336426px_0px_0px_rgba(0,0,0,1.00)] border-[1.41px] border-black object-cover" src="/logos/theorigin.png" alt="Sponsored" width={400} height={224} />
+                      <Image className="self-stretch h-56 rounded-xl shadow-[2.113614082336426px_2.113614082336426px_0px_0px_rgba(0,0,0,1.00)] border-[1.41px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
 
                       {/* Play Button - Centered */}
                       <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -286,7 +286,7 @@ export default function Home() {
                       <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_4px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                       <div className="self-stretch inline-flex justify-between items-start">
                         <div className="inline-flex flex-col justify-start items-start gap-1">
-                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                           <div className="self-stretch inline-flex justify-start items-center gap-1.5">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -305,7 +305,7 @@ export default function Home() {
                 <div className="w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.34px] outline-offset-[-1.34px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                   <div className="self-stretch flex flex-col justify-start items-start gap-4">
                     <div className="relative w-full">
-                      <Image className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="/logos/theorigin.png" alt="Sponsored" width={400} height={224} />
+                      <Image className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
 
                       {/* Play Button - Centered */}
                       <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -324,7 +324,7 @@ export default function Home() {
                       <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                       <div className="self-stretch inline-flex justify-between items-start">
                         <div className="inline-flex flex-col justify-start items-start gap-1">
-                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                           <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -343,7 +343,7 @@ export default function Home() {
                 <div className="w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.34px] outline-offset-[-1.34px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                   <div className="self-stretch flex flex-col justify-start items-start gap-4">
                     <div className="relative w-full">
-                      <Image className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="/logos/theorigin.png" alt="Sponsored" width={400} height={224} />
+                      <Image className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
 
                       {/* Play Button - Centered */}
                       <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -362,7 +362,7 @@ export default function Home() {
                       <div className="justify-start text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                       <div className="self-stretch inline-flex justify-between items-start">
                         <div className="inline-flex flex-col justify-start items-start gap-1">
-                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                          <div className="justify-start text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                           <div className="self-stretch inline-flex justify-start items-center gap-[5px]">
                             <div className="justify-start text-black text-xs font-medium font-['Outfit']">533 views</div>
                             <div className="justify-start text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -389,7 +389,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="/logos/theorigin.png" alt="Gaming" width={295} height={178} />
+                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -403,7 +403,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -422,7 +422,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="/logos/theorigin.png" alt="Gaming" width={295} height={178} />
+                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -436,7 +436,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -455,7 +455,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="/logos/theorigin.png" alt="Gaming" width={295} height={178} />
+                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -469,7 +469,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -520,7 +520,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="/logos/theorigin.png" alt="DeFi" width={295} height={178} />
+                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -534,7 +534,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -553,7 +553,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="/logos/theorigin.png" alt="DeFi" width={295} height={178} />
+                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -567,7 +567,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
@@ -586,7 +586,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="/logos/theorigin.png" alt="DeFi" width={295} height={178} />
+                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -600,7 +600,7 @@ export default function Home() {
                           <div className="text-black text-sm font-semibold font-['Outfit'] [text-shadow:_0px_3px_7px_rgb(0_0_0_/_0.25)]">Walrus</div>
                           <div className="self-stretch inline-flex justify-between items-center">
                             <div className="inline-flex flex-col gap-1">
-                              <div className="text-black text-xl font-bold font-['Outfit']">IOTA Moveathon</div>
+                              <div className="text-black text-xl font-bold font-['Outfit']">Walrus Haulout Hackathon</div>
                               <div className="inline-flex gap-[4.90px]">
                                 <div className="text-black text-xs font-medium font-['Outfit']">533 views</div>
                                 <div className="text-black text-xs font-medium font-['Outfit'] tracking-tight">•3 years ago</div>
