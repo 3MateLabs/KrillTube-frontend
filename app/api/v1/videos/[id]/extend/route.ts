@@ -133,57 +133,9 @@ export async function POST(
       );
     }
 
-    // Calculate total cost for extending all blobs
-    let totalCostMist = BigInt(0);
-    const blobCosts: { blobObjectId: string; costMist: string; size: number }[] = [];
-
-    for (let i = 0; i < blobObjectIds.length; i++) {
-      const blobObjectId = blobObjectIds[i];
-      const size = blobSizes[i];
-
-      try {
-        // Calculate cost for this blob
-        const costMist = await walrusSDK.calculateExtendCost(size, epochs);
-        totalCostMist += costMist;
-
-        blobCosts.push({
-          blobObjectId,
-          costMist: costMist.toString(),
-          size,
-        });
-      } catch (error) {
-        console.error(`[Extend] Failed to calculate cost for blob ${blobObjectId}:`, error);
-        return NextResponse.json(
-          {
-            error: `Failed to calculate cost for blob ${blobObjectId}`,
-            details: error instanceof Error ? error.message : String(error),
-          },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Build unsigned transaction for first blob (client will need to call this for each blob)
-    // For MVP, we'll build transaction for master blob only and return cost summary
-    let unsignedTransaction;
-    try {
-      unsignedTransaction = await walrusSDK.buildExtendBlobTransaction({
-        blobObjectId: video.masterBlobObjectId,
-        epochs,
-      });
-    } catch (error) {
-      console.error('[Extend] Failed to build extend transaction:', error);
-      return NextResponse.json(
-        {
-          error: 'Failed to build extend transaction',
-          details: error instanceof Error ? error.message : String(error),
-        },
-        { status: 500 }
-      );
-    }
-
-    // Convert MIST to WAL (1 WAL = 1_000_000_000 MIST)
-    const totalCostWal = Number(totalCostMist) / 1_000_000_000;
+    // Don't build the transaction on the server - WASM doesn't work server-side
+    // Instead, return the blob metadata and let the client build the PTB
+    console.log(`[Extend] Returning blob metadata for client-side PTB construction...`);
 
     return NextResponse.json({
       success: true,
@@ -193,20 +145,15 @@ export async function POST(
       currentEndEpoch: video.masterEndEpoch,
       newEndEpoch: video.masterEndEpoch ? video.masterEndEpoch + epochs : null,
       blobCount: blobObjectIds.length,
-      totalCost: {
-        mist: totalCostMist.toString(),
-        wal: totalCostWal.toFixed(9),
-        usd: null, // Client should fetch WAL price separately
-      },
-      blobCosts,
-      unsignedTransaction, // Client must sign this with Sui wallet
+      blobObjectIds, // Send blob IDs to client for PTB construction
+      batchMode: true, // Indicates this supports batch PTB
       instructions: {
         steps: [
-          '1. Sign the unsigned transaction with your Sui wallet',
-          '2. Execute the signed transaction on Sui blockchain',
-          '3. Call POST /v1/videos/:id/extend/finalize with transaction digest',
+          '1. Client builds PTB transaction with Walrus SDK (browser-side)',
+          '2. Sign the PTB transaction with your Sui wallet (cost will be shown in wallet)',
+          '3. Execute the signed transaction on Sui blockchain',
         ],
-        note: 'This transaction extends the master blob. You may need to extend other blobs separately (poster, renditions, segments).',
+        note: `Client will build a PTB to extend ALL ${blobObjectIds.length} blobs (master, poster, renditions, segments) in a SINGLE transaction. Only 1 signature and 1 gas fee required!`,
       },
     });
 

@@ -7,12 +7,15 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from '@iota/dapp-kit';
 import { Step2Monetization } from '@/components/upload/Step2Monetization';
 import { Step3FeeSharing } from '@/components/upload/Step3FeeSharing';
 import { UploadStepIndicator } from '@/components/upload/UploadStepIndicator';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
+import { uploadTextEncrypted, type UploadProgress } from '@/lib/upload/textUploadOrchestrator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -41,7 +44,10 @@ function TextUploadContent() {
   const router = useRouter();
   const account = useCurrentAccount();
   const { network } = useCurrentWalletMultiChain();
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
+  const { walrusNetwork } = useNetwork();
+  const { buildFundingTransaction, estimateGasNeeded, executeWithDelegator, delegatorAddress, autoReclaimGas } = usePersonalDelegator();
 
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [title, setTitle] = useState('');
@@ -62,6 +68,8 @@ function TextUploadContent() {
   const [coinPriceCache, setCoinPriceCache] = useState<Record<string, CoinPrice>>({});
   const [referrerSharePercent, setReferrerSharePercent] = useState<number>(30);
   const [error, setError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   // Format number helper
   const formatNumber = (value: number): string => {
@@ -118,6 +126,197 @@ function TextUploadContent() {
     );
   };
 
+  // Upload handler
+  const handleUpload = async () => {
+    try {
+      setIsUploading(true);
+      setError(null);
+      setProgress({ stage: 'encrypting', percent: 0, message: 'Preparing upload...' });
+
+      // Validate wallet connection
+      if (!account) {
+        throw new Error('Please connect your wallet');
+      }
+
+      // Generate unique content ID
+      const contentId = crypto.randomUUID();
+
+      // Create text file from content
+      const blob = new Blob([content], { type: 'text/plain' });
+      const file = new File([blob], `${title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`, { type: 'text/plain' });
+
+      // Fund delegator wallet (mainnet only) via PTB
+      if (walrusNetwork === 'mainnet' && account) {
+        console.log('[Text Upload] Funding delegator wallet with PTB...');
+
+        // Calculate text file size
+        const fileSizeMB = file.size / 1024 / 1024;
+
+        // Rough estimate: 0.05 WAL per MB with 10x safety buffer
+        // Text files are very small, so conservative estimate
+        const estimatedWalMist = BigInt(Math.ceil(fileSizeMB * 0.05 * 1_000_000_000));
+        const walAmountMist = estimatedWalMist * BigInt(10); // 10x buffer for safety
+
+        // Estimate gas needed (text uses minimal transactions)
+        const gasNeeded = estimateGasNeeded(2); // 2 transactions for text upload
+
+        console.log('[Text Upload] PTB Funding:', {
+          fileSizeMB: fileSizeMB.toFixed(4),
+          estimatedWal: `${Number(estimatedWalMist) / 1_000_000_000} WAL`,
+          walAmountWithBuffer: `${Number(walAmountMist) / 1_000_000_000} WAL (10x buffer)`,
+          gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
+        });
+
+        setProgress({ stage: 'encrypting', percent: 5, message: 'Funding delegator wallet...' });
+
+        try {
+          // Build PTB that funds BOTH SUI gas and WAL storage in one transaction
+          const fundingTx = await buildFundingTransaction(
+            account.address,
+            gasNeeded,
+            walAmountMist
+          );
+
+          if (!fundingTx) {
+            throw new Error('Failed to build funding transaction');
+          }
+
+          // User signs ONCE to fund both SUI gas + WAL storage
+          setProgress({ stage: 'encrypting', percent: 8, message: 'Approve funding transaction...' });
+          console.log('[Text Upload] ⏳ Waiting for user to approve PTB...');
+
+          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
+
+          console.log('[Text Upload] ✓ Delegator funded:', fundingResult.digest);
+          setProgress({ stage: 'encrypting', percent: 10, message: 'Delegator wallet funded!' });
+        } catch (fundingError) {
+          console.error('[Text Upload] Funding failed:', fundingError);
+          throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
+        }
+      }
+
+      // Determine wallet setup based on network
+      let effectiveSignAndExecute: any;
+      let effectiveUploadAddress: string;
+
+      if (walrusNetwork === 'mainnet') {
+        // Use delegator wallet for mainnet
+        if (!delegatorAddress || !executeWithDelegator) {
+          throw new Error('Delegator wallet not initialized');
+        }
+
+        effectiveSignAndExecute = async (args: { transaction: any }) => {
+          const result = await executeWithDelegator(args.transaction);
+          if (!result) {
+            throw new Error('Delegator transaction failed');
+          }
+          return {
+            digest: result.digest,
+            effects: result.success
+              ? { status: { status: 'success' } }
+              : { status: { status: 'failure' } },
+          };
+        };
+        effectiveUploadAddress = delegatorAddress;
+
+        console.log('[Text Upload] Using delegator wallet for mainnet:', delegatorAddress);
+      } else {
+        // Use user's own wallet for testnet
+        effectiveSignAndExecute = signAndExecuteTransaction;
+        effectiveUploadAddress = account.address;
+
+        console.log('[Text Upload] Using user wallet for testnet:', account.address);
+      }
+
+      // Encrypt and upload text document
+      console.log('[Text Upload] Starting encryption and upload...');
+      const uploadResult = await uploadTextEncrypted(
+        file,
+        effectiveSignAndExecute,
+        effectiveUploadAddress,
+        {
+          network: walrusNetwork,
+          epochs: 53,
+          onProgress: setProgress,
+        }
+      );
+
+      console.log('[Text Upload] ✓ Encryption and upload complete');
+
+      // Prepare creator configs for monetization
+      const creatorConfigs = feeConfigs.map(config => ({
+        objectId: crypto.randomUUID(), // TODO: Replace with actual on-chain object ID
+        chain: 'sui',
+        coinType: config.tokenType,
+        pricePerView: config.amountPer1000Views,
+        decimals: 9, // TODO: Fetch actual decimals from coin metadata
+        metadata: tags || undefined,
+      }));
+
+      // Register text content with server
+      setProgress({ stage: 'registering', percent: 90, message: 'Registering document...' });
+
+      const registerResponse = await fetch('/api/v1/register-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contentId,
+          title,
+          description: tags,
+          creatorId: account.address,
+          network: walrusNetwork,
+          document: uploadResult.document,
+          creatorConfigs,
+        }),
+      });
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        throw new Error(errorData.error || 'Failed to register text content');
+      }
+
+      const registerData = await registerResponse.json();
+      console.log('[Text Upload] ✓ Text content registered:', registerData.content.id);
+
+      setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
+
+      // Auto-reclaim gas
+      if (walrusNetwork === 'mainnet' && account) {
+        await autoReclaimGas(account.address);
+      }
+
+      // Redirect to viewing page
+      setTimeout(() => {
+        router.push(`/text/${registerData.content.id}`);
+      }, 1500);
+
+    } catch (err) {
+      console.error('[Text Upload] Error:', err);
+
+      // Provide user-friendly error messages
+      let errorMessage = err instanceof Error ? err.message : 'Upload failed';
+
+      if (errorMessage.includes('No WAL tokens')) {
+        if (walrusNetwork === 'mainnet') {
+          errorMessage = 'Delegator wallet needs WAL tokens. Please contact support or fund the delegator wallet with WAL tokens to enable mainnet uploads.';
+        } else {
+          errorMessage = 'No WAL tokens found. Please get testnet WAL from the faucet: https://faucet.walrus-testnet.walrus.space';
+        }
+      } else if (errorMessage.includes('Delegator wallet not initialized')) {
+        errorMessage = 'Delegator wallet is not set up. Please configure the delegator wallet for mainnet uploads or switch to testnet.';
+      }
+
+      setError(errorMessage);
+      setIsUploading(false);
+
+      // Auto-reclaim on error too if on mainnet
+      if (walrusNetwork === 'mainnet' && account) {
+        await autoReclaimGas(account.address).catch(console.error);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE] pl-20 pr-12 pt-12 pb-6">
@@ -378,20 +577,46 @@ function TextUploadContent() {
             <div className="flex justify-between mt-4">
               <button
                 onClick={() => setCurrentStep(2)}
-                className="px-6 py-3 bg-white text-black rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                disabled={isUploading}
+                className="px-6 py-3 bg-white text-black rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-black hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Back
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement upload logic
-                  alert('Text content upload coming soon!');
-                }}
-                className="px-6 py-3 bg-[#EF4330] text-white rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-white hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                onClick={handleUpload}
+                disabled={isUploading}
+                className="px-6 py-3 bg-[#EF4330] text-white rounded-[32px] font-semibold font-['Outfit'] shadow-[2px_2px_0_0_black] outline outline-2 outline-white hover:shadow-[1px_1px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Publish Article
+                {isUploading ? 'Publishing...' : 'Publish Article'}
               </button>
             </div>
+
+            {/* Upload Progress */}
+            {isUploading && progress && (
+              <div className="p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-base font-semibold text-black font-['Outfit']">
+                    {progress.message}
+                  </span>
+                  <span className="text-base font-bold text-[#EF4330] font-['Outfit']">
+                    {progress.percent}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-[#EF4330] transition-all duration-300"
+                    style={{ width: `${progress.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && (
+              <div className="p-4 bg-[#EF4330]/10 border-2 border-[#EF4330] rounded-lg">
+                <p className="text-[#EF4330] font-semibold font-['Outfit']">{error}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

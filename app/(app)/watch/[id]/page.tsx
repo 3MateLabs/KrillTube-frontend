@@ -5,16 +5,26 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CustomVideoPlayer } from '@/components/CustomVideoPlayer';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 
 export default function WatchPage() {
   const params = useParams();
   const videoId = params.id as string;
+  const account = useCurrentAccount();
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
 
   const [video, setVideo] = useState<any | null>(null);
   const [creator, setCreator] = useState<any | null>(null);
   const [allVideos, setAllVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Extend storage state
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extending, setExtending] = useState(false);
+  const [epochs, setEpochs] = useState(5);
+  const [extendError, setExtendError] = useState<string | null>(null);
+  const [extendSuccess, setExtendSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,6 +83,125 @@ export default function WatchPage() {
 
     fetchData();
   }, [videoId]);
+
+  // Handler for batch extend
+  const handleExtendStorage = async () => {
+    if (!account?.address || !video) {
+      setExtendError('Please connect your wallet');
+      return;
+    }
+
+    if (account.address !== video.creatorId) {
+      setExtendError('Only the video creator can extend storage');
+      return;
+    }
+
+    setExtending(true);
+    setExtendError(null);
+    setExtendSuccess(null);
+
+    try {
+      console.log('[Watch] Requesting batch extend transaction...');
+
+      // Step 1: Get extend transaction details from API
+      const res = await fetch(`/api/v1/videos/${videoId}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          epochs,
+          creatorId: account.address,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to get extend transaction');
+      }
+
+      const extendResponse = await res.json();
+      console.log('[Watch] Extend response:', extendResponse);
+
+      // Step 2: Execute batch extend client-side
+      const { batchExtendBlobs } = await import('@/lib/walrus-batch-extend-client');
+
+      const result = await batchExtendBlobs({
+        blobObjectIds: extendResponse.blobObjectIds,
+        epochs: extendResponse.epochs,
+        signAndExecuteTransaction: signAndExecute,
+        walletAddress: account.address,
+      });
+
+      console.log('[Watch] ✅ Batch extend complete:', result);
+
+      // Step 3: Fetch actual end epoch from blockchain (source of truth)
+      let actualEndEpoch = (video.masterEndEpoch || 0) + epochs; // Default calculation
+
+      try {
+        // Import getBlobMetadata to fetch from blockchain
+        const { getBlobMetadata } = await import('@/lib/walrus-manage-client');
+
+        // Use the master blob's object ID to verify the new epoch
+        if (extendResponse.blobObjectIds && extendResponse.blobObjectIds.length > 0) {
+          const masterBlobId = extendResponse.blobObjectIds[0];
+          console.log('[Watch] Fetching actual end epoch from blockchain for blob:', masterBlobId);
+
+          const blobMetadata = await getBlobMetadata(masterBlobId);
+          actualEndEpoch = blobMetadata.endEpoch;
+
+          console.log('[Watch] ✅ Actual end epoch from blockchain:', actualEndEpoch);
+        }
+      } catch (blockchainError) {
+        console.warn('[Watch] Could not fetch from blockchain, using calculated value:', blockchainError);
+        // Continue with calculated value
+      }
+
+      // Step 4: Finalize - update database with actual blockchain epoch
+      try {
+        const finalizeRes = await fetch(`/api/v1/videos/${videoId}/extend/finalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            digest: result.digest,
+            newEndEpoch: actualEndEpoch, // Use actual epoch from blockchain
+            creatorId: account.address,
+          }),
+        });
+
+        if (finalizeRes.ok) {
+          console.log('[Watch] ✅ Database updated with new end epoch:', actualEndEpoch);
+
+          // Update local state to show new epoch immediately (no reload needed)
+          setVideo({
+            ...video,
+            masterEndEpoch: actualEndEpoch,
+          });
+        } else {
+          console.warn('[Watch] ⚠️ Failed to update database, but blockchain extend succeeded');
+        }
+      } catch (finalizeError) {
+        console.error('[Watch] Finalize error:', finalizeError);
+        // Don't fail the whole operation if finalize fails - blockchain extend succeeded
+      }
+
+      setExtendSuccess(
+        `Successfully extended ${result.blobCount} blobs for ${result.epochs} epochs! ` +
+        `New end epoch: ${actualEndEpoch}. Total cost: ${result.totalCostWal} WAL.`
+      );
+
+      // Close modal after 2 seconds to show updated epoch in modal
+      setTimeout(() => {
+        setShowExtendModal(false);
+        setExtendError(null);
+        setExtendSuccess(null);
+      }, 3000);
+
+    } catch (err) {
+      console.error('[Watch] Extend error:', err);
+      setExtendError(err instanceof Error ? err.message : 'Failed to extend storage');
+    } finally {
+      setExtending(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -172,7 +301,7 @@ export default function WatchPage() {
             </div>
 
             {/* Recommended Videos Container */}
-            <div className="w-full flex flex-col justify-start items-start gap-2">
+            <div className="w-full flex flex-col justify-start items-start gap-3 pt-4">
               {/* Demo Cards */}
               {[1, 2, 3, 4, 5, 6].map((index) => (
                 <div key={index} className="w-full p-2.5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-2.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer">
@@ -215,7 +344,7 @@ export default function WatchPage() {
         </div>
 
         {/* Creator Info and Actions Row */}
-        <div className="w-full flex justify-start items-start gap-6 -mt-44">
+        <div className="w-full flex justify-start items-start gap-6 -mt-53">
           <div className="flex-1 max-w-[970px]">
             <div className="w-full inline-flex justify-between items-center">
               <div className="flex justify-start items-center gap-4">
@@ -290,6 +419,19 @@ export default function WatchPage() {
                   <span className="text-black text-base font-semibold font-['Outfit']">5</span>
                   <svg stroke="currentColor" fill="currentColor" strokeWidth="0" role="img" viewBox="0 0 24 24" className="w-4 h-4 text-black" xmlns="http://www.w3.org/2000/svg"><path d="M6.4459 18.8235a.7393.7393 0 10-.7417-.7393.7401.7401 0 00.7417.7393zm9.1863 2.218a1.1578 1.1578 0 10-1.1602-1.1578 1.1586 1.1586 0 001.1602 1.1578zm-4.3951.392a.9858.9858 0 10-.9882-.9849.9866.9866 0 00.9882.985zm2.494 2.07a1.1578 1.1578 0 10-1.161-1.1578 1.1586 1.1586 0 001.161 1.1578zm-4.5448-.3944a.9858.9858 0 10-.9873-.985.9866.9866 0 00.9873.985zm-1.7035-2.1676a.8625.8625 0 10-.8649-.8601.8633.8633 0 00.865.8601zm2.0492-1.6747a.8625.8625 0 10-.8634-.8657.8641.8641 0 00.8634.8657zm3.631-.296a.9858.9858 0 10-.9882-.985.9866.9866 0 00.9882.985zm-1.729-2.1428a.8625.8625 0 10-.8634-.8625.8641.8641 0 00.8633.8625zm-2.939.32a.7393.7393 0 10-.741-.7393.7401.7401 0 00.741.7394zm-2.5188-.32a.6161.6161 0 10-.6177-.616.6169.6169 0 00.6177.616zm-.0248-1.7003a.5417.5417 0 10-.5433-.5417.5425.5425 0 00.5433.5417zm2.0995.0248a.6161.6161 0 10-.6169-.616.6169.6169 0 00.617.616zm2.37-.4672a.7393.7393 0 10-.74-.7394.741.741 0 00.74.7394zm-.4688-1.9708a.6161.6161 0 10-.617-.616.6169.6169 0 00.617.616zm-1.9508.7386a.5417.5417 0 10-.544-.5417.5425.5425 0 00.544.5417zm-1.7779.2216a.4433.4433 0 10-.4448-.4433.4449.4449 0 00.4448.4433zm2.4452-6.5515a.8625.8625 0 10-.8649-.8625.8633.8633 0 00.865.8625zm2.2468-.0256a.7393.7393 0 10-.7409-.7385.7401.7401 0 00.741.7385zm-.42-2.61a.7393.7393 0 10-.741-.7394.741.741 0 00.741.7394zm-2.2468-.0008a.8625.8625 0 10-.865-.8618.8633.8633 0 00.865.8618zm-2.618.5913a.9858.9858 0 10-.9898-.985.9858.9858 0 00.9897.985zm.4192 2.6116a.9858.9858 0 10-.9874-.9858.9874.9874 0 00.9874.9858zM3.1861 9.093a1.1578 1.1578 0 10-1.161-1.1578 1.1594 1.1594 0 001.161 1.1578zm-1.8035 5.2465A1.3794 1.3794 0 100 12.9602a1.381 1.381 0 001.3826 1.3794zm2.9637-2.3644a1.1578 1.1578 0 10-1.1602-1.1578 1.1594 1.1594 0 001.1602 1.1578zm2.8653-1.4034a.9858.9858 0 10-.9882-.9858.9866.9866 0 00.9882.9858zm2.6172-.5921a.8625.8625 0 10-.8673-.8602.8625.8625 0 00.8673.8602zm2.2476.0008a.7393.7393 0 10-.741-.7393.7401.7401 0 00.741.7393zm.6913-2.4884a.6161.6161 0 10-.6177-.6153.6169.6169 0 00.6177.6153zm-.4192-2.6133a.6161.6161 0 10-.6185-.616.6169.6169 0 00.6185.616zm7.1612 11.4803a.6161.6161 0 10-.6178-.6153.6161.6161 0 00.6178.6153zM13.755 5.599a.5425.5425 0 10-.5433-.5416.5417.5417 0 00.5433.5416zm1.0378.8338a.4433.4433 0 10-.445-.4433.444.444 0 00.445.4433zm-.593 1.7739a.5425.5425 0 10-.5432-.5417.5425.5425 0 00.5433.5417zm-.2712 2.1675a.6161.6161 0 10-.6177-.616.6169.6169 0 00.6177.616zm.0248 4.6312a.6161.6161 0 10-.6177-.616.6169.6169 0 00.6177.616zm1.6787 1.1818a.5417.5417 0 10-.5433-.5417.5425.5425 0 00.5433.5417zm1.1602 1.281a.4433.4433 0 10-.444-.4433.444.444 0 00.444.4433zm1.309-.3472a.5417.5417 0 10-.5433-.5417.5417.5417 0 00.5433.5417zm-1.0586-1.6971a.6161.6161 0 10-.6177-.6153.6161.6161 0 00.6177.6153zm-1.7074-1.6507a.7393.7393 0 10-.7402-.7393.7401.7401 0 00.7402.7393zm5.5569 1.3802a.7393.7393 0 10-.741-.7393.741.741 0 00.741.7393zm-2.494-.9361a.7393.7393 0 10-.741-.7393.7401.7401 0 00.741.7393zm3.7286-.8378a.8625.8625 0 10-.8642-.8617.8633.8633 0 00.8642.8617zM16.5459 12a.8625.8625 0 10-.8633-.8625.8641.8641 0 00.8634.8625zm3.087.4185a.8625.8625 0 10-.8642-.8618.8633.8633 0 00.8642.8618zm3.383-1.4035a.9858.9858 0 10-.9874-.9857.9874.9874 0 00.9873.9857zm-2.4693-.961a.9858.9858 0 10-.9881-.9849.9866.9866 0 00.9881.985zm-3.0869-.4184a.9858.9858 0 10-.9874-.9857.9874.9874 0 00.9874.9857zm3.4822-2.4884a1.1578 1.1578 0 10-1.1602-1.1578 1.1594 1.1594 0 001.1602 1.1578zm-3.087-.4433a1.1578 1.1578 0 10-1.161-1.1578 1.1586 1.1586 0 001.161 1.1578zm1.1603 16.0355a1.3794 1.3794 0 10-1.3827-1.3778 1.3818 1.3818 0 001.3827 1.3778zm-1.5555-19.484a1.3794 1.3794 0 10-1.3834-1.3795 1.3818 1.3818 0 001.3834 1.3795z" /></svg>
                 </div>
+
+                {/* Extend Storage Button - Only visible to video owner */}
+                {account?.address === video.creatorId && (
+                  <button
+                    onClick={() => setShowExtendModal(true)}
+                    className="px-4 py-2 bg-[#1AAACE] text-white font-bold rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex items-center gap-2 cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-['Outfit']">Extend Storage</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -345,6 +487,74 @@ export default function WatchPage() {
             </div>
         </div>
       </div>
+
+      {/* Extend Storage Modal */}
+      {showExtendModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowExtendModal(false)}>
+          <div className="bg-white rounded-[32px] shadow-[5px_5px_0_0_rgba(0,0,0,1)] outline outline-[3px] outline-black p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold text-black mb-4 font-['Outfit']">Extend Storage</h2>
+
+            {/* Current storage info */}
+            {video.masterEndEpoch && (
+              <div className="mb-6 p-4 bg-[#FFEEE5] rounded-2xl border-2 border-black">
+                <p className="text-sm text-black font-semibold mb-1 font-['Outfit']">Current End Epoch:</p>
+                <p className="text-lg text-black font-bold font-['Outfit']">{video.masterEndEpoch}</p>
+                <p className="text-xs text-black/70 mt-2 font-['Outfit']">(1 epoch ≈ 14 days on mainnet)</p>
+              </div>
+            )}
+
+            {/* Epochs input */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-black mb-2 font-['Outfit']">
+                Extend by epochs:
+              </label>
+              <input
+                type="number"
+                value={epochs}
+                onChange={(e) => setEpochs(parseInt(e.target.value) || 1)}
+                min={1}
+                max={100}
+                className="w-full px-4 py-3 border-2 border-black rounded-xl font-['Outfit'] text-black"
+              />
+              <p className="text-xs text-black/70 mt-2 font-['Outfit']">
+                This will extend all {video.blobCount || '450+'} blobs in a single transaction
+              </p>
+            </div>
+
+            {/* Error message */}
+            {extendError && (
+              <div className="mb-4 p-4 bg-red-100 rounded-xl border-2 border-red-600">
+                <p className="text-sm text-red-800 font-['Outfit']">{extendError}</p>
+              </div>
+            )}
+
+            {/* Success message */}
+            {extendSuccess && (
+              <div className="mb-4 p-4 bg-green-100 rounded-xl border-2 border-green-600">
+                <p className="text-sm text-green-800 font-['Outfit']">{extendSuccess}</p>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowExtendModal(false)}
+                disabled={extending}
+                className="flex-1 px-6 py-3 bg-white text-black font-bold rounded-[32px] shadow-[3px_3px_0_0_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-['Outfit']"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExtendStorage}
+                disabled={extending}
+                className="flex-1 px-6 py-3 bg-[#1AAACE] text-white font-bold rounded-[32px] shadow-[3px_3px_0_0_rgba(0,0,0,1)] outline outline-2 outline-black hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all disabled:opacity-50 disabled:cursor-not-allowed font-['Outfit']"
+              >
+                {extending ? 'Extending...' : 'Extend Storage'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
