@@ -26,6 +26,7 @@ export interface CustomVideoPlayerProps {
   network?: 'mainnet' | 'testnet'; // Walrus network for correct aggregator URLs
   title?: string;
   autoplay?: boolean;
+  posterUrl?: string; // Thumbnail/poster image URL (can be base64 data URL)
   className?: string;
   // SEAL encryption props
   encryptionType?: 'per-video' | 'subscription-acl' | 'both';
@@ -42,6 +43,7 @@ export function CustomVideoPlayer({
   network,
   title,
   autoplay = false,
+  posterUrl,
   className = '',
   encryptionType = 'per-video',
   channelId,
@@ -672,6 +674,7 @@ export function CustomVideoPlayer({
           ref={videoRef}
           className="w-full h-full"
           playsInline
+          poster={posterUrl}
           onClick={() => (isPlaying ? pause() : play())}
           style={{ display: isLoading || error ? 'none' : 'block' }}
         />
