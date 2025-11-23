@@ -1,16 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 export default function TestCompilePage() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
+  const [posterData, setPosterData] = useState<{
+    title: string;
+    poster?: string;
+    posterWalrusUri?: string;
+  } | null>(null);
 
   const addLog = (msg: string) => {
     console.log(msg);
     setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
   };
+
+  // Fetch Demo 900 poster on mount
+  useEffect(() => {
+    const fetchPoster = async () => {
+      try {
+        console.log('[Test-Compile] Fetching videos...');
+        const response = await fetch('/api/v1/videos?limit=50');
+        console.log('[Test-Compile] Response status:', response.status);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[Test-Compile] All videos:', data.videos?.map((v: any) => v.title));
+
+          const demo900 = data.videos?.find((v: any) => v.title.includes('Demo 900'));
+          console.log('[Test-Compile] Demo 900 found?', !!demo900);
+
+          if (demo900) {
+            console.log('[Test-Compile] Demo 900 raw data:', {
+              title: demo900.title,
+              hasPoster: !!demo900.poster,
+              posterType: typeof demo900.poster,
+              posterLength: demo900.poster?.length,
+              posterStart: demo900.poster?.substring(0, 100),
+              posterWalrusUri: demo900.posterWalrusUri,
+            });
+
+            setPosterData({
+              title: demo900.title,
+              poster: demo900.poster,
+              posterWalrusUri: demo900.posterWalrusUri,
+            });
+          } else {
+            console.log('[Test-Compile] No Demo 900 video found in response');
+          }
+        } else {
+          console.error('[Test-Compile] Failed to fetch videos:', response.statusText);
+        }
+      } catch (err) {
+        console.error('[Test-Compile] Error fetching poster:', err);
+      }
+    };
+    fetchPoster();
+  }, []);
 
   const testFFmpegMinimal = async () => {
     setStatus('Starting test with video from public folder...');
@@ -235,6 +284,68 @@ export default function TestCompilePage() {
         <p className="text-gray-400 mb-8">
           Testing different FFmpeg approaches to find what works without memory errors
         </p>
+
+        {/* Demo 900 Poster Display */}
+        {posterData && (
+          <div className="mb-8 p-4 bg-gray-800 rounded-lg">
+            <h2 className="text-xl font-bold mb-4">Demo 900 Poster</h2>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-400 mb-2">Title: {posterData.title}</p>
+                <p className="text-sm text-gray-400 mb-2">
+                  Has Base64 Poster: {posterData.poster ? '✅ Yes' : '❌ No'}
+                  {posterData.poster && ` (${posterData.poster.length} chars)`}
+                </p>
+                <p className="text-sm text-gray-400 mb-4">
+                  Has Walrus URI: {posterData.posterWalrusUri ? '✅ Yes' : '❌ No'}
+                </p>
+              </div>
+
+              {posterData.poster && (
+                <div className="space-y-6">
+                  {/* Raw Image Test */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Raw Image Element Test (Base64):</p>
+                    <div className="w-full max-w-md bg-black rounded-lg overflow-hidden border-2 border-green-500">
+                      <img
+                        src={posterData.poster}
+                        alt="Demo 900 Poster"
+                        className="w-full h-auto"
+                        onLoad={() => console.log('✓ Image loaded successfully')}
+                        onError={(e) => console.error('✗ Image failed to load:', e)}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Simple img tag test - should show Luffy immediately
+                    </p>
+                  </div>
+
+                  {/* Video with Poster Test */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Video with Poster Attribute:</p>
+                    <div className="w-full max-w-md bg-black rounded-lg overflow-hidden border-2 border-blue-500">
+                      <video
+                        className="w-full h-auto"
+                        poster={posterData.poster}
+                        controls
+                      >
+                        <source src="/uploads/2025-10-30 21-02-35.mp4" type="video/mp4" />
+                      </video>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Video with poster attribute - poster should cover video until play
+                    </p>
+                  </div>
+
+                  <div className="text-xs text-gray-400 p-3 bg-gray-800 rounded">
+                    <p>Poster data length: {posterData.poster.length} chars</p>
+                    <p>Starts with: {posterData.poster.substring(0, 30)}...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4 mb-8">
           <button
