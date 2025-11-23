@@ -291,12 +291,12 @@ export function usePersonalDelegator() {
     encryptionType?: 'per-video' | 'subscription-acl' | 'both'
   ): bigint => {
     // Each segment requires 2 transactions (register + certify)
-    // Actual gas per transaction is ~0.03-0.05 SUI, use 0.08 SUI for safety margin
-    const gasPerSegment = BigInt(160_000_000); // 0.16 SUI per segment (2 transactions × 0.08)
+    // Walrus transactions can cost 0.05-0.10 SUI, use 0.15 SUI for safety
+    const gasPerSegment = BigInt(300_000_000); // 0.30 SUI per segment (2 transactions × 0.15)
 
     // Base gas for non-segment uploads: poster + playlists + master playlist
     // Each needs 2 transactions (register + certify), so 6 transactions total
-    const baseGas = BigInt(500_000_000);       // 0.5 SUI base overhead (6 transactions × ~0.08)
+    const baseGas = BigInt(1_000_000_000);     // 1.0 SUI base overhead (safety buffer)
 
     let total = baseGas + (gasPerSegment * BigInt(numberOfSegments));
 
