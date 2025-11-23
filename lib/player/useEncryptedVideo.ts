@@ -78,6 +78,13 @@ export function useEncryptedVideo(
 
     const initialize = async () => {
       try {
+        // Skip initialization if this hook is disabled
+        if (options.enabled === false) {
+          console.log('[useEncryptedVideo] Hook disabled, skipping initialization');
+          setIsLoading(false);
+          return;
+        }
+
         // Wait for video element to be ready
         if (!videoRef.current) {
           console.log('[useEncryptedVideo] Waiting for video element...');
