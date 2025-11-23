@@ -92,9 +92,9 @@ export default function EditProfilePage() {
       return;
     }
 
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setError('Image size must be less than 2MB');
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Image size must be less than 10MB');
       return;
     }
 
@@ -228,7 +228,7 @@ export default function EditProfilePage() {
                     </div>
                   </label>
                   <p className="text-black/60 text-sm font-normal font-['Outfit'] mt-2">
-                    Max 2MB. Stored in database (will migrate to Walrus later)
+                    Max 10MB. Stored in database as base64
                   </p>
                 </div>
               </div>
