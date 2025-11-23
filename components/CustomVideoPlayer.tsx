@@ -19,6 +19,7 @@ import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
 import { processPayment } from '@/lib/utils/processPayment';
 import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
 
 export interface CustomVideoPlayerProps {
   videoId: string;
@@ -56,6 +57,7 @@ export function CustomVideoPlayer({
   const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
   const [subscriptionCheckComplete, setSubscriptionCheckComplete] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   // Determine which video hook to use based on encryption type
   // For subscription-acl videos, use SEAL decryption with wallet signing
@@ -524,6 +526,111 @@ export function CustomVideoPlayer({
     }
   };
 
+  // Handle subscription
+  const handleSubscribe = async () => {
+    try {
+      setSubscribing(true);
+
+      if (!isConnected || !address) {
+        setToast({ message: 'Please connect your wallet first', type: 'error' });
+        return;
+      }
+
+      if (!channelId || !channelPrice) {
+        setToast({ message: 'Subscription not available for this creator', type: 'error' });
+        return;
+      }
+
+      const packageId = process.env.NEXT_PUBLIC_SEAL_PACKAGE_ID;
+      if (!packageId || packageId === '0x0') {
+        setToast({ message: 'SEAL package not configured', type: 'error' });
+        return;
+      }
+
+      // Parse price (e.g., "10 SUI" -> 10000000000 MIST)
+      const priceMatch = channelPrice.match(/(\d+(?:\.\d+)?)/);
+      if (!priceMatch) {
+        setToast({ message: 'Invalid channel price format', type: 'error' });
+        return;
+      }
+      const priceInSui = parseFloat(priceMatch[1]);
+      const priceInMist = Math.floor(priceInSui * 1_000_000_000);
+
+      console.log('[CustomVideoPlayer] Building subscription transaction:', {
+        channelId,
+        priceInSui,
+        priceInMist,
+        packageId,
+      });
+
+      // Build subscription transaction
+      const tx = new Transaction();
+      tx.setSender(address);
+
+      const { coinWithBalance } = await import('@mysten/sui/transactions');
+      const paymentCoin = coinWithBalance({
+        balance: priceInMist,
+        type: '0x2::sui::SUI',
+      })(tx);
+
+      tx.moveCall({
+        target: `${packageId}::creator_channel::subscribe_entry`,
+        arguments: [
+          tx.object(channelId), // channel
+          paymentCoin, // payment
+          tx.object('0x6'), // clock
+        ],
+      });
+
+      console.log('[CustomVideoPlayer] Signing subscription transaction...');
+
+      // Sign and execute
+      const result = await signAndExecuteSui({ transaction: tx });
+
+      console.log('[CustomVideoPlayer] Subscription transaction successful:', result.digest);
+
+      // Save to database
+      const response = await fetch('/api/v1/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorAddress: creatorAddress,
+          txDigest: result.digest,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save subscription');
+      }
+
+      console.log('[CustomVideoPlayer] Subscription saved to database');
+
+      // Update UI
+      setIsSubscribed(true);
+      setShowSubscriptionPrompt(false);
+      setToast({
+        message: 'Successfully subscribed! Refreshing page...',
+        type: 'success',
+        link: `https://suiscan.xyz/mainnet/tx/${result.digest}`
+      });
+
+      // Refresh page to reload with subscription access
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Subscription failed:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Subscription failed',
+        type: 'error'
+      });
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   // Handle seek
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const video = videoRef.current;
@@ -648,6 +755,8 @@ export function CustomVideoPlayer({
           <SubscriptionPrompt
             isOpen={showSubscriptionPrompt}
             onClose={() => setShowSubscriptionPrompt(false)}
+            onSubscribe={handleSubscribe}
+            subscribing={subscribing}
             creatorName={creatorName || 'Creator'}
             creatorAddress={creatorAddress || ''}
             channelPrice={channelPrice}
