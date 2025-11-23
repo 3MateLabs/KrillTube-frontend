@@ -9,8 +9,9 @@ import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { checkSealAccess, SealDecryptingLoader } from './sealDecryptingLoader';
 import { useCurrentAccount, useSignPersonalMessage } from '@mysten/dapp-kit';
-import { SessionKey } from '@mysten/seal';
+import { SessionKey, SealClient } from '@mysten/seal';
 import { SuiClient } from '@mysten/sui/client';
+import { initializeSealClient } from '@/lib/seal';
 
 export interface UseSealVideoOptions {
   videoId: string;
@@ -62,6 +63,8 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const sessionKeyRef = useRef<SessionKey | null>(null);
+  const sealClientRef = useRef<SealClient | null>(null);
+  const suiClientRef = useRef<SuiClient | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -102,9 +105,21 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
         const userAddress = currentAccount.address;
         console.log('[useSealVideo] User address:', userAddress);
 
-        // Check if user has access to this channel
+        // Initialize SuiClient ONCE (will be reused for access check, SealClient, SessionKey, and all transactions)
+        // This prevents redundant RPC initialization
+        suiClientRef.current = new SuiClient({
+          url: process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443'
+        });
+        console.log('[useSealVideo] ✓ SUI client initialized and cached');
+
+        // Check if user has access to this channel using the cached SuiClient
         console.log('[useSealVideo] Checking subscription access...');
-        const accessGranted = await checkSealAccess(options.channelId, userAddress);
+        const accessGranted = await checkSealAccess(
+          options.channelId,
+          userAddress,
+          options.packageId,
+          suiClientRef.current
+        );
 
         if (!mounted) return;
 
@@ -123,21 +138,47 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
         console.log('[useSealVideo] ✓ Access granted');
         setHasAccess(true);
 
+        // Create SealClient ONCE and reuse it for all segment decryption
+        // This prevents redundant key server fetches and initialization on every segment
+        console.log('[useSealVideo] Initializing SEAL client (once, will be reused)...');
+        sealClientRef.current = initializeSealClient({
+          network: options.network || 'mainnet',
+          packageId: options.packageId,
+          suiClient: suiClientRef.current,
+        });
+        console.log('[useSealVideo] ✓ SEAL client initialized and cached');
+
+        // Fetch the channel object with full reference (version + digest)
+        // This is a SEAL performance optimization - passing fully qualified object refs
+        // prevents key servers from making additional RPC calls to resolve versions
+        console.log('[useSealVideo] Fetching channel object reference...');
+        const channelObject = await suiClientRef.current.getObject({
+          id: options.channelId,
+          options: { showContent: false }, // We only need the object reference
+        });
+
+        if (channelObject.error) {
+          throw new Error(`Failed to fetch channel object: ${channelObject.error}`);
+        }
+
+        const channelObjectRef = {
+          objectId: channelObject.data!.objectId,
+          version: channelObject.data!.version,
+          digest: channelObject.data!.digest,
+        };
+        console.log('[useSealVideo] ✓ Channel object reference fetched:', channelObjectRef);
+
         // Create session key for SEAL decryption
         console.log('[useSealVideo] Creating session key...');
         if (options.onSigningRequired) {
           options.onSigningRequired();
         }
 
-        const suiClient = new SuiClient({
-          url: process.env.NEXT_PUBLIC_SUI_RPC_URL || 'https://fullnode.mainnet.sui.io:443'
-        });
-
         const sessionKey = await SessionKey.create({
           address: userAddress,
           packageId: options.packageId,
           ttlMin: 10, // 10 minute TTL
-          suiClient,
+          suiClient: suiClientRef.current,
         });
 
         // Sign the personal message with wallet
@@ -166,6 +207,12 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
           backBufferLength: 90,
           // Use custom loader for SEAL decryption
           loader: SealDecryptingLoader as any,
+          // Increase timeouts for SEAL decryption (key server latency can be high)
+          fragLoadingTimeOut: 60000, // 60 seconds for fragment loading
+          fragLoadingMaxRetry: 3,
+          fragLoadingRetryDelay: 1000,
+          manifestLoadingTimeOut: 30000,
+          manifestLoadingMaxRetry: 3,
           // Pass config to loader via xhrSetup (loader will access it via context)
           xhrSetup: function(xhr: any, url: string) {
             // This won't be used since we have a custom loader
@@ -173,11 +220,16 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
         });
 
         // Store loader config in HLS config for loader to access
+        // Pass pre-initialized SealClient and SuiClient to prevent re-initialization on every segment
+        // Pass channelObjectRef for SEAL performance optimization
         (hls.config as any).sealLoaderConfig = {
           videoId: options.videoId,
           channelId: options.channelId,
           packageId: options.packageId,
           sessionKey: sessionKeyRef.current,
+          sealClient: sealClientRef.current,
+          suiClient: suiClientRef.current,
+          channelObjectRef,
           network: options.network || 'mainnet',
         };
 
@@ -195,6 +247,37 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           console.log('[useSealVideo] ✓ Manifest parsed');
+
+          // WORKAROUND: Rewrite segment URLs to add query parameters
+          // Old uploads have raw Walrus blob URLs without videoId/rendition/segIdx params
+          // The SEAL loader needs these params to fetch metadata from the API
+          if (hls.levels) {
+            console.log('[useSealVideo] Rewriting segment URLs to add query parameters...');
+            hls.levels.forEach((level, levelIndex) => {
+              if (level.details?.fragments) {
+                level.details.fragments.forEach((frag) => {
+                  if (frag.url?.includes('walrus') && !frag.url.includes('videoId=')) {
+                    try {
+                      const url = new URL(frag.url);
+                      // Determine rendition name from level height
+                      const rendition = level.height ? `${level.height}p` : '360p';
+
+                      url.searchParams.set('videoId', options.videoId);
+                      url.searchParams.set('rendition', rendition);
+                      url.searchParams.set('segIdx', frag.sn.toString());
+
+                      frag.url = url.toString();
+                      console.log(`[useSealVideo] Rewrote segment ${frag.sn} URL for ${rendition}`);
+                    } catch (err) {
+                      console.warn('[useSealVideo] Failed to rewrite URL:', frag.url, err);
+                    }
+                  }
+                });
+              }
+            });
+            console.log('[useSealVideo] ✓ Segment URL rewriting complete');
+          }
+
           setIsLoading(false);
 
           if (options.onReady) {
