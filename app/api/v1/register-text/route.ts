@@ -65,8 +65,8 @@ export async function POST(request: NextRequest) {
       filename: document.filename,
       walrusUri: document.walrusUri,
       blobObjectId: document.blobObjectId, // Mainnet only - for extend/delete
-      dekEnc: encryptedDek, // Now encrypted with master key
-      iv: Buffer.from(fromBase64(document.iv)),
+      dekEnc: Buffer.from(new Uint8Array(encryptedDek)) as any, // Now encrypted with master key
+      iv: Buffer.from(new Uint8Array(fromBase64(document.iv))) as any,
       size: document.size,
       mimeType: document.mimeType,
       charCount: document.charCount,

@@ -46,7 +46,7 @@ export function initializeSealClient(config: SealConfig): SealClient {
   const keyServers = SEAL_KEY_SERVERS[config.network];
 
   return new SealClient({
-    suiClient,
+    suiClient: suiClient as any,
     serverConfigs: keyServers.map((server) => ({
       objectId: server.objectId,
       url: server.url,
@@ -99,7 +99,7 @@ export async function createSealSessionKey(
     address: userAddress,
     packageId,
     ttlMin,
-    suiClient,
+    suiClient: suiClient as any,
   });
 
   // Sign the personal message
@@ -178,5 +178,5 @@ export async function decryptWithSeal(
 export function getSealKeyServers(
   network: 'testnet' | 'mainnet'
 ): Array<{ objectId: string; url: string }> {
-  return SEAL_KEY_SERVERS[network];
+  return [...SEAL_KEY_SERVERS[network]];
 }

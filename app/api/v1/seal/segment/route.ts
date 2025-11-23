@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       videoId,
-      channelId: video.creator.sealObjectId,
+      channelId: video.sealObjectId,
       creatorAddress: video.creatorId,
       segments: sealSegments.map(seg => ({
         segIdx: seg.segIdx,

@@ -8,7 +8,7 @@ import { prisma } from '@/lib/db';
 import { decryptDek } from '@/lib/kms/envelope';
 import { aesGcmDecrypt } from '@/lib/crypto/primitives';
 import { cookies } from 'next/headers';
-import { verifySuiSignature } from '@/lib/crypto/verifySignature';
+import { verifyPersonalMessageSignature as verifySuiSignature } from '@mysten/sui/verify';
 
 export async function GET(
   request: NextRequest,
@@ -93,7 +93,7 @@ export async function GET(
     console.log(`[Text API] Document decrypted: ${decryptedData.length} bytes`);
 
     // Step 7: Serve text with correct MIME type
-    return new NextResponse(decryptedData, {
+    return new NextResponse(decryptedData.buffer as ArrayBuffer, {
       headers: {
         'Content-Type': document.mimeType,
         'Content-Disposition': `inline; filename="${document.filename}"`,

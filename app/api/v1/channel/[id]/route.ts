@@ -8,10 +8,10 @@ import { SuiClient } from '@mysten/sui/client';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const channelId = params.id;
+    const { id: channelId } = await params;
 
     const client = new SuiClient({
       url: 'https://fullnode.mainnet.sui.io:443'

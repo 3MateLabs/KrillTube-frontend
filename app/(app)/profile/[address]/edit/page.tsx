@@ -14,6 +14,7 @@ interface CreatorProfile {
   avatar: string | null;
   channelPrice: string | null;
   channelChain: string | null;
+  sealObjectId: string | null;
 }
 
 export default function EditProfilePage() {

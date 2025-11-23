@@ -4,11 +4,12 @@
  */
 
 interface UploadStepIndicatorProps {
-  currentStep: 1 | 2 | 3;
+  currentStep: 1 | 2 | 3 | 4;
   stepLabels: {
     step1: string;
     step2: string;
     step3: string;
+    step4?: string;
   };
 }
 
@@ -17,6 +18,7 @@ export function UploadStepIndicator({ currentStep, stepLabels }: UploadStepIndic
     { number: 1, label: stepLabels.step1 },
     { number: 2, label: stepLabels.step2 },
     { number: 3, label: stepLabels.step3 },
+    ...(stepLabels.step4 ? [{ number: 4, label: stepLabels.step4 }] : []),
   ];
 
   return (

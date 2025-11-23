@@ -157,7 +157,8 @@ export async function isSubscribed(
       const returnValues = result.results[0].returnValues;
       if (returnValues && returnValues[0]) {
         // Parse boolean from return value
-        return returnValues[0][0] === 1;
+        const value = returnValues[0] as any;
+        return value[0] === 1;
       }
     }
 

@@ -158,7 +158,7 @@ export function useSealVideo(options: UseSealVideoOptions): UseSealVideoReturn {
           address: userAddress,
           packageId: options.packageId,
           ttlMin: 10, // 10 minute TTL
-          suiClient: suiClientRef.current,
+          suiClient: suiClientRef.current as any,
         });
 
         // Sign the personal message with wallet

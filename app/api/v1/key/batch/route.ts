@@ -164,6 +164,10 @@ export async function POST(request: NextRequest) {
           // Wrap DEK bytes with session KEK
           const { wrappedKey, iv: wrapIv } = await wrapKey(sessionKek, dekBytes);
 
+          if (!segment.iv) {
+            throw new Error('Segment IV is missing');
+          }
+
           return {
             rendition,
             segIdx,

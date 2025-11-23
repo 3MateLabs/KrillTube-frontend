@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
           filename: img.filename,
           walrusUri: img.walrusUri,
           blobObjectId: img.blobObjectId, // Mainnet only - for extend/delete
-          dekEnc: encryptedDek, // Now encrypted with master key
-          iv: Buffer.from(fromBase64(img.iv)),
+          dekEnc: Buffer.from(new Uint8Array(encryptedDek)) as any, // Now encrypted with master key
+          iv: Buffer.from(new Uint8Array(fromBase64(img.iv))) as any,
           size: img.size,
           mimeType: img.mimeType,
         };

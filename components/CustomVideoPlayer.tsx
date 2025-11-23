@@ -97,7 +97,6 @@ export function CustomVideoPlayer({
     videoUrl,
     network,
     autoplay,
-    enabled: !shouldUseSeal, // Only initialize when SEAL is NOT active
     onReady: () => {
       console.log('[DEK] Video ready to play');
     },

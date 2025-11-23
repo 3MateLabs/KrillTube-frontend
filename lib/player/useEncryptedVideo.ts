@@ -78,12 +78,6 @@ export function useEncryptedVideo(
 
     const initialize = async () => {
       try {
-        // Skip initialization if this hook is disabled
-        if (options.enabled === false) {
-          console.log('[useEncryptedVideo] Hook disabled, skipping initialization');
-          setIsLoading(false);
-          return;
-        }
 
         // Wait for video element to be ready
         if (!videoRef.current) {
@@ -279,7 +273,7 @@ export function useEncryptedVideo(
         workerPoolRef.current = null;
       }
     };
-  }, [options.videoId, options.videoUrl, options.apiBaseUrl, options.enabled]);
+  }, [options.videoId, options.videoUrl, options.apiBaseUrl]);
 
   /**
    * Track playing state

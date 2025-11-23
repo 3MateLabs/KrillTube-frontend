@@ -120,7 +120,7 @@ export async function GET(
     console.log(`[Image API] ✓ Decrypted image: ${decryptedData.length} bytes`);
 
     // Step 7: Serve decrypted image with correct MIME type
-    return new NextResponse(decryptedData, {
+    return new NextResponse(decryptedData.buffer as ArrayBuffer, {
       status: 200,
       headers: {
         'Content-Type': image.mimeType,

@@ -222,6 +222,20 @@ export async function GET(request: NextRequest) {
     console.log(`  Chain: ${chain}`);
 
     // Step 4: Decrypt segment DEK with KMS
+    if (!segment.dekEnc) {
+      return NextResponse.json(
+        { error: 'Segment DEK is missing' },
+        { status: 500 }
+      );
+    }
+
+    if (!segment.iv) {
+      return NextResponse.json(
+        { error: 'Segment IV is missing' },
+        { status: 500 }
+      );
+    }
+
     const dekBytes = await decryptDek(segment.dekEnc);
     console.log(`  ✓ Decrypted segment DEK`);
 
@@ -448,6 +462,11 @@ export async function POST(request: NextRequest) {
 
       if (!segment) {
         console.warn(`[Key Batch API] Segment ${segIdx} not found, skipping`);
+        continue;
+      }
+
+      if (!segment.dekEnc || !segment.iv) {
+        console.warn(`[Key Batch API] Segment ${segIdx} missing DEK or IV, skipping`);
         continue;
       }
 

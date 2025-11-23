@@ -152,11 +152,6 @@ export async function GET(request: NextRequest) {
             avatar: true,
             channelPrice: true,
             channelChain: true,
-            _count: {
-              select: {
-                videos: true,
-              },
-            },
           },
         },
       },
@@ -176,7 +171,7 @@ export async function GET(request: NextRequest) {
           avatar: sub.creator.avatar,
           channelPrice: sub.creator.channelPrice,
           channelChain: sub.creator.channelChain,
-          videoCount: sub.creator._count.videos,
+          videoCount: 0, // TODO: Add videos relation to Creator model
         },
         subscribedAt: sub.createdAt.toISOString(),
         txDigest: sub.txDigest,

@@ -181,8 +181,8 @@ export async function POST(request: NextRequest) {
                 create: await Promise.all(
                   rendition.segments.map(async (segment) => {
                     // Handle both DEK and SEAL encryption
-                    let dekEnc: Buffer | null = null;
-                    let iv: Buffer | null = null;
+                    let dekEnc: any = null;
+                    let iv: any = null;
                     let sealDocumentId: string | null = null;
                     let sealBlobId: string | null = null;
 
@@ -193,8 +193,8 @@ export async function POST(request: NextRequest) {
                         throw new Error(`Invalid DEK size: ${dekPlain.length} bytes (expected 16)`);
                       }
                       const dekEncrypted = await encryptDek(new Uint8Array(dekPlain));
-                      dekEnc = Buffer.from(dekEncrypted);
-                      iv = Buffer.from(segment.iv, 'base64');
+                      dekEnc = Buffer.from(new Uint8Array(dekEncrypted)) as any;
+                      iv = Buffer.from(new Uint8Array(Buffer.from(segment.iv, 'base64'))) as any;
                     }
 
                     if (segment.sealDocumentId && segment.sealBlobId) {

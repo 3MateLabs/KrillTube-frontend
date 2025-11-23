@@ -242,7 +242,9 @@ export function createSealSegmentLoader(
     // Limit cache size (keep last 10 segments)
     if (cache.size > 10) {
       const oldestKey = cache.keys().next().value;
-      cache.delete(oldestKey);
+      if (oldestKey !== undefined) {
+        cache.delete(oldestKey);
+      }
     }
 
     return data;

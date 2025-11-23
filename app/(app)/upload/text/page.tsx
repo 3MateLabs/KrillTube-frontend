@@ -570,7 +570,8 @@ function TextUploadContent() {
           <div className="p-6 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-6">
             <Step3FeeSharing
               referrerSharePercent={referrerSharePercent}
-              onUpdateReferrerShare={(value) => setReferrerSharePercent(value)}
+              onReferrerShareChange={(value) => setReferrerSharePercent(value)}
+              onShowPlatformFeeDialog={() => {}}
             />
 
             {/* Navigation */}
