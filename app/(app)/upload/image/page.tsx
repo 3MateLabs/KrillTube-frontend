@@ -651,8 +651,6 @@ function ImagesUploadContent() {
                 feeConfigs={feeConfigs}
                 coinMetadataCache={coinMetadataCache}
                 coinPriceCache={coinPriceCache}
-                allowSubscription={false}
-                onToggleSubscription={() => {}}
                 onAddFeeConfig={handleAddFeeConfig}
                 onRemoveFeeConfig={handleRemoveFeeConfig}
                 onUpdateTokenType={(id, value) => handleUpdateFeeConfig(id, 'tokenType', value)}
