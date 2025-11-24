@@ -1002,12 +1002,71 @@ function UploadContent() {
 
       console.log('[Upload V2] ✓ Upload processing complete');
 
-      // Extract primary upload result based on encryption type
-      // For DEK or SEAL-only, use that result; for 'both', prefer DEK for compatibility
-      const primaryResult =
-        encryptionType === 'subscription-acl'
-          ? result.sealUpload
-          : result.dekUpload || result.sealUpload;
+      // Extract and merge upload results based on encryption type
+      let primaryResult;
+      let mergedRenditions;
+
+      if (encryptionType === 'subscription-acl') {
+        // SEAL only
+        primaryResult = result.sealUpload;
+        mergedRenditions = result.sealUpload?.renditions;
+      } else if (encryptionType === 'per-video') {
+        // DEK only
+        primaryResult = result.dekUpload;
+        mergedRenditions = result.dekUpload?.renditions;
+      } else if (encryptionType === 'both') {
+        // Merge DEK + SEAL metadata
+        if (!result.dekUpload || !result.sealUpload) {
+          throw new Error('Upload failed - both DEK and SEAL uploads are required for "both" encryption type');
+        }
+
+        console.log('[Upload V2] Merging DEK and SEAL upload results...');
+        primaryResult = result.dekUpload; // Use DEK as base
+
+        // Merge segment metadata from both uploads
+        mergedRenditions = result.dekUpload.renditions.map((dekRendition) => {
+          // Find matching SEAL rendition
+          const sealRendition = result.sealUpload!.renditions.find(
+            (r) => r.quality === dekRendition.quality
+          );
+
+          if (!sealRendition) {
+            console.warn(`[Upload V2] No matching SEAL rendition for ${dekRendition.quality}`);
+            return {
+              ...dekRendition,
+              segments: dekRendition.segments,
+            };
+          }
+
+          // Merge segments: DEK metadata + SEAL metadata
+          const mergedSegments = dekRendition.segments.map((dekSegment) => {
+            const sealSegment = sealRendition.segments.find(
+              (s) => s.segIdx === dekSegment.segIdx
+            );
+
+            if (!sealSegment) {
+              console.warn(`[Upload V2] No matching SEAL segment for ${dekRendition.quality} seg ${dekSegment.segIdx}`);
+              return dekSegment;
+            }
+
+            // Combine both DEK and SEAL metadata
+            return {
+              ...dekSegment, // Has: segIdx, walrusUri, dek, iv, duration, size, blobObjectId
+              sealDocumentId: sealSegment.sealDocumentId, // Add SEAL metadata
+              sealBlobId: sealSegment.sealBlobId,
+            };
+          });
+
+          return {
+            ...dekRendition,
+            segments: mergedSegments,
+          };
+        });
+
+        console.log('[Upload V2] ✓ Merged DEK and SEAL metadata for all segments');
+      } else {
+        throw new Error(`Invalid encryption type: ${encryptionType}`);
+      }
 
       if (!primaryResult) {
         throw new Error('Upload failed - no result returned');
@@ -1034,7 +1093,7 @@ function UploadContent() {
           network: walrusNetwork, // Save the network used for upload
           encryptionType, // Store encryption type for playback
           sealObjectId: creatorProfile?.sealObjectId, // Store channel ID for SEAL videos
-          renditions: primaryResult.renditions.map((r) => ({
+          renditions: (mergedRenditions || primaryResult.renditions).map((r) => ({
             name: r.quality,
             resolution: r.resolution,
             bitrate: r.bitrate,
