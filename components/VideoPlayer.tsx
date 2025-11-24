@@ -49,6 +49,7 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
   const [qualityLevels, setQualityLevels] = useState<Array<{ index: number; height: number; label: string }>>([]);
   const [currentQuality, setCurrentQuality] = useState(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -215,6 +216,16 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
     video.muted = !video.muted;
   };
 
+  const handleVolumeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const video = videoRef.current;
+    if (!video) return;
+    const newVolume = parseFloat(e.target.value);
+    video.volume = newVolume;
+    if (newVolume > 0 && video.muted) {
+      video.muted = false;
+    }
+  };
+
   const toggleFullscreen = () => {
     const container = containerRef.current;
     if (!container) return;
@@ -257,7 +268,7 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-video bg-black group"
+      className="relative w-full aspect-video bg-black group overflow-visible"
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(isPlaying ? false : true)}
       onMouseMove={() => setShowControls(true)}
@@ -318,20 +329,74 @@ export function VideoPlayer({ src, poster, autoPlay = false, onError }: VideoPla
           </button>
 
           {/* Volume */}
-          <button
-            onClick={toggleMute}
-            className="text-white hover:text-walrus-mint transition-colors"
+          <div
+            className="relative flex items-center gap-2 group/volume"
+            onMouseEnter={() => setShowVolumeSlider(true)}
+            onMouseLeave={() => setShowVolumeSlider(false)}
           >
-            {isMuted || volume === 0 ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-              </svg>
-            )}
-          </button>
+            <button
+              onClick={toggleMute}
+              className="text-white hover:text-walrus-mint transition-colors"
+            >
+              {isMuted || volume === 0 ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              ) : volume < 0.5 ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.828 11.828a4 4 0 000-5.656 1 1 0 00-1.414 1.414 2 2 0 010 2.828 1 1 0 001.414 1.414z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                </svg>
+              )}
+            </button>
+
+            {/* Volume Slider - appears above the speaker button */}
+            <div
+              className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 transition-all duration-200 ${
+                showVolumeSlider ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2 pointer-events-none'
+              }`}
+            >
+              <div className="bg-black/95 border-2 border-walrus-mint/30 rounded-lg p-3 shadow-2xl">
+                <div className="flex flex-col items-center gap-2 h-28">
+                  <div className="text-walrus-mint text-sm font-bold">{Math.round((isMuted ? 0 : volume) * 100)}%</div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeSliderChange}
+                    className="w-2 h-24 bg-white/20 rounded-lg appearance-none cursor-pointer
+                      [writing-mode:vertical-lr] [direction:rtl]
+                      [&::-webkit-slider-thumb]:appearance-none
+                      [&::-webkit-slider-thumb]:w-4
+                      [&::-webkit-slider-thumb]:h-4
+                      [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:bg-walrus-mint
+                      [&::-webkit-slider-thumb]:cursor-pointer
+                      [&::-webkit-slider-thumb]:transition-transform
+                      [&::-webkit-slider-thumb]:hover:scale-125
+                      [&::-webkit-slider-thumb]:shadow-lg
+                      [&::-moz-range-thumb]:w-4
+                      [&::-moz-range-thumb]:h-4
+                      [&::-moz-range-thumb]:rounded-full
+                      [&::-moz-range-thumb]:bg-walrus-mint
+                      [&::-moz-range-thumb]:border-0
+                      [&::-moz-range-thumb]:cursor-pointer
+                      [&::-moz-range-thumb]:transition-transform
+                      [&::-moz-range-thumb]:hover:scale-125
+                      [&::-moz-range-thumb]:shadow-lg"
+                    style={{
+                      background: `linear-gradient(to top, #97F0E5 0%, #97F0E5 ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.2) 100%)`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Time */}
           <div className="text-white text-sm font-medium">

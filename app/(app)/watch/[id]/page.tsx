@@ -746,8 +746,8 @@ export default function WatchPage() {
                   <Image src="/logos/sui-logo.png" alt="SUI" width={16} height={16} className="object-contain" />
                 </div>
 
-                {/* Extend Storage Button - Only visible to video owner */}
-                {account?.address === video.creatorId && (
+                {/* Extend Storage Button - Only visible to video owner on mainnet with blob object IDs */}
+                {account?.address === video.creatorId && video.network === 'mainnet' && video.masterBlobObjectId && (
                   <>
                     <button
                       onClick={() => setShowExtendModal(true)}
@@ -788,8 +788,8 @@ export default function WatchPage() {
           <div className="w-80"></div>
         </div>
 
-        {/* Blob IDs Section - Only visible to creator */}
-        {account?.address === video.creatorId && video.network === 'mainnet' && (
+        {/* Blob IDs Section - Visible to everyone on mainnet */}
+        {video.network === 'mainnet' && (
           <div className="w-full flex justify-start items-start gap-6 mt-6">
             <div className="flex-1 max-w-[970px]">
               <div className="w-full p-6 bg-[#F5F0E8] rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] border-[3px] border-black flex flex-col justify-start items-start gap-3">

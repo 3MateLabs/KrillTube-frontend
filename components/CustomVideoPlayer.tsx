@@ -887,10 +887,69 @@ export function CustomVideoPlayer({
                     )}
                   </button>
 
-                  {/* Volume Button */}
-                  <button className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
-                    <Image src="/logos/volume.svg" alt="Volume" width={24} height={24} className="w-6 h-6" />
-                  </button>
+                  {/* Volume Button with Slider */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setShowVolumeSlider(true)}
+                    onMouseLeave={() => setShowVolumeSlider(false)}
+                  >
+                    <button
+                      onClick={() => {
+                        const video = videoRef.current;
+                        if (video) {
+                          video.muted = !video.muted;
+                          if (!video.muted && video.volume === 0) {
+                            video.volume = 0.5;
+                            setVolume(0.5);
+                          }
+                        }
+                      }}
+                      className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+                    >
+                      <Image src="/logos/volume.svg" alt="Volume" width={24} height={24} className="w-6 h-6" />
+                    </button>
+
+                    {/* Volume Slider Popup */}
+                    {showVolumeSlider && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-50">
+                        <div className="bg-white border-[3px] border-black rounded-lg shadow-[5px_5px_0px_0px_rgba(0,0,0,1.00)] p-3">
+                          <div className="flex flex-col items-center gap-2 h-32">
+                            <div className="text-black text-sm font-bold font-['Outfit']">{Math.round(volume * 100)}%</div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.01"
+                              value={volume}
+                              onChange={handleVolumeChange}
+                              className="w-2 h-24 bg-gray-300 rounded-lg appearance-none cursor-pointer
+                                [writing-mode:vertical-lr] [direction:rtl]
+                                [&::-webkit-slider-thumb]:appearance-none
+                                [&::-webkit-slider-thumb]:w-4
+                                [&::-webkit-slider-thumb]:h-4
+                                [&::-webkit-slider-thumb]:rounded-full
+                                [&::-webkit-slider-thumb]:bg-black
+                                [&::-webkit-slider-thumb]:cursor-pointer
+                                [&::-webkit-slider-thumb]:border-2
+                                [&::-webkit-slider-thumb]:border-white
+                                [&::-webkit-slider-thumb]:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]
+                                [&::-moz-range-thumb]:w-4
+                                [&::-moz-range-thumb]:h-4
+                                [&::-moz-range-thumb]:rounded-full
+                                [&::-moz-range-thumb]:bg-black
+                                [&::-moz-range-thumb]:cursor-pointer
+                                [&::-moz-range-thumb]:border-2
+                                [&::-moz-range-thumb]:border-white
+                                [&::-moz-range-thumb]:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.5)]"
+                              style={{
+                                background: `linear-gradient(to top, #000000 0%, #000000 ${volume * 100}%, #d1d5db ${volume * 100}%, #d1d5db 100%)`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Time Display */}
                   <div className="px-6 py-3 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center">

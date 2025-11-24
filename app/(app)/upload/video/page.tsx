@@ -970,7 +970,9 @@ function UploadContent() {
             effects: result.success ? { status: { status: 'success' } } : { status: { status: 'failure' } },
           };
         };
-        effectiveUploadAddress = delegatorAddress;
+        // CRITICAL FIX: Use user's address as blob owner (delegator only signs transactions)
+        // This ensures user owns blob objects for extend/delete operations
+        effectiveUploadAddress = account.address;
       } else {
         // Testnet: use user's wallet (free HTTP uploads)
         effectiveSignAndExecute = signAndExecuteTransaction;
@@ -1022,7 +1024,9 @@ function UploadContent() {
           title,
           creatorId: effectiveAccount.address,
           walrusMasterUri: primaryResult.walrusMasterUri,
+          masterBlobObjectId: primaryResult.masterBlobObjectId, // Mainnet only - for extend/delete
           poster: finalPoster, // Custom base64 thumbnail or auto-generated
+          posterBlobObjectId: primaryResult.posterBlobObjectId, // Mainnet only - for extend/delete
           duration: primaryResult.duration,
           network: walrusNetwork, // Save the network used for upload
           encryptionType, // Store encryption type for playback
@@ -1032,7 +1036,8 @@ function UploadContent() {
             resolution: r.resolution,
             bitrate: r.bitrate,
             walrusPlaylistUri: r.walrusPlaylistUri,
-            segments: r.segments,
+            playlistBlobObjectId: r.playlistBlobObjectId, // Mainnet only - for extend/delete
+            segments: r.segments, // Already includes blobObjectId for each segment
           })),
           paymentInfo: primaryResult.paymentInfo,
           creatorConfigs, // Include creator configs array
