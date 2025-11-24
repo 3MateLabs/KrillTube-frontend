@@ -122,18 +122,39 @@ export function usePersonalDelegator() {
       throw new Error('No WAL tokens found in wallet. Please acquire WAL tokens first.');
     }
 
-    // Find a coin with sufficient balance
+    // Calculate total WAL balance across all coins
+    const totalWalBalance = walCoins.data.reduce((sum, coin) => sum + BigInt(coin.balance), BigInt(0));
+    console.log(`[Delegator] Found ${walCoins.data.length} WAL coins, total: ${Number(totalWalBalance) / 1_000_000_000} WAL`);
+
+    if (totalWalBalance < walStorageAmount) {
+      throw new Error(`Insufficient WAL balance. Need ${Number(walStorageAmount) / 1_000_000_000} WAL, have ${Number(totalWalBalance) / 1_000_000_000} WAL`);
+    }
+
+    // Sort coins by balance (largest first)
     const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
     const primaryCoin = sortedCoins[0];
 
-    if (BigInt(primaryCoin.balance) < walStorageAmount) {
-      throw new Error(`Insufficient WAL balance. Need ${Number(walStorageAmount) / 1_000_000_000} WAL, have ${Number(primaryCoin.balance) / 1_000_000_000} WAL`);
-    }
-
-    console.log(`[Delegator] Using WAL coin: ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
-
     const tx = new Transaction();
     tx.setSender(userAddress);
+
+    // If largest coin has enough, use it directly
+    // Otherwise, merge multiple coins
+    let walCoinToUse;
+    if (BigInt(primaryCoin.balance) >= walStorageAmount) {
+      console.log(`[Delegator] Using single WAL coin: ${primaryCoin.coinObjectId.slice(0, 20)}... (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
+      walCoinToUse = tx.object(primaryCoin.coinObjectId);
+    } else {
+      console.log(`[Delegator] Merging ${sortedCoins.length} WAL coins to meet requirement`);
+      // Merge all coins into the first one
+      const coinObjectIds = sortedCoins.map(c => tx.object(c.coinObjectId));
+      const primaryCoinObj = coinObjectIds[0];
+      const otherCoins = coinObjectIds.slice(1);
+
+      if (otherCoins.length > 0) {
+        tx.mergeCoins(primaryCoinObj, otherCoins);
+      }
+      walCoinToUse = primaryCoinObj;
+    }
 
     // 1. Split SUI for delegator gas fees
     const [suiCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(suiGasAmount.toString())]);
@@ -141,7 +162,7 @@ export function usePersonalDelegator() {
 
     // 2. Split WAL tokens for storage payment
     const [walCoin] = tx.splitCoins(
-      tx.object(primaryCoin.coinObjectId),
+      walCoinToUse,
       [tx.pure.u64(walStorageAmount.toString())]
     );
     tx.transferObjects([walCoin], tx.pure.address(delegatorState.address));
