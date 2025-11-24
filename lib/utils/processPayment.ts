@@ -187,7 +187,13 @@ export async function processPayment({
 
         // Convert Uint8Array to base64
         const base64Encode = (bytes: Uint8Array): string => {
-          const binary = String.fromCharCode(...bytes);
+          // Process in chunks to avoid "Maximum call stack size exceeded"
+          const CHUNK_SIZE = 8192;
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+            const chunk = bytes.slice(i, i + CHUNK_SIZE);
+            binary += String.fromCharCode(...chunk);
+          }
           return btoa(binary);
         };
         transactionBytes = base64Encode(txBytes);
