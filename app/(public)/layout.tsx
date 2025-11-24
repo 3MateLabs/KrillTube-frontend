@@ -19,8 +19,8 @@ export default function PublicLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${outfit.variable} antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${outfit.variable} antialiased`} suppressHydrationWarning>
         {children}
       </body>
     </html>

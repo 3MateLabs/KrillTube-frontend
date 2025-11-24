@@ -1,47 +1,114 @@
 'use client';
 
 import { ChevronRight, Play } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { ConnectWallet } from '@/components/ConnectWallet';
+import { useEffect, useState } from 'react';
+
+interface Video {
+  id: string;
+  title: string;
+  creatorId: string;
+  createdAt: string;
+  poster?: string;
+  posterWalrusUri?: string;
+  walrusMasterUri: string;
+  duration?: number;
+  network?: string;
+  creator?: {
+    name: string;
+    avatar?: string;
+    subscriberCount: number;
+  };
+}
+
+// Helper function to fix Walrus URLs
+const fixWalrusUrl = (url: string, network: string = 'mainnet'): string => {
+  if (!url) return url;
+
+  const AGGREGATOR_DOMAIN = 'aggregator.walrus.space';
+  const TESTNET_AGGREGATOR = 'aggregator.walrus-testnet.walrus.space';
+  const AGGREGATOR_REPLACEMENT = 'aggregator.mainnet.walrus.mirai.cloud';
+
+  const targetAggregator = network === 'testnet'
+    ? TESTNET_AGGREGATOR
+    : AGGREGATOR_REPLACEMENT;
+
+  let fixed = url;
+  if (fixed.includes(TESTNET_AGGREGATOR)) {
+    fixed = fixed.replace(TESTNET_AGGREGATOR, targetAggregator);
+  } else if (fixed.includes(AGGREGATOR_DOMAIN)) {
+    fixed = fixed.replace(AGGREGATOR_DOMAIN, targetAggregator);
+  }
+
+  return fixed;
+};
+
+const formatDuration = (seconds?: number) => {
+  if (!seconds) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
 export default function KrillTubeLanding() {
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        console.log('[Landing] Fetching videos...');
+        const response = await fetch('/api/v1/videos?limit=12');
+        console.log('[Landing] Response status:', response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[Landing] Videos fetched:', data.videos?.length || 0, 'videos');
+          console.log('[Landing] First video:', data.videos?.[0]);
+          setVideos(data.videos || []);
+        } else {
+          console.error('[Landing] Failed to fetch videos:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('[Landing] Failed to fetch videos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVideos();
+  }, []);
+
   return (
     <div className="min-h-screen bg-black">
       {/* Hero Background */}
       <div className="relative pb-32 bg-sky-800">
         {/* Ocean Background Image - extends to cover full area */}
         <div className="absolute inset-0 w-full min-h-full">
-          <Image
+          <img
             src="/landing/krilltube_bg.png"
             alt="Ocean background"
-            width={1440}
-            height={1024}
             className="w-full h-full min-h-[900px] object-cover object-right"
-            priority
           />
         </div>
 
         {/* Krill Mascot - layered on top of background, hidden on small screens */}
-        <Image
+        <img
           src="/landing/krill_mascot.png"
           alt="Krill mascot"
-          width={600}
-          height={600}
           className="hidden lg:block absolute right-8 xl:right-24 bottom-24 xl:bottom-32 w-[420px] xl:w-[480px] h-auto object-contain z-[5] pointer-events-none"
-          priority
         />
 
         {/* Navbar */}
         <nav className="relative top-0 left-0 right-0 bg-[#1AAACE] border-b-[6px] border-black p-3 md:px-24 z-50">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-8 lg:gap-16">
-              <Link href="/" className="bg-black rounded-full px-4 py-2 flex items-center gap-2">
-                <Image src="/logos/kril_tube_icon.png" alt="Krill Tube" width={32} height={32} className="rounded-full" />
-                <span className="text-white font-bold text-lg">Krill Tube</span>
+            <div className="flex items-center gap-2 md:gap-4 lg:gap-8 xl:gap-16">
+              <Link href="/" className="bg-black rounded-full px-3 md:px-4 py-2 flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+                <img src="/logos/kril_tube_icon.png" alt="Krill Tube" className="w-7 h-7 md:w-8 md:h-8 rounded-full" />
+                <span className="text-white font-bold text-sm md:text-base lg:text-lg whitespace-nowrap">Krill Tube</span>
               </Link>
-              <div className="hidden md:block bg-black backdrop-blur-md outline outline-[3px] outline-black rounded-[48px] p-2">
-                <div className="flex gap-2">
+              <div className="hidden md:block bg-black backdrop-blur-md outline outline-[3px] outline-black rounded-[48px] p-1.5 md:p-2">
+                <div className="flex gap-1 md:gap-2">
                   {[
                     { label: 'Home', href: '/' },
                     { label: 'Watch', href: '/watch' },
@@ -52,7 +119,7 @@ export default function KrillTubeLanding() {
                     <Link
                       key={item.label}
                       href={item.href}
-                      className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      className={`px-2 md:px-3 lg:px-4 py-2 rounded-full font-medium transition-all text-sm md:text-base ${
                         item.label === 'Home'
                           ? 'bg-[#CF2C2F] text-white'
                           : 'text-white hover:bg-white/20'
@@ -64,10 +131,10 @@ export default function KrillTubeLanding() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-2 md:gap-3 lg:gap-4">
               <Link
                 href="/upload"
-                className="bg-white text-black font-bold px-6 py-2 rounded-[32px] outline outline-[3px] outline-black hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-base w-[86px] whitespace-nowrap flex items-center justify-center"
+                className="bg-white text-black font-bold px-4 md:px-6 py-2 rounded-[32px] outline outline-[3px] outline-black hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-sm md:text-base whitespace-nowrap flex items-center justify-center"
               >
                 Upload
               </Link>
@@ -148,29 +215,71 @@ export default function KrillTubeLanding() {
         <div className="w-full mx-auto flex flex-col items-center gap-4 md:gap-6 overflow-hidden">
           <h2 className="text-white text-2xl md:text-3xl font-bold font-['Fredoka'] text-center">Recommendations</h2>
           <div className="relative w-full">
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex gap-4 md:gap-6 px-4 animate-scroll">
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="p-3 md:p-4 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-2 md:gap-2.5 flex-shrink-0 w-[280px] md:w-[320px] lg:w-[392px]">
-                    <div className="w-full flex flex-col gap-4 md:gap-6">
-                      <img className="w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt={`Video ${i + 1}`} />
-                      <div className="w-full flex flex-col gap-2">
-                        <div className="text-black text-sm md:text-base font-semibold font-['Outfit']">Walrus</div>
-                        <div className="w-full flex justify-between items-start gap-2">
-                          <div className="flex flex-col gap-1 md:gap-2 flex-1">
-                            <div className="text-black text-lg md:text-xl lg:text-2xl font-bold font-['Outfit'] line-clamp-2">Walrus Haulout Hackathon</div>
-                            <div className="text-black text-xs md:text-sm font-normal font-['Outfit']">Stand a chance to win</div>
-                          </div>
-                          <div className="w-10 h-10 md:w-12 md:h-12 p-2 md:p-3 bg-black rounded-3xl flex justify-center items-center flex-shrink-0">
-                            <Play className="w-5 h-5 md:w-6 md:h-6 text-white" fill="white" />
+            {loading ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : videos.length > 0 ? (
+              <div className="overflow-x-auto scrollbar-hide">
+                <div className="flex gap-4 md:gap-6 px-4 animate-scroll">
+                  {videos.map((video) => {
+                    const thumbnailUrl = video.poster
+                      ? video.poster
+                      : video.posterWalrusUri
+                      ? fixWalrusUrl(video.posterWalrusUri, video.network)
+                      : 'https://i.imgur.com/pkTKVOL.png';
+
+                    return (
+                      <Link key={video.id} href={`/watch/${video.id}`} className="flex-shrink-0 w-[280px] md:w-[320px] lg:w-[392px]">
+                        <div className="p-3 md:p-4 bg-white rounded-2xl shadow-[5px_5px_0px_1px_rgba(0,0,0,1)] outline outline-2 outline-offset-[-2px] outline-black flex flex-col gap-2 md:gap-2.5 hover:bg-[#FFEEE5] hover:shadow-[6px_6px_0px_1px_rgba(0,0,0,1)] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all">
+                          <div className="w-full flex flex-col gap-4 md:gap-6">
+                            <div className="relative w-full h-40 md:h-48 lg:h-60 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] border-2 border-black overflow-hidden">
+                              <img className="w-full h-full object-cover" src={thumbnailUrl} alt={video.title} />
+
+                              {/* Play Button Overlay */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center">
+                                  <Play className="w-6 h-6 text-black ml-1" fill="black" />
+                                </div>
+                              </div>
+
+                              {/* Duration Badge */}
+                              {video.duration && (
+                                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/80 rounded text-white text-xs font-semibold">
+                                  {formatDuration(video.duration)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="w-full flex flex-col gap-2">
+                              <div className="text-black text-sm md:text-base font-semibold font-['Outfit']">
+                                {video.creator?.name || `${video.creatorId.slice(0, 6)}...${video.creatorId.slice(-4)}`}
+                              </div>
+                              <div className="w-full flex justify-between items-start gap-2">
+                                <div className="flex flex-col gap-1 md:gap-2 flex-1">
+                                  <div className="text-black text-lg md:text-xl lg:text-2xl font-bold font-['Outfit'] line-clamp-2">{video.title}</div>
+                                  {video.creator && (
+                                    <div className="text-black text-xs md:text-sm font-normal font-['Outfit']">
+                                      {video.creator.subscriberCount} {video.creator.subscriberCount === 1 ? 'subscriber' : 'subscribers'}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="w-10 h-10 md:w-12 md:h-12 p-2 md:p-3 bg-black rounded-3xl flex justify-center items-center flex-shrink-0">
+                                  <Play className="w-5 h-5 md:w-6 md:h-6 text-white" fill="white" />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex justify-center items-center py-20">
+                <p className="text-white text-xl">No videos available yet</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -326,7 +435,7 @@ export default function KrillTubeLanding() {
           <div className="self-stretch h-0 outline outline-2 outline-offset-[-1px] outline-black"></div>
           <div className="self-stretch inline-flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <Image src="/logos/kril_tube_icon.png" alt="Krill Tube" width={40} height={40} className="rounded-full" />
+              <img src="/logos/kril_tube_icon.png" alt="Krill Tube" className="w-10 h-10 rounded-full" />
               <div className="justify-start text-white text-3xl font-bold font-['Outfit']">Krill Tube</div>
             </div>
             <div className="flex justify-start items-center gap-4">
