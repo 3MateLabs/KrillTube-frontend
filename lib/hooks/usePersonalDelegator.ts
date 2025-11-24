@@ -292,11 +292,13 @@ export function usePersonalDelegator() {
   ): bigint => {
     // Each segment requires 2 transactions (register + certify)
     // Actual gas per transaction is ~0.03-0.05 SUI, use 0.08 SUI for safety margin
-    const gasPerSegment = BigInt(160_000_000); // 0.16 SUI per segment (2 transactions × 0.08)
+    // Divided by 8 for adjusted estimation
+    const gasPerSegment = BigInt(20_000_000); // 0.02 SUI per segment (was 0.16 SUI, now ÷ 8)
 
     // Base gas for non-segment uploads: poster + playlists + master playlist
     // Each needs 2 transactions (register + certify), so 6 transactions total
-    const baseGas = BigInt(500_000_000);       // 0.5 SUI base overhead (6 transactions × ~0.08)
+    // Divided by 8 for adjusted estimation
+    const baseGas = BigInt(62_500_000);       // 0.0625 SUI base overhead (was 0.5 SUI, now ÷ 8)
 
     let total = baseGas + (gasPerSegment * BigInt(numberOfSegments));
 

@@ -47,12 +47,17 @@ export function estimateWalrusCost(
 
   // Total cost
   const totalCostMist = storageCostMist + writeCostMist;
-  const totalCostWal = (Number(totalCostMist) / MIST_PER_WAL).toFixed(6);
+
+  // Divide all costs by 8 for budget estimation adjustment
+  const adjustedStorageCost = storageCostMist / BigInt(8);
+  const adjustedWriteCost = writeCostMist / BigInt(8);
+  const adjustedTotalCost = totalCostMist / BigInt(8);
+  const totalCostWal = (Number(adjustedTotalCost) / MIST_PER_WAL).toFixed(6);
 
   return {
-    storageCost: storageCostMist,
-    writeCost: writeCostMist,
-    totalCost: totalCostMist,
+    storageCost: adjustedStorageCost,
+    writeCost: adjustedWriteCost,
+    totalCost: adjustedTotalCost,
     totalCostWal,
     sizeBytes,
     epochs: epochsToUse,
