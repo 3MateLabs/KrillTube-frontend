@@ -258,8 +258,19 @@ export default function Home() {
           </div>
         ) : videos.length > 0 ? (
           <div className="flex flex-col gap-8">
+            {/* All Videos Section */}
+            <div className="mb-6">
+              <h2 className="text-white text-2xl font-semibold font-['Outfit'] mb-4">All Videos</h2>
+              <div className="grid grid-cols-3 gap-6">
+                {videos.map((video) => (
+                  <VideoCard key={video.id} video={video} />
+                ))}
+              </div>
+            </div>
+
+            {/* PLACEHOLDER SECTIONS - HIDDEN */}
             {/* Sponsored Section */}
-            <div className="w-full pb-6 border-b-2 border-black flex flex-col gap-4">
+            {false && <div className="w-full pb-6 border-b-2 border-black flex flex-col gap-4">
               <div className="text-white text-2xl font-semibold font-['Outfit']">Sponsored</div>
               <div className="grid grid-cols-3 gap-6">
                 {/* Sponsored Card 1 */}
@@ -376,10 +387,10 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>}
 
             {/* Gaming Section */}
-            <div className="w-full p-4 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-2.5">
+            {false && <div className="w-full p-4 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-2.5">
               <div className="self-stretch flex flex-col justify-center items-center gap-4">
                 <div className="self-stretch text-center text-[#EF4330] text-2xl font-bold font-['Outfit']">Gaming</div>
                 <div className="self-stretch flex flex-col gap-6">
@@ -497,20 +508,10 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* All Videos Section */}
-            <div className="mb-6">
-              <h2 className="text-white text-2xl font-semibold font-['Outfit'] mb-4">All Videos</h2>
-              <div className="grid grid-cols-3 gap-6">
-                {videos.map((video) => (
-                  <VideoCard key={video.id} video={video} />
-                ))}
-              </div>
-            </div>
+            </div>}
 
             {/* DeFi Section */}
-            <div className="w-full p-4 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-2.5">
+            {false && <div className="w-full p-4 bg-[#FFEEE5] rounded-[32px] shadow-[5px_5px_0px_1px_rgba(0,0,0,1.00)] outline outline-[3px] outline-offset-[-3px] outline-black flex flex-col gap-2.5">
               <div className="self-stretch flex flex-col justify-center items-center gap-4">
                 <div className="self-stretch text-center text-[#EF4330] text-2xl font-bold font-['Outfit']">DeFi</div>
                 <div className="self-stretch flex flex-col gap-6">
@@ -628,7 +629,8 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>}
+            {/* END PLACEHOLDER SECTIONS */}
           </div>
         ) : (
           <div className="flex items-center justify-center py-24">
