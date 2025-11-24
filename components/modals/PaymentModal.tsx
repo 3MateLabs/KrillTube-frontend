@@ -214,7 +214,7 @@ export function PaymentModal({
                 {/* Token Icon Circle */}
                 <div className="w-32 h-32 bg-white rounded-full border-4 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center overflow-hidden">
                   {tokenInfo.isImage && tokenInfo.icon ? (
-                    <Image
+                    <img
                       src={tokenInfo.icon}
                       alt={tokenInfo.symbol}
                       width={120}

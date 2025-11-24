@@ -108,7 +108,7 @@ const VideoCard = ({ video }: { video: Video }) => {
                 />
               ) : (
                 <div className="absolute inset-0 w-full h-56 z-0">
-                  <Image
+                  <img
                     className="rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
                     src={thumbnailUrl}
                     alt={video.title}
@@ -118,7 +118,7 @@ const VideoCard = ({ video }: { video: Video }) => {
                 </div>
               )
             ) : (
-              <Image
+              <img
                 className="w-full h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover z-0"
                 src="https://i.imgur.com/pkTKVOL.png"
                 alt="Default thumbnail"
@@ -199,7 +199,7 @@ const VideoCard = ({ video }: { video: Video }) => {
               </div>
               <div className="flex justify-start items-center flex-shrink-0 gap-1">
                 <div className="text-black text-lg font-semibold font-['Outfit']">2.5</div>
-                <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
               </div>
             </div>
           </div>
@@ -267,7 +267,7 @@ export default function Home() {
                 <div className="w-full p-4 bg-white rounded-2xl shadow-[3.1499998569488525px_3.1499998569488525px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.41px] outline-offset-[-1.41px] outline-black flex flex-col gap-2 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                   <div className="self-stretch flex flex-col justify-start items-start gap-4">
                     <div className="relative w-full">
-                      <Image className="self-stretch h-56 rounded-xl shadow-[2.113614082336426px_2.113614082336426px_0px_0px_rgba(0,0,0,1.00)] border-[1.41px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
+                      <img className="self-stretch h-56 rounded-xl shadow-[2.113614082336426px_2.113614082336426px_0px_0px_rgba(0,0,0,1.00)] border-[1.41px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
 
                       {/* Play Button - Centered */}
                       <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -294,7 +294,7 @@ export default function Home() {
                         </div>
                         <div className="flex justify-start items-center gap-1">
                           <div className="justify-start text-black text-xl font-semibold font-['Outfit']">2.5</div>
-                          <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                          <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                         </div>
                       </div>
                     </div>
@@ -305,7 +305,7 @@ export default function Home() {
                 <div className="w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.34px] outline-offset-[-1.34px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                   <div className="self-stretch flex flex-col justify-start items-start gap-4">
                     <div className="relative w-full">
-                      <Image className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
+                      <img className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
 
                       {/* Play Button - Centered */}
                       <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -332,7 +332,7 @@ export default function Home() {
                         </div>
                         <div className="flex justify-start items-center gap-1">
                           <div className="justify-start text-black text-xl font-semibold font-['Outfit']">2.5</div>
-                          <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                          <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                         </div>
                       </div>
                     </div>
@@ -343,7 +343,7 @@ export default function Home() {
                 <div className="w-full p-4 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.34px] outline-offset-[-1.34px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                   <div className="self-stretch flex flex-col justify-start items-start gap-4">
                     <div className="relative w-full">
-                      <Image className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
+                      <img className="self-stretch h-56 rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Sponsored" width={400} height={224} />
 
                       {/* Play Button - Centered */}
                       <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -370,7 +370,7 @@ export default function Home() {
                         </div>
                         <div className="flex justify-start items-center gap-1">
                           <div className="justify-start text-black text-xl font-semibold font-['Outfit']">2.5</div>
-                          <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                          <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                         </div>
                       </div>
                     </div>
@@ -389,7 +389,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
+                          <img className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -411,7 +411,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1">
                               <div className="text-black text-xl font-semibold font-['Outfit']">0</div>
-                              <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                              <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                             </div>
                           </div>
                         </div>
@@ -422,7 +422,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
+                          <img className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -444,7 +444,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1">
                               <div className="text-black text-xl font-semibold font-['Outfit']">3</div>
-                              <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                              <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                             </div>
                           </div>
                         </div>
@@ -455,7 +455,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
+                          <img className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="Gaming" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -477,7 +477,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1">
                               <div className="text-black text-xl font-semibold font-['Outfit']">1</div>
-                              <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                              <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                             </div>
                           </div>
                         </div>
@@ -520,7 +520,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
+                          <img className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -542,7 +542,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1">
                               <div className="text-black text-xl font-semibold font-['Outfit']">0</div>
-                              <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                              <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                             </div>
                           </div>
                         </div>
@@ -553,7 +553,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
+                          <img className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -575,7 +575,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1">
                               <div className="text-black text-xl font-semibold font-['Outfit']">3</div>
-                              <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                              <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                             </div>
                           </div>
                         </div>
@@ -586,7 +586,7 @@ export default function Home() {
                     <div className="w-full p-3 bg-white rounded-2xl shadow-[2.940000057220459px_2.940000057220459px_0px_0px_rgba(0,0,0,1.00)] outline outline-[1.32px] outline-offset-[-1.32px] outline-black flex flex-col gap-1.5 overflow-hidden hover:bg-[#FFEEE5] hover:scale-105 transition-all cursor-pointer">
                       <div className="self-stretch flex flex-col gap-4">
                         <div className="relative w-full">
-                          <Image className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
+                          <img className="w-full h-44 rounded-xl shadow-[1.97270667552948px_1.97270667552948px_0px_0px_rgba(0,0,0,1.00)] border-[1.32px] border-black object-cover" src="https://i.imgur.com/pkTKVOL.png" alt="DeFi" width={295} height={178} />
 
                           {/* Play Button */}
                           <div className="w-8 h-8 p-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 rounded-2xl inline-flex justify-center items-center">
@@ -608,7 +608,7 @@ export default function Home() {
                             </div>
                             <div className="flex items-center gap-1">
                               <div className="text-black text-xl font-semibold font-['Outfit']">1</div>
-                              <Image src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
+                              <img src="/logos/sui-logo.png" alt="SUI" width={20} height={20} className="object-contain" />
                             </div>
                           </div>
                         </div>

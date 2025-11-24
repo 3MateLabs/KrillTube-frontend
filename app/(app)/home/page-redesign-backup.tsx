@@ -44,7 +44,7 @@ const VideoCard = ({ video }: { video: Video }) => {
         {/* Video Thumbnail */}
         <div className="relative w-full aspect-video bg-gradient-to-br from-[#00579B] to-[#1AAACE] overflow-hidden">
           {video.posterWalrusUri ? (
-            <Image
+            <img
               src={video.posterWalrusUri}
               alt={video.title}
               fill

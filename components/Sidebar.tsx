@@ -120,13 +120,13 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
             className="p-2 bg-black rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
           >
             <div className="p-2 bg-black rounded-[32px] inline-flex justify-center items-center">
-              <Image src="/logos/hamburger-menu.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
+              <img src="/logos/hamburger-menu.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
             </div>
           </button>
           {showText && (
             <Link href="/" className="flex-1 p-2 bg-black rounded-[32px] inline-flex flex-col justify-start items-start gap-2.5">
               <div className="self-stretch p-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-2">
-                <Image src="/logos/kril_tube_icon.png" alt="Krill Tube" width={24} height={24} className="rounded-full" />
+                <img src="/logos/kril_tube_icon.png" alt="Krill Tube" width={24} height={24} className="rounded-full" />
                 <div className="justify-start text-white text-base font-bold font-['Outfit'] whitespace-nowrap">Krill Tube</div>
               </div>
             </Link>
@@ -143,7 +143,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/home.svg" alt="Home" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/home.svg" alt="Home" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Home</div>}
               </Link>
 
@@ -156,7 +156,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                     : 'hover:bg-white/50'
                 } ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/watch.svg" alt="Watch" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/watch' ? 'brightness-0 invert' : ''}`} />
+                <img src="/logos/watch.svg" alt="Watch" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/watch' ? 'brightness-0 invert' : ''}`} />
                 {showText && <div className={`justify-start text-base font-semibold font-['Outfit'] whitespace-nowrap ${pathname === '/watch' ? 'text-white' : 'text-black'}`}>Watch</div>}
               </Link>
 
@@ -165,7 +165,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/playlist.svg" alt="Playlists" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/playlist.svg" alt="Playlists" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Playlists</div>}
               </Link>
 
@@ -174,7 +174,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/about.svg" alt="About" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/about.svg" alt="About" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">About</div>}
               </Link>
 
@@ -187,7 +187,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                     : 'hover:bg-white/50'
                 } ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/subscriptions.svg" alt="Subscriptions" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/subscriptions' ? 'brightness-0 invert' : ''}`} />
+                <img src="/logos/subscriptions.svg" alt="Subscriptions" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/subscriptions' ? 'brightness-0 invert' : ''}`} />
                 {showText && <div className={`justify-start text-base font-semibold font-['Outfit'] whitespace-nowrap ${pathname === '/subscriptions' ? 'text-white' : 'text-black'}`}>Subscriptions</div>}
               </Link>
             </div>
@@ -200,13 +200,13 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 <div className="self-stretch px-4 pb-4 border-b-2 border-black inline-flex justify-center items-center gap-2.5">
                   <div className="flex-1 justify-start text-black text-xl font-semibold font-['Outfit']">Explore</div>
                   <div className="w-10 h-10 bg-black rounded-full flex justify-center items-center">
-                    <Image src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
+                    <img src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
                   </div>
                 </div>
               ) : (
                 <div className="px-4 pb-4 border-b-2 border-black inline-flex justify-center items-center">
                   <div className="w-10 h-10 bg-black rounded-full flex justify-center items-center">
-                    <Image src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
+                    <img src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
                   </div>
                 </div>
               )}
@@ -216,7 +216,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Photos</div>}
               </Link>
 
@@ -225,7 +225,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Scrolls</div>}
               </Link>
 
@@ -234,7 +234,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/meme.svg" alt="Meme" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/meme.svg" alt="Meme" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Meme</div>}
               </Link>
 
@@ -243,7 +243,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/earn.svg" alt="Earn" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/earn.svg" alt="Earn" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Earn</div>}
               </Link>
             </div>
@@ -274,7 +274,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/your Uploads.svg" alt="Your Uploads" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/your Uploads.svg" alt="Your Uploads" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Your Uploads</div>}
               </Link>
 
@@ -283,7 +283,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
                 onClick={onClose}
                 className={`px-4 py-2 inline-flex justify-start items-center gap-2.5 hover:bg-white/50 transition-colors rounded-lg ${showText ? 'self-stretch' : ''}`}
               >
-                <Image src="/logos/send feedback.svg" alt="Send feedback" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                <img src="/logos/send feedback.svg" alt="Send feedback" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
                 {showText && <div className="justify-start text-black text-base font-semibold font-['Outfit'] whitespace-nowrap">Send feedback</div>}
               </Link>
 
@@ -333,7 +333,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           ) : (
             <div className={`inline-flex items-center gap-3 transition-all duration-300 ${showText ? 'self-stretch justify-center' : 'w-full justify-start ml-4'}`}>
               <div className="w-[50px] h-[50px] flex-shrink-0">
-                <Image className="w-[50px] h-[50px] rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
+                <img className="w-[50px] h-[50px] rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
               </div>
               {showText && (
                 <div className="flex-1 h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">

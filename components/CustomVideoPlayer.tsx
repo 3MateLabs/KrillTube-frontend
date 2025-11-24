@@ -879,7 +879,7 @@ export function CustomVideoPlayer({
                     className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                   >
                     {isPlaying ? (
-                      <Image src="/logos/pause icon.svg" alt="Pause" width={24} height={24} className="w-6 h-6" />
+                      <img src="/logos/pause icon.svg" alt="Pause" width={24} height={24} className="w-6 h-6" />
                     ) : (
                       <svg className="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M8 5v14l11-7z" />
@@ -889,7 +889,7 @@ export function CustomVideoPlayer({
 
                   {/* Volume Button */}
                   <button className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
-                    <Image src="/logos/volume.svg" alt="Volume" width={24} height={24} className="w-6 h-6" />
+                    <img src="/logos/volume.svg" alt="Volume" width={24} height={24} className="w-6 h-6" />
                   </button>
 
                   {/* Time Display */}
@@ -901,7 +901,7 @@ export function CustomVideoPlayer({
                 <div className="flex items-center gap-3">
                   {/* CC Button */}
                   <button className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
-                    <Image src="/logos/material-symbols_subtitles-rounded.svg" alt="CC" width={24} height={24} className="w-6 h-6" />
+                    <img src="/logos/material-symbols_subtitles-rounded.svg" alt="CC" width={24} height={24} className="w-6 h-6" />
                   </button>
 
                   {/* Settings/Quality Button */}
@@ -943,7 +943,7 @@ export function CustomVideoPlayer({
 
                   {/* Share Button */}
                   <button className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
-                    <Image src="/logos/share.svg" alt="Share" width={24} height={24} className="w-6 h-6" />
+                    <img src="/logos/share.svg" alt="Share" width={24} height={24} className="w-6 h-6" />
                   </button>
 
                   {/* Fullscreen Button */}
@@ -951,7 +951,7 @@ export function CustomVideoPlayer({
                     onClick={toggleFullscreen}
                     className="w-12 h-12 bg-white rounded-full border-[3px] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
                   >
-                    <Image src="/logos/ri_expand-horizontal-line.svg" alt="Fullscreen" width={24} height={24} className="w-6 h-6" />
+                    <img src="/logos/ri_expand-horizontal-line.svg" alt="Fullscreen" width={24} height={24} className="w-6 h-6" />
                   </button>
                 </div>
               </div>

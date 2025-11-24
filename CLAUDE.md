@@ -380,7 +380,7 @@ bg-black outline-white text-white
 <Link className="self-stretch px-4 py-2
   inline-flex justify-start items-center gap-2.5
   hover:bg-white/50 transition-colors rounded-lg">
-  <Image src="/icon.svg" width={24} height={24} />
+  <img src="/icon.svg" width={24} height={24} />
   <div className="text-black text-base font-semibold font-['Outfit']">Menu Item</div>
 </Link>
 
@@ -389,7 +389,7 @@ bg-black outline-white text-white
   bg-[#EF4330] rounded-[32px]
   outline outline-[3px] outline-offset-[-3px] outline-black
   inline-flex justify-start items-center gap-2.5">
-  <Image src="/icon.svg" width={24} height={24} />
+  <img src="/icon.svg" width={24} height={24} />
   <div className="text-white text-base font-semibold font-['Outfit']">Active Item</div>
 </Link>
 ```
@@ -400,7 +400,7 @@ bg-black outline-white text-white
   <div className="w-12 h-12 bg-black rounded-full
     shadow-[3px_3px_0_0_black]
     outline outline-1 outline-offset-[-1px] outline-white">
-    <Image src="/avatar.svg" width={50} height={50} />
+    <img src="/avatar.svg" width={50} height={50} />
   </div>
   <div className="flex-1 p-2 bg-black rounded-[32px]
     outline outline-1 outline-offset-[-1px] outline-white">

@@ -24,7 +24,7 @@ const SubscriptionCard = ({ subscription }: { subscription: Subscription }) => {
     >
       {/* Avatar */}
       <div className="w-40 h-40 flex-shrink-0">
-        <Image
+        <img
           src={subscription.avatarUrl || '/d3h3d.svg'}
           alt={subscription.displayName}
           width={160}

@@ -39,7 +39,7 @@ export async function uploadImagesEncrypted(
   signAndExecute: any,
   uploadAddress: string, // Can be user wallet OR delegator wallet
   options: ImageUploadOptions
-): Promise<ImageUploadResult> {
+): Promise<imgUploadResult> {
   const { network = 'mainnet', epochs = 53, onProgress } = options;
 
   console.log(`[Image Upload] Starting upload for ${files.length} images`);

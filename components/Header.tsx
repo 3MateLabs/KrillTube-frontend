@@ -31,11 +31,11 @@ export function Header({ onMenuClick, isSidebarOpen = true }: HeaderProps) {
           className="p-2 bg-black rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
         >
           <div className="p-2 bg-black rounded-[32px] inline-flex justify-center items-center">
-            <Image src="/logos/hambuger.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
+            <img src="/logos/hambuger.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
           </div>
         </button>
         <div className="flex-1 px-4 py-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-0">
-          <Image src="/logos/krillll.png" alt="Krill" width={48} height={48} className="w-12 h-12" />
+          <img src="/logos/krillll.png" alt="Krill" width={48} height={48} className="w-12 h-12" />
           <div className="justify-start text-white text-base font-bold font-['Outfit']">KrillTube</div>
         </div>
       </div>
@@ -53,7 +53,7 @@ export function Header({ onMenuClick, isSidebarOpen = true }: HeaderProps) {
                   placeholder="Search by handle...."
                   className="flex-1 bg-transparent text-white placeholder-white outline-none text-base font-medium font-['Outfit']"
                 />
-                <Image src="/logos/search.svg" alt="Search" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+                <img src="/logos/search.svg" alt="Search" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
               </div>
             </div>
           </form>

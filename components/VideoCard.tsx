@@ -81,7 +81,7 @@ export function VideoCard({
         {/* Thumbnail */}
         {thumbnail && !imageError && (
           <div className="absolute inset-0 opacity-40 group-hover:opacity-50 transition-opacity">
-            <Image
+            <img
               src={thumbnail}
               alt={title}
               fill
@@ -181,7 +181,7 @@ export function VideoCard({
         {/* Thumbnail */}
         <div className="relative flex-shrink-0 w-40 aspect-video bg-background-elevated rounded overflow-hidden">
           {thumbnail && !imageError ? (
-            <Image
+            <img
               src={thumbnail}
               alt={title}
               fill
@@ -265,7 +265,7 @@ export function VideoCard({
       {/* Thumbnail */}
       <div className="relative aspect-video bg-background-elevated rounded-xl overflow-hidden mb-3">
         {thumbnail && !imageError ? (
-          <Image
+          <img
             src={thumbnail}
             alt={title}
             fill

@@ -611,7 +611,7 @@ export default function WatchPage() {
               {[1, 2, 3, 4, 5, 6].map((index) => (
                 <div key={index} className="w-full p-2.5 bg-white rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex flex-col justify-start items-start gap-2.5 hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all cursor-pointer">
                   <div className="self-stretch inline-flex justify-center items-center gap-2">
-                    <Image
+                    <img
                       className="w-32 h-24 rounded-lg shadow-[1.4795299768447876px_1.4795299768447876px_0px_0px_rgba(0,0,0,1.00)] border-1 border-black object-cover"
                       src="https://i.imgur.com/pkTKVOL.png"
                       alt="Video thumbnail"
@@ -637,7 +637,7 @@ export default function WatchPage() {
                           <div className="inline-flex flex-col justify-start items-start gap-[2.94px]">
                             <div className="justify-start text-black text-base font-semibold font-['Outfit']">1</div>
                           </div>
-                          <Image src="/logos/sui-logo.png" alt="SUI" width={16} height={16} className="object-contain" />
+                          <img src="/logos/sui-logo.png" alt="SUI" width={16} height={16} className="object-contain" />
                         </div>
                       </div>
                     </div>
@@ -742,7 +742,7 @@ export default function WatchPage() {
                 {/* Tip Button */}
                 <div className="w-12 h-12 bg-white rounded-full shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black inline-flex justify-center items-center gap-1 cursor-pointer hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1.00)] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
                   <span className="text-black text-base font-semibold font-['Outfit']">5</span>
-                  <Image src="/logos/sui-logo.png" alt="SUI" width={16} height={16} className="object-contain" />
+                  <img src="/logos/sui-logo.png" alt="SUI" width={16} height={16} className="object-contain" />
                 </div>
 
                 {/* Creator Action Buttons - Only visible to video owner */}

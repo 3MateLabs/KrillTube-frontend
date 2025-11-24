@@ -269,7 +269,7 @@ export default function ProfilePage() {
             {/* Avatar */}
             <div className="w-32 h-32 bg-white rounded-full shadow-[3px_3px_0_0_black] outline outline-[3px] outline-offset-[-3px] outline-black overflow-hidden flex-shrink-0">
               {profile.avatar ? (
-                <Image
+                <img
                   src={profile.avatar}
                   alt={profile.name}
                   width={128}

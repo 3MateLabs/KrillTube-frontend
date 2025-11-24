@@ -27,7 +27,7 @@ export function NoKrillModal({
 
       {/* dKRILL Token Icon */}
       <div className="w-40 h-40 bg-white rounded-full border-4 border-black shadow-[5px_5px_0px_0px_rgba(0,0,0,1.00)] flex items-center justify-center overflow-hidden mb-8">
-        <Image
+        <img
           src="/logos/krilll.png"
           alt="dKRILL Token"
           width={150}

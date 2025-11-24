@@ -32,7 +32,7 @@ export default function ImageViewPage() {
   const router = useRouter();
   const contentId = params.id as string;
 
-  const [content, setContent] = useState<ImageContentData | null>(null);
+  const [content, setContent] = useState<imgContentData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);

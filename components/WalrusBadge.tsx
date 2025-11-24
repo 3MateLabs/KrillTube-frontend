@@ -18,7 +18,7 @@ export function WalrusBadge({ variant = 'default', className = '' }: WalrusBadge
         className={`inline-flex items-center justify-center w-8 h-8 bg-walrus-mint rounded ${className}`}
         title="Stored on Walrus"
       >
-        <Image
+        <img
           src="/logos/walrus-icon-color.svg"
           alt="Walrus"
           width={20}
@@ -35,7 +35,7 @@ export function WalrusBadge({ variant = 'default', className = '' }: WalrusBadge
         className={`inline-flex items-center gap-1.5 px-2 py-1 bg-walrus-mint rounded-walrus ${className}`}
         title="Stored on Walrus decentralized storage"
       >
-        <Image
+        <img
           src="/logos/walrus-icon-color.svg"
           alt="Walrus"
           width={16}
@@ -54,7 +54,7 @@ export function WalrusBadge({ variant = 'default', className = '' }: WalrusBadge
       title="Stored on Walrus decentralized storage"
     >
       <div className="flex-shrink-0 w-6 h-6 bg-white rounded flex items-center justify-center">
-        <Image
+        <img
           src="/logos/walrus-icon-color.svg"
           alt="Walrus"
           width={20}
@@ -86,7 +86,7 @@ export function WalrusBadgeAnimated({ className = '' }: { className?: string }) 
       {/* Badge content */}
       <div className="relative inline-flex items-center gap-2 px-4 py-2.5 bg-walrus-mint rounded-walrus border-2 border-mint-800">
         <div className="flex-shrink-0 w-7 h-7 bg-white rounded-full flex items-center justify-center">
-          <Image
+          <img
             src="/logos/walrus-icon-color.svg"
             alt="Walrus"
             width={24}
