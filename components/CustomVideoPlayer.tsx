@@ -19,6 +19,11 @@ import { Toast } from './ui/Toast';
 import { mintDemoKrill } from '@/lib/utils/mintDemoKrill';
 import { processPayment } from '@/lib/utils/processPayment';
 import { useSignAndExecuteTransaction as useSuiSignAndExecute } from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+
+// Initialize SuiClient for fetching coin metadata
+const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
 
 export interface CustomVideoPlayerProps {
   videoId: string;
@@ -56,6 +61,7 @@ export function CustomVideoPlayer({
   const [showSubscriptionPrompt, setShowSubscriptionPrompt] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
   const [subscriptionCheckComplete, setSubscriptionCheckComplete] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   // Determine which video hook to use based on encryption type
   // For subscription-acl videos, use SEAL decryption with wallet signing
@@ -208,20 +214,15 @@ export function CustomVideoPlayer({
   // Toast state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; link?: string } | null>(null);
 
-  // Creator config state - separate configs for dKRILL and IOTA
-  const [dKrillConfig, setDKrillConfig] = useState<{
-    objectId: string;
+  // Creator config state - all accepted payment tokens
+  const [creatorConfigs, setCreatorConfigs] = useState<Array<{
+    coinType: string;
     pricePerView: string;
     chain: string;
     decimals: number;
-  } | null>(null);
-
-  const [suiConfig, setSuiConfig] = useState<{
     objectId: string;
-    pricePerView: string;
-    chain: string;
-    decimals: number;
-  } | null>(null);
+    iconUrl?: string | null;
+  }>>([]);
 
   // Quality switching state
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -318,6 +319,44 @@ export function CustomVideoPlayer({
 
   // Fetch creator configs for both payment methods
   useEffect(() => {
+    const fetchCoinMetadata = async (coinType: string, chainName: string) => {
+      try {
+        console.log(`[CustomVideoPlayer] Fetching metadata for ${coinType} on ${chainName}`);
+
+        if (chainName === 'iota') {
+          // Use IOTA metadata API
+          const response = await fetch(`/api/v1/iota/coin-metadata/${encodeURIComponent(coinType)}`);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.metadata) {
+              let iconUrl = data.metadata.iconUrl;
+              // Use fallback icon for IOTA if metadata doesn't have one
+              if (!iconUrl && coinType === '0x2::iota::IOTA') {
+                iconUrl = 'https://iota.org/logo.png';
+              }
+              return iconUrl ?? null;
+            }
+          }
+        } else {
+          // Use Sui client for Sui tokens
+          const metadata = await suiClient.getCoinMetadata({ coinType });
+          if (metadata) {
+            let iconUrl = metadata.iconUrl;
+            // Use fallback icon for SUI if metadata doesn't have one
+            if (!iconUrl && coinType === '0x2::sui::SUI') {
+              iconUrl = 'https://imagedelivery.net/cBNDGgkrsEA-b_ixIp9SkQ/sui-coin.svg/public';
+            }
+            return iconUrl ?? null;
+          }
+        }
+      } catch (error) {
+        console.error(`[CustomVideoPlayer] Failed to fetch metadata for ${coinType}:`, error);
+      }
+
+      return null;
+    };
+
     const fetchCreatorConfigs = async () => {
       if (!videoId || !chain) return;
 
@@ -333,46 +372,24 @@ export function CustomVideoPlayer({
         const data = await response.json();
         const video = data.video;
 
-        // Find dKRILL creator config
-        const dKrillCoinType = chain === 'sui'
-          ? process.env.NEXT_PUBLIC_SUI_DEMO_KRILL_COIN!
-          : process.env.NEXT_PUBLIC_IOTA_DEMO_KRILL_COIN!;
+        // Filter creator configs for current chain
+        const configs = video.creatorConfigs?.filter((c: any) => c.chain === chain) || [];
 
-        const dKrillCfg = video.creatorConfigs?.find(
-          (c: any) => c.chain === chain && c.coinType === dKrillCoinType
+        console.log(`[CustomVideoPlayer] Found ${configs.length} creator configs for chain ${chain}:`, configs);
+
+        // Fetch metadata for each config
+        const configsWithMetadata = await Promise.all(
+          configs.map(async (config: any) => {
+            const iconUrl = await fetchCoinMetadata(config.coinType, config.chain);
+            return {
+              ...config,
+              iconUrl,
+            };
+          })
         );
 
-        if (dKrillCfg) {
-          console.log('[CustomVideoPlayer] Found dKRILL creator config:', dKrillCfg);
-          setDKrillConfig({
-            objectId: dKrillCfg.objectId,
-            pricePerView: dKrillCfg.pricePerView,
-            chain: dKrillCfg.chain,
-            decimals: dKrillCfg.decimals,
-          });
-        } else {
-          console.warn('[CustomVideoPlayer] No dKRILL creator config found for chain:', chain);
-        }
-
-        // Find native SUI creator config (only for Sui chain)
-        if (chain === 'sui') {
-          const nativeSuiCoinType = '0x2::sui::SUI';
-          const suiCfg = video.creatorConfigs?.find(
-            (c: any) => c.chain === chain && c.coinType === nativeSuiCoinType
-          );
-
-          if (suiCfg) {
-            console.log('[CustomVideoPlayer] Found native SUI creator config:', suiCfg);
-            setSuiConfig({
-              objectId: suiCfg.objectId,
-              pricePerView: suiCfg.pricePerView,
-              chain: suiCfg.chain,
-              decimals: suiCfg.decimals,
-            });
-          } else {
-            console.warn('[CustomVideoPlayer] No native SUI creator config found');
-          }
-        }
+        console.log('[CustomVideoPlayer] Configs with metadata:', configsWithMetadata);
+        setCreatorConfigs(configsWithMetadata);
       } catch (error) {
         console.error('[CustomVideoPlayer] Error fetching creator configs:', error);
       }
@@ -452,38 +469,43 @@ export function CustomVideoPlayer({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Payment handlers
-  const handlePayWithDKRILL = async () => {
-    console.log('[CustomVideoPlayer] Pay with dKRILL clicked');
+  // Generic payment handler - accepts any coin type
+  const handlePayWithToken = async (coinType: string) => {
+    console.log('[CustomVideoPlayer] Pay with token clicked:', coinType);
 
     if (!address || !chain) {
       setToast({ message: 'Please connect your wallet first', type: 'error' });
       return;
     }
 
-    if (!dKrillConfig) {
-      setToast({ message: 'dKRILL creator config not found', type: 'error' });
+    // Find the config for this coin type
+    const config = creatorConfigs.find(c => c.coinType === coinType);
+    if (!config) {
+      setToast({ message: `Payment config not found for ${coinType}`, type: 'error' });
       return;
     }
 
-    if (chain !== 'sui') {
-      setToast({ message: 'Please connect Sui wallet to pay with dKRILL', type: 'error' });
+    // Check chain compatibility
+    if (config.chain !== chain) {
+      setToast({ message: `Please connect ${config.chain} wallet to pay with this token`, type: 'error' });
       return;
     }
 
     try {
-      console.log('[CustomVideoPlayer] Processing dKRILL payment on SUI...', {
-        creatorConfigId: dKrillConfig.objectId,
-        pricePerView: dKrillConfig.pricePerView,
+      console.log('[CustomVideoPlayer] Processing payment...', {
+        coinType,
+        creatorConfigId: config.objectId,
+        pricePerView: config.pricePerView,
       });
 
       const digest = await processPayment({
-        network: 'sui',
-        creatorConfigId: dKrillConfig.objectId,
+        network: config.chain as 'sui' | 'iota',
+        creatorConfigId: config.objectId,
         referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(dKrillConfig.pricePerView),
+        paymentAmount: parseInt(config.pricePerView),
         signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
         userAddress: address,
+        coinType: coinType, // Pass the specific coin type
         videoId,
       });
 
@@ -494,87 +516,27 @@ export function CustomVideoPlayer({
         type: 'success',
         link: `https://suiscan.xyz/mainnet/tx/${digest}`
       });
-      setShowPaymentModal(false); // Close payment modal after successful payment
-      setCheckingPayment(false); // Clear checking state
+      setShowPaymentModal(false);
+      setCheckingPayment(false);
 
-      // Refresh page after short delay to ensure backend has processed the payment
+      // Refresh page after short delay
       setTimeout(() => {
         window.location.reload();
       }, 2000);
     } catch (error) {
       console.error('[CustomVideoPlayer] Payment failed:', error);
 
-      // Check if the error is due to no dKRILL tokens
+      // Check if the error is due to no tokens (e.g., dKRILL)
       const errorMessage = error instanceof Error ? error.message : 'Payment failed';
-      if (errorMessage.includes('No dKRILL coins found')) {
-        // Show the No Krill modal instead of a toast error
+      if (errorMessage.includes('No dKRILL coins found') || errorMessage.includes('No coins found')) {
         setShowPaymentModal(false);
         setShowNoKrillModal(true);
       } else {
-        // Show toast for other errors
         setToast({
           message: errorMessage,
           type: 'error'
         });
       }
-    }
-  };
-
-  const handlePayWithSUI = async () => {
-    console.log('[CustomVideoPlayer] Pay with native SUI clicked');
-
-    if (!address || !chain) {
-      setToast({ message: 'Please connect your wallet first', type: 'error' });
-      return;
-    }
-
-    if (!suiConfig) {
-      setToast({ message: 'Native SUI creator config not found', type: 'error' });
-      return;
-    }
-
-    if (chain !== 'sui') {
-      setToast({ message: 'Please connect Sui wallet to pay with SUI', type: 'error' });
-      return;
-    }
-
-    try {
-      console.log('[CustomVideoPlayer] Processing native SUI payment...', {
-        creatorConfigId: suiConfig.objectId,
-        pricePerView: suiConfig.pricePerView,
-      });
-
-      const digest = await processPayment({
-        network: 'sui',
-        creatorConfigId: suiConfig.objectId,
-        referrerAddress: '0x0', // No referrer
-        paymentAmount: parseInt(suiConfig.pricePerView),
-        signAndExecuteTransaction: async (args) => await signAndExecuteSui(args as any),
-        userAddress: address,
-        coinType: '0x2::sui::SUI', // Use native SUI coin
-        videoId,
-      });
-
-      console.log('[CustomVideoPlayer] Payment successful! Digest:', digest);
-
-      setToast({
-        message: 'Payment successful! Refreshing page...',
-        type: 'success',
-        link: `https://suiscan.xyz/mainnet/tx/${digest}`
-      });
-      setShowPaymentModal(false); // Close payment modal after successful payment
-      setCheckingPayment(false); // Clear checking state
-
-      // Refresh page after short delay to ensure backend has processed the payment
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      console.error('[CustomVideoPlayer] Payment failed:', error);
-      setToast({
-        message: error instanceof Error ? error.message : 'Payment failed',
-        type: 'error'
-      });
     }
   };
 
@@ -617,6 +579,111 @@ export function CustomVideoPlayer({
         message: error instanceof Error ? error.message : 'Failed to mint tokens',
         type: 'error'
       });
+    }
+  };
+
+  // Handle subscription
+  const handleSubscribe = async () => {
+    try {
+      setSubscribing(true);
+
+      if (!isConnected || !address) {
+        setToast({ message: 'Please connect your wallet first', type: 'error' });
+        return;
+      }
+
+      if (!channelId || !channelPrice) {
+        setToast({ message: 'Subscription not available for this creator', type: 'error' });
+        return;
+      }
+
+      const packageId = process.env.NEXT_PUBLIC_SEAL_PACKAGE_ID;
+      if (!packageId || packageId === '0x0') {
+        setToast({ message: 'SEAL package not configured', type: 'error' });
+        return;
+      }
+
+      // Parse price (e.g., "10 SUI" -> 10000000000 MIST)
+      const priceMatch = channelPrice.match(/(\d+(?:\.\d+)?)/);
+      if (!priceMatch) {
+        setToast({ message: 'Invalid channel price format', type: 'error' });
+        return;
+      }
+      const priceInSui = parseFloat(priceMatch[1]);
+      const priceInMist = Math.floor(priceInSui * 1_000_000_000);
+
+      console.log('[CustomVideoPlayer] Building subscription transaction:', {
+        channelId,
+        priceInSui,
+        priceInMist,
+        packageId,
+      });
+
+      // Build subscription transaction
+      const tx = new Transaction();
+      tx.setSender(address);
+
+      const { coinWithBalance } = await import('@mysten/sui/transactions');
+      const paymentCoin = coinWithBalance({
+        balance: priceInMist,
+        type: '0x2::sui::SUI',
+      })(tx);
+
+      tx.moveCall({
+        target: `${packageId}::creator_channel::subscribe_entry`,
+        arguments: [
+          tx.object(channelId), // channel
+          paymentCoin, // payment
+          tx.object('0x6'), // clock
+        ],
+      });
+
+      console.log('[CustomVideoPlayer] Signing subscription transaction...');
+
+      // Sign and execute
+      const result = await signAndExecuteSui({ transaction: tx });
+
+      console.log('[CustomVideoPlayer] Subscription transaction successful:', result.digest);
+
+      // Save to database
+      const response = await fetch('/api/v1/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorAddress: creatorAddress,
+          txDigest: result.digest,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save subscription');
+      }
+
+      console.log('[CustomVideoPlayer] Subscription saved to database');
+
+      // Update UI
+      setIsSubscribed(true);
+      setShowSubscriptionPrompt(false);
+      setToast({
+        message: 'Successfully subscribed! Refreshing page...',
+        type: 'success',
+        link: `https://suiscan.xyz/mainnet/tx/${result.digest}`
+      });
+
+      // Refresh page to reload with subscription access
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+
+    } catch (error) {
+      console.error('[CustomVideoPlayer] Subscription failed:', error);
+      setToast({
+        message: error instanceof Error ? error.message : 'Subscription failed',
+        type: 'error'
+      });
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -715,18 +782,14 @@ export function CustomVideoPlayer({
           <PaymentModal
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
-            onPayWithDKRILL={handlePayWithDKRILL}
-            onPayWithSUI={handlePayWithSUI}
+            onPayWithToken={handlePayWithToken}
             onSubscribe={() => {
               setShowPaymentModal(false);
               setShowSubscriptionPrompt(true);
             }}
             onGetDemoTokens={handleGetDemoTokens}
-            dKrillPrice={dKrillConfig?.pricePerView}
-            suiPrice={suiConfig?.pricePerView}
+            creatorConfigs={creatorConfigs}
             subscriptionPrice={channelPrice}
-            dKrillDecimals={dKrillConfig?.decimals}
-            suiDecimals={suiConfig?.decimals}
             encryptionType={encryptionType}
           />
         )}
@@ -748,6 +811,8 @@ export function CustomVideoPlayer({
           <SubscriptionPrompt
             isOpen={showSubscriptionPrompt}
             onClose={() => setShowSubscriptionPrompt(false)}
+            onSubscribe={handleSubscribe}
+            subscribing={subscribing}
             creatorName={creatorName || 'Creator'}
             creatorAddress={creatorAddress || ''}
             channelPrice={channelPrice}

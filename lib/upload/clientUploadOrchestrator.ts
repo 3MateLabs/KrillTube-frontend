@@ -333,7 +333,14 @@ export async function uploadVideoClientSide(
         : 'image/jpeg'; // Default to JPEG
 
       // Convert Uint8Array to base64 data URL
-      const base64String = btoa(String.fromCharCode(...transcoded.poster));
+      // Process in chunks to avoid "Maximum call stack size exceeded"
+      const CHUNK_SIZE = 8192; // Process 8KB at a time
+      let binaryString = '';
+      for (let i = 0; i < transcoded.poster.length; i += CHUNK_SIZE) {
+        const chunk = transcoded.poster.slice(i, i + CHUNK_SIZE);
+        binaryString += String.fromCharCode(...chunk);
+      }
+      const base64String = btoa(binaryString);
       posterBase64 = `data:${mimeType};base64,${base64String}`;
 
       console.log(`[Upload] ✓ Poster converted to base64 (${posterBase64.length} chars)`);
