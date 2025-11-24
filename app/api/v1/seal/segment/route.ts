@@ -130,11 +130,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Build Walrus URI from SEAL blob ID (not the DEK walrusUri field!)
+    const network = process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet';
+    const aggregatorUrl = network === 'mainnet'
+      ? 'https://aggregator.mainnet.walrus.mirai.cloud/v1'
+      : 'https://aggregator-devnet.walrus.space/v1';
+    const sealWalrusUri = `${aggregatorUrl}/blobs/${segment.sealBlobId}`;
+
     return NextResponse.json({
       segIdx: segment.segIdx,
       sealDocumentId: segment.sealDocumentId,
       sealBlobId: segment.sealBlobId,
-      walrusUri: segment.walrusUri,
+      walrusUri: sealWalrusUri, // Use SEAL blob URI, not DEK blob URI
       duration: segment.duration || 0,
       channelId: video.sealObjectId,
       creatorAddress: video.creatorId,
@@ -257,6 +264,12 @@ export async function POST(request: NextRequest) {
       seg => seg.sealDocumentId && seg.sealBlobId
     );
 
+    // Build Walrus URI from SEAL blob ID (not the DEK walrusUri field!)
+    const network = process.env.NEXT_PUBLIC_WALRUS_NETWORK || 'mainnet';
+    const aggregatorUrl = network === 'mainnet'
+      ? 'https://aggregator.mainnet.walrus.mirai.cloud/v1'
+      : 'https://aggregator-devnet.walrus.space/v1';
+
     return NextResponse.json({
       videoId,
       channelId: video.sealObjectId,
@@ -265,7 +278,7 @@ export async function POST(request: NextRequest) {
         segIdx: seg.segIdx,
         sealDocumentId: seg.sealDocumentId,
         sealBlobId: seg.sealBlobId,
-        walrusUri: seg.walrusUri,
+        walrusUri: `${aggregatorUrl}/blobs/${seg.sealBlobId}`, // Use SEAL blob URI, not DEK blob URI
         duration: seg.duration || 0,
       })),
     });
