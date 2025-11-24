@@ -64,9 +64,10 @@ export function CustomVideoPlayer({
   const [subscribing, setSubscribing] = useState(false);
 
   // Determine which video hook to use based on encryption type
-  // For subscription-acl videos, use SEAL decryption with wallet signing
-  // For per-video videos, use KMS/DEK decryption
-  const shouldUseSeal = encryptionType === 'subscription-acl' && isSubscribed === true;
+  // For subscription-acl and 'both' videos: subscribers use SEAL decryption with wallet signing
+  // For per-video and 'both' videos: non-subscribers who paid use DEK decryption
+  // Rule: If subscribed → SEAL, if paid but not subscribed → DEK
+  const shouldUseSeal = (encryptionType === 'subscription-acl' || encryptionType === 'both') && isSubscribed === true;
 
   console.log('[CustomVideoPlayer] Encryption type:', {
     encryptionType,
