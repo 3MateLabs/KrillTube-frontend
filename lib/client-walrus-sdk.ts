@@ -403,8 +403,18 @@ export async function uploadQuiltWithWallet(
 /**
  * Upload multiple blobs individually (not as quilt) with browser wallet
  *
- * This approach uploads each blob separately, which works with lower-level SDK methods
- * and doesn't require patch ID generation. Each blob gets its own blob ID.
+ * OPTIMIZED APPROACH using batched PTB (Programmable Transaction Blocks):
+ * - Step 1: Encode all blobs in parallel
+ * - Step 2: Batch register calls into PTBs (50 blobs per transaction to avoid wallet limits)
+ * - Step 3: Upload all blobs to storage nodes in parallel with 30 retries
+ * - Step 4: Batch certify calls into PTBs (50 blobs per transaction)
+ *
+ * For N blobs, this requires:
+ * - Registration: ceil(N/50) * 1 signature
+ * - Certification: ceil(N/50) * 1 signature
+ * - Total: ~2-10 signatures instead of N*2 signatures!
+ *
+ * Example: 100 blobs = 2 register PTBs + 2 certify PTBs = 4 signatures (vs 200 signatures!)
  *
  * @param blobs - Array of blobs to upload
  * @param signAndExecute - Function from useSignAndExecuteTransaction().mutateAsync
@@ -448,178 +458,271 @@ export async function uploadMultipleBlobsWithWallet(
       size: number;
     }> = [];
 
+    // Upload with retry logic (30 attempts with exponential backoff)
     for (const blob of blobs) {
-      try {
-        console.log(`[HTTP Upload] Uploading ${blob.identifier} (${(blob.contents.length / 1024).toFixed(2)} KB)...`);
+      const maxRetries = 30;
+      let lastError: Error | null = null;
 
-        const response = await fetch(`${publisherUrl}/v1/blobs?epochs=${epochs}`, {
-          method: 'PUT',
-          body: new Blob([blob.contents as BlobPart]),
-          headers: {
-            'Content-Type': 'application/octet-stream',
-          },
-        });
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`[HTTP Upload] Uploading ${blob.identifier} (${(blob.contents.length / 1024).toFixed(2)} KB) - attempt ${attempt}/${maxRetries}...`);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP upload failed: ${response.status} ${errorText}`);
+          const response = await fetch(`${publisherUrl}/v1/blobs?epochs=${epochs}`, {
+            method: 'PUT',
+            body: new Blob([blob.contents as BlobPart]),
+            headers: {
+              'Content-Type': 'application/octet-stream',
+            },
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP upload failed: ${response.status} ${errorText}`);
+          }
+
+          const result = await response.json();
+
+          results.push({
+            identifier: blob.identifier,
+            blobId: result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId,
+            blobObjectId: '', // Not applicable for HTTP uploads
+            size: blob.contents.length,
+          });
+
+          console.log(`[HTTP Upload] ✓ ${blob.identifier}: ${result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId}`);
+          lastError = null;
+          break; // Success, exit retry loop
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const errorMessage = lastError.message;
+
+          // Detect insufficient balance errors and provide helpful message
+          if (
+            errorMessage.includes('InsufficientCoinBalance') ||
+            errorMessage.includes('could not automatically determine a budget') ||
+            errorMessage.includes('No valid gas coins found')
+          ) {
+            throw new Error(
+              `Insufficient SUI balance to upload ${blob.identifier}. ` +
+              `Please add SUI tokens to your wallet for gas fees. ` +
+              `Testnet: https://faucet.testnet.sui.io/ | Mainnet: Buy/transfer SUI to your wallet.`
+            );
+          }
+
+          if (attempt < maxRetries) {
+            // Exponential backoff with 30s cap: 2s, 4s, 8s, 16s, 30s, 30s, 30s...
+            const delayMs = Math.min(Math.pow(2, attempt) * 1000, 30000);
+            console.warn(`[HTTP Upload] ⚠️ Upload failed for ${blob.identifier} (attempt ${attempt}/${maxRetries}): ${errorMessage}`);
+            console.warn(`[HTTP Upload] Retrying in ${delayMs / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+          }
         }
+      }
 
-        const result = await response.json();
-
-        results.push({
-          identifier: blob.identifier,
-          blobId: result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId,
-          blobObjectId: '', // Not applicable for HTTP uploads
-          size: blob.contents.length,
-        });
-
-        console.log(`[HTTP Upload] ✓ ${blob.identifier}: ${result.newlyCreated?.blobObject?.blobId || result.alreadyCertified?.blobId}`);
-      } catch (err) {
-        console.error(`[HTTP Upload] Failed to upload ${blob.identifier}:`, err);
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-
-        // Detect insufficient balance errors and provide helpful message
-        if (
-          errorMessage.includes('InsufficientCoinBalance') ||
-          errorMessage.includes('could not automatically determine a budget') ||
-          errorMessage.includes('No valid gas coins found')
-        ) {
-          throw new Error(
-            `Insufficient SUI balance to upload ${blob.identifier}. ` +
-            `Please add SUI tokens to your wallet for gas fees. ` +
-            `Testnet: https://faucet.testnet.sui.io/ | Mainnet: Buy/transfer SUI to your wallet.`
-          );
-        }
-
-        throw new Error(`Failed to upload ${blob.identifier}: ${errorMessage}`);
+      if (lastError) {
+        console.error(`[HTTP Upload] Failed to upload ${blob.identifier} after ${maxRetries} attempts`);
+        throw new Error(`Failed to upload ${blob.identifier}: ${lastError.message}`);
       }
     }
 
     return results;
   }
 
-  // Use rate-limited SuiClient with WalrusClient constructor
+  // MAINNET: Use PTB batching for optimal performance
   const suiClient = createSuiClientWithRateLimitHandling();
   const walrusClient = createWalrusClient(network);
   const { Transaction } = await import('@mysten/sui/transactions');
 
-  const results: Array<{
-    identifier: string;
-    blobId: string;
-    blobObjectId: string;
-    size: number;
-  }> = [];
+  const BATCH_SIZE = 50;
+  const expectedSignatures = Math.ceil(blobs.length / BATCH_SIZE) * 2; // register + certify batches
+  console.log(`[Walrus PTB] Optimized upload: ${blobs.length} blobs in ~${expectedSignatures} signatures (batches of ${BATCH_SIZE})`);
 
-  for (const blob of blobs) {
-    try {
-      // Small delay between uploads to ensure blockchain state updates
-      // This prevents coin contention when segments upload sequentially
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Query WAL coins for EACH upload (coins change after each transaction)
-      console.log(`[Walrus SDK] Querying available WAL coins for ${blob.identifier}...`);
-      const walCoins = await suiClient.getCoins({
-        owner: ownerAddress,
-        coinType: WAL_TOKEN_TYPE,
-      });
-
-      if (!walCoins.data || walCoins.data.length === 0) {
-        throw new Error('No WAL tokens found in wallet');
-      }
-
-      const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
-      const primaryCoin = sortedCoins[0];
-
-      console.log(`[Walrus SDK] Found ${walCoins.data.length} WAL coins, using ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL) for ${blob.identifier}`);
-
+  // STEP 1: Encode all blobs in parallel
+  console.log('[Walrus PTB] Step 1/4: Encoding all blobs...');
+  const encodedBlobs = await Promise.all(
+    blobs.map(async (blob) => {
       const encoded = await walrusClient.encodeBlob(blob.contents);
-
-      const registerTxObj = new Transaction();
-      const registerTx = await walrusClient.registerBlobTransaction({
-        transaction: registerTxObj,
-        blobId: encoded.blobId,
-        rootHash: encoded.rootHash,
+      console.log(`[Walrus PTB] Encoded ${blob.identifier}: ${encoded.blobId}`);
+      return {
+        identifier: blob.identifier,
+        encoded,
         size: blob.contents.length,
+      };
+    })
+  );
+
+  // STEP 2: Create PTBs for registration in batches (avoid wallet transaction size limits)
+  console.log('[Walrus PTB] Step 2/4: Creating batch registration PTBs...');
+
+  // Batch size: 50 blobs per PTB (wallets have limits on transaction complexity)
+  const REGISTER_BATCH_SIZE = 50;
+  const createdBlobObjects: Array<{ objectId: string; digest: string }> = [];
+
+  // Process registrations in batches
+  for (let i = 0; i < encodedBlobs.length; i += REGISTER_BATCH_SIZE) {
+    const batchBlobs = encodedBlobs.slice(i, Math.min(i + REGISTER_BATCH_SIZE, encodedBlobs.length));
+    const batchNum = Math.floor(i / REGISTER_BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(encodedBlobs.length / REGISTER_BATCH_SIZE);
+
+    console.log(`[Walrus PTB] Registration batch ${batchNum}/${totalBatches}: ${batchBlobs.length} blobs`);
+
+    // Query WAL coins for this batch
+    const walCoins = await suiClient.getCoins({
+      owner: ownerAddress,
+      coinType: WAL_TOKEN_TYPE,
+    });
+
+    if (!walCoins.data || walCoins.data.length === 0) {
+      throw new Error('No WAL tokens found in wallet');
+    }
+
+    const sortedCoins = walCoins.data.sort((a, b) => Number(b.balance) - Number(a.balance));
+    const primaryCoin = sortedCoins[0];
+    console.log(`[Walrus PTB] Using coin ${primaryCoin.coinObjectId} (${(Number(primaryCoin.balance) / 1_000_000_000).toFixed(4)} WAL)`);
+
+    // Create PTB for this batch
+    const batchRegisterTx = new Transaction();
+
+    // Add register calls for this batch
+    for (const blob of batchBlobs) {
+      await walrusClient.registerBlobTransaction({
+        transaction: batchRegisterTx,
+        blobId: blob.encoded.blobId,
+        rootHash: blob.encoded.rootHash,
+        size: blob.size,
         deletable,
         epochs,
         owner: ownerAddress,
-        walCoin: registerTxObj.object(primaryCoin.coinObjectId),
+        walCoin: batchRegisterTx.object(primaryCoin.coinObjectId),
       });
+    }
 
-      const registerResult = await signAndExecute({ transaction: registerTx });
+    console.log(`[Walrus PTB] ⏳ Signing registration batch ${batchNum}/${totalBatches} (check wallet)...`);
+    const registerResult = await signAndExecute({ transaction: batchRegisterTx });
+    console.log(`[Walrus PTB] ✓ Registration batch ${batchNum}/${totalBatches} complete: ${registerResult.digest}`);
 
-      const txDetails = await suiClient.waitForTransaction({
-        digest: registerResult.digest,
-        options: {
-          showEffects: true,
-          showObjectChanges: true,
-        },
-      });
+    // Wait for transaction and extract blob objects
+    const registerTxDetails = await suiClient.waitForTransaction({
+      digest: registerResult.digest,
+      options: {
+        showEffects: true,
+        showObjectChanges: true,
+      },
+    });
 
-      const blobType = await walrusClient.getBlobType();
-      const blobObjectChange = txDetails.objectChanges?.find(
-        (obj: any) => obj.type === 'created' && obj.objectType === blobType
-      ) as { objectId: string } | undefined;
+    const blobType = await walrusClient.getBlobType();
+    const batchCreatedBlobs = registerTxDetails.objectChanges?.filter(
+      (obj: any) => obj.type === 'created' && obj.objectType === blobType
+    ) as Array<{ objectId: string; digest: string }> | undefined;
 
-      if (!blobObjectChange) {
-        throw new Error(`Blob object not found for ${blob.identifier}`);
+    if (!batchCreatedBlobs || batchCreatedBlobs.length !== batchBlobs.length) {
+      throw new Error(`Expected ${batchBlobs.length} blob objects in batch ${batchNum}, got ${batchCreatedBlobs?.length || 0}`);
+    }
+
+    createdBlobObjects.push(...batchCreatedBlobs);
+  }
+
+  console.log(`[Walrus PTB] ✓ Created ${createdBlobObjects.length} blob objects across ${Math.ceil(encodedBlobs.length / REGISTER_BATCH_SIZE)} registration batches`);
+
+  // STEP 3: Upload all blobs to storage nodes in parallel with retry logic
+  console.log('[Walrus PTB] Step 3/4: Uploading to storage nodes (parallel with retries)...');
+
+  // Helper function to upload with retries (30 attempts with exponential backoff)
+  async function uploadWithRetry(
+    blob: typeof encodedBlobs[0],
+    blobObjectId: string,
+    maxRetries = 30
+  ) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[Walrus PTB] Uploading ${blob.identifier} to storage nodes (attempt ${attempt}/${maxRetries})...`);
+
+        const confirmations = await walrusClient.writeEncodedBlobToNodes({
+          blobId: blob.encoded.blobId,
+          metadata: blob.encoded.metadata,
+          sliversByNode: blob.encoded.sliversByNode,
+          deletable,
+          objectId: blobObjectId,
+        });
+
+        console.log(`[Walrus PTB] ✓ ${blob.identifier} uploaded to ${Object.keys(confirmations).length} nodes`);
+        return { blobId: blob.encoded.blobId, blobObjectId, confirmations };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+
+        if (attempt === maxRetries) {
+          console.error(`[Walrus PTB] ❌ Failed to upload ${blob.identifier} after ${maxRetries} attempts: ${errorMessage}`);
+          throw error;
+        }
+
+        // Exponential backoff with 30s cap: 2s, 4s, 8s, 16s, 30s, 30s, 30s...
+        const delayMs = Math.min(Math.pow(2, attempt) * 1000, 30000);
+        console.warn(`[Walrus PTB] ⚠️ Upload failed for ${blob.identifier} (attempt ${attempt}/${maxRetries}): ${errorMessage}`);
+        console.warn(`[Walrus PTB] Retrying in ${delayMs / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
       }
+    }
+    throw new Error('Upload failed - max retries exceeded');
+  }
 
-      const confirmations = await walrusClient.writeEncodedBlobToNodes({
-        blobId: encoded.blobId,
-        metadata: encoded.metadata,
-        sliversByNode: encoded.sliversByNode,
+  const confirmationsArray = await Promise.all(
+    encodedBlobs.map((blob, idx) =>
+      uploadWithRetry(blob, createdBlobObjects[idx].objectId, 30)
+    )
+  );
+
+  // STEP 4: Create PTBs for certification in batches (avoid wallet transaction size limits)
+  console.log('[Walrus PTB] Step 4/4: Creating batch certification PTBs...');
+
+  // Batch size: 50 blobs per PTB (same as registration)
+  const CERTIFY_BATCH_SIZE = 50;
+
+  // Process certifications in batches
+  for (let i = 0; i < confirmationsArray.length; i += CERTIFY_BATCH_SIZE) {
+    const batchSize = Math.min(CERTIFY_BATCH_SIZE, confirmationsArray.length - i);
+    const batchNum = Math.floor(i / CERTIFY_BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(confirmationsArray.length / CERTIFY_BATCH_SIZE);
+
+    console.log(`[Walrus PTB] Certification batch ${batchNum}/${totalBatches}: ${batchSize} blobs`);
+
+    const batchCertifyTx = new Transaction();
+
+    for (let j = i; j < i + batchSize; j++) {
+      await walrusClient.certifyBlobTransaction({
+        transaction: batchCertifyTx,
+        blobId: confirmationsArray[j].blobId,
+        blobObjectId: confirmationsArray[j].blobObjectId,
+        confirmations: confirmationsArray[j].confirmations,
         deletable,
-        objectId: blobObjectChange.objectId,
       });
+    }
 
-      const certifyTxObj = new Transaction();
-      const certifyTx = await walrusClient.certifyBlobTransaction({
-        transaction: certifyTxObj,
-        blobId: encoded.blobId,
-        blobObjectId: blobObjectChange.objectId,
-        confirmations,
-        deletable,
-      });
+    console.log(`[Walrus PTB] ⏳ Signing certification batch ${batchNum}/${totalBatches} (check wallet)...`);
+    const certifyResult = await signAndExecute({ transaction: batchCertifyTx });
+    console.log(`[Walrus PTB] ✓ Certification batch ${batchNum}/${totalBatches} complete: ${certifyResult.digest}`);
 
-      const certifyResult = await signAndExecute({ transaction: certifyTx });
+    const certifyTxDetails = await suiClient.waitForTransaction({
+      digest: certifyResult.digest,
+      options: { showEffects: true },
+    });
 
-      const certifyTxDetails = await suiClient.waitForTransaction({
-        digest: certifyResult.digest,
-        options: { showEffects: true },
-      });
-
-      if (certifyTxDetails.effects?.status?.status !== 'success') {
-        throw new Error(`Certification failed for ${blob.identifier}`);
-      }
-
-      results.push({
-        identifier: blob.identifier,
-        blobId: encoded.blobId,
-        blobObjectId: blobObjectChange.objectId,
-        size: blob.contents.length,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-      // Detect insufficient balance errors and provide helpful message
-      if (
-        errorMessage.includes('InsufficientCoinBalance') ||
-        errorMessage.includes('could not automatically determine a budget') ||
-        errorMessage.includes('No valid gas coins found')
-      ) {
-        throw new Error(
-          `Insufficient SUI balance to upload ${blob.identifier}. ` +
-          `Please add SUI tokens to your wallet for gas fees. ` +
-          `Testnet: https://faucet.testnet.sui.io/ | Mainnet: Buy/transfer SUI to your wallet.`
-        );
-      }
-
-      throw new Error(`Failed to upload ${blob.identifier}: ${errorMessage}`);
+    if (certifyTxDetails.effects?.status?.status !== 'success') {
+      throw new Error(`Certification batch ${batchNum} transaction failed`);
     }
   }
 
+  console.log(`[Walrus PTB] ✓ Certified all ${confirmationsArray.length} blobs across ${Math.ceil(confirmationsArray.length / CERTIFY_BATCH_SIZE)} certification batches`);
+
+  // Build results
+  const results = encodedBlobs.map((blob, idx) => ({
+    identifier: blob.identifier,
+    blobId: blob.encoded.blobId,
+    blobObjectId: confirmationsArray[idx].blobObjectId,
+    size: blob.size,
+  }));
+
+  const totalSignatures = Math.ceil(blobs.length / BATCH_SIZE) * 2;
+  console.log(`[Walrus PTB] ✓ All ${blobs.length} blobs uploaded with ${totalSignatures} signatures!`);
   return results;
 }
 

@@ -256,68 +256,41 @@ export async function uploadVideoClientSide(
   }> = [];
 
   try {
-    // Upload segments in parallel batches for 4x speed improvement
-    const PARALLEL_BATCHES = 4; // Run 4 uploads in parallel
-    const SEGMENTS_PER_BATCH = 5; // 5 segments per upload transaction
-    const TOTAL_BATCH_SIZE = PARALLEL_BATCHES * SEGMENTS_PER_BATCH; // 20 segments at a time
+    // Upload all segments using batched PTB (Programmable Transaction Blocks)
+    // The wallet SDK batches register + certify calls into groups of 50 per transaction
+    const BATCH_SIZE = 50;
+    const expectedSignatures = Math.ceil(blobsToUpload.length / BATCH_SIZE) * 2;
+    console.log(`[Upload] Uploading ${blobsToUpload.length} segments using batched PTB (~${expectedSignatures} signatures)...`);
 
-    console.log(`[Upload] Parallel upload strategy: ${PARALLEL_BATCHES} batches × ${SEGMENTS_PER_BATCH} segments = ${TOTAL_BATCH_SIZE} segments at once`);
+    onProgress?.({
+      stage: 'uploading',
+      percent: 60,
+      message: `Uploading ${blobsToUpload.length} segments (${expectedSignatures} signatures)...`,
+    });
 
-    for (let i = 0; i < blobsToUpload.length; i += TOTAL_BATCH_SIZE) {
-      // Create 4 parallel batches
-      const parallelBatches: Array<typeof blobsToUpload> = [];
-      for (let j = 0; j < PARALLEL_BATCHES; j++) {
-        const batchStart = i + (j * SEGMENTS_PER_BATCH);
-        const batchEnd = Math.min(batchStart + SEGMENTS_PER_BATCH, blobsToUpload.length);
-
-        if (batchStart < blobsToUpload.length) {
-          parallelBatches.push(blobsToUpload.slice(batchStart, batchEnd));
-        }
+    const segmentUploadResults = await uploadMultipleBlobsWithWallet(
+      blobsToUpload,
+      signAndExecute,
+      walletAddress,
+      {
+        network,
+        epochs,
+        deletable: true,
       }
+    );
 
-      const progress = 60 + ((i + parallelBatches.reduce((sum, b) => sum + b.length, 0)) / blobsToUpload.length) * 25; // 60-85%
+    // Free segment data after upload
+    for (let j = 0; j < encryptedSegments.length; j++) {
+      // @ts-ignore
+      encryptedSegments[j].data = null;
+    }
 
-      onProgress?.({
-        stage: 'uploading',
-        percent: progress,
-        message: `Uploading segments ${i + 1}-${Math.min(i + TOTAL_BATCH_SIZE, blobsToUpload.length)}/${blobsToUpload.length} (${parallelBatches.length}x parallel)...`,
-      });
+    console.log(`[Upload] ✓ Uploaded ${segmentUploadResults.length} segments in ${expectedSignatures} batched PTB signatures!`);
 
-      // Upload batches sequentially to avoid coin contention
-      // (parallel uploads try to use the same WAL coins simultaneously)
-      console.log(`[Upload] Starting ${parallelBatches.length} sequential batch uploads...`);
-      for (let batchIdx = 0; batchIdx < parallelBatches.length; batchIdx++) {
-        const batch = parallelBatches[batchIdx];
-        console.log(`[Upload] Batch ${batchIdx + 1}/${parallelBatches.length}: Uploading ${batch.length} segments...`);
-
-        const results = await uploadMultipleBlobsWithWallet(
-          batch,
-          signAndExecute,
-          walletAddress,
-          {
-            network,
-            epochs,
-            deletable: true,
-          }
-        );
-
-        segmentUploadResults.push(...results);
-      }
-
-      // Free segment data after upload
-      const uploadedCount = parallelBatches.reduce((sum, b) => sum + b.length, 0);
-      for (let j = i; j < i + uploadedCount; j++) {
-        // @ts-ignore
-        encryptedSegments[j].data = null;
-      }
-
-      console.log(`[Upload] ✓ Uploaded ${uploadedCount} segments in parallel (${parallelBatches.length} batches)`);
-
-      // Log memory every batch
-      if (performance && (performance as any).memory) {
-        const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
-        console.log(`[Upload Memory] After ${i + uploadedCount} segments uploaded: ${memMB}MB used`);
-      }
+    // Log memory after upload
+    if (performance && (performance as any).memory) {
+      const memMB = ((performance as any).memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+      console.log(`[Upload Memory] After all segments uploaded: ${memMB}MB used`);
     }
 
     // Convert poster to base64 for database storage (instead of uploading to Walrus)
@@ -333,7 +306,14 @@ export async function uploadVideoClientSide(
         : 'image/jpeg'; // Default to JPEG
 
       // Convert Uint8Array to base64 data URL
-      const base64String = btoa(String.fromCharCode(...transcoded.poster));
+      // Process in chunks to avoid "Maximum call stack size exceeded" with large images
+      const chunkSize = 8192;
+      let binaryString = '';
+      for (let i = 0; i < transcoded.poster.length; i += chunkSize) {
+        const chunk = transcoded.poster.slice(i, i + chunkSize);
+        binaryString += String.fromCharCode(...chunk);
+      }
+      const base64String = btoa(binaryString);
       posterBase64 = `data:${mimeType};base64,${base64String}`;
 
       console.log(`[Upload] ✓ Poster converted to base64 (${posterBase64.length} chars)`);
@@ -396,31 +376,7 @@ export async function uploadVideoClientSide(
 
   console.log(`[Upload] Built ${qualityGroups.size} quality playlists`);
 
-  // Step 5: Upload playlists using wallet SDK
-  onProgress?.({
-    stage: 'uploading',
-    percent: 85,
-    message: 'Uploading playlists to Walrus...',
-  });
-
-  console.log(`[Upload] Uploading ${playlistBlobs.length} quality playlists...`);
-
-  const playlistResults = await uploadMultipleBlobsWithWallet(
-    playlistBlobs,
-    signAndExecute,
-    walletAddress,
-    { network, epochs, deletable: true }
-  );
-
-  console.log(`[Upload] ✓ Uploaded ${playlistResults.length} playlists!`);
-
-  // Build playlist blob ID map
-  const playlistBlobIdMap = new Map<string, string>();
-  playlistResults.forEach((result) => {
-    playlistBlobIdMap.set(result.identifier, result.blobId);
-  });
-
-  // Build master playlist with REAL URLs (no placeholders needed)
+  // Step 5: Build master playlist content
   const resolutionMap: Record<string, string> = {
     '1080p': '1920x1080',
     '720p': '1280x720',
@@ -434,6 +390,33 @@ export async function uploadVideoClientSide(
     '360p': 800000,
   };
 
+  // Step 5: Upload all playlists + master in ONE batch for maximum efficiency
+  // We need to upload quality playlists first to get their blob IDs, then build master
+  onProgress?.({
+    stage: 'uploading',
+    percent: 85,
+    message: 'Uploading playlists and master (batched PTB)...',
+  });
+
+  console.log(`[Upload] Step 1: Uploading ${playlistBlobs.length} quality playlists using PTB...`);
+
+  const playlistResults = await uploadMultipleBlobsWithWallet(
+    playlistBlobs,
+    signAndExecute,
+    walletAddress,
+    { network, epochs, deletable: true }
+  );
+
+  const playlistSignatures = Math.ceil(playlistResults.length / 50) * 2;
+  console.log(`[Upload] ✓ Quality playlists uploaded (${playlistSignatures} signatures)!`);
+
+  // Build playlist blob ID map
+  const playlistBlobIdMap = new Map<string, string>();
+  playlistResults.forEach((result) => {
+    playlistBlobIdMap.set(result.identifier, result.blobId);
+  });
+
+  // Build master playlist with quality playlist URLs
   let masterContent = '#EXTM3U\n#EXT-X-VERSION:7\n\n';
   for (const quality of qualities) {
     const resolution = resolutionMap[quality] || '1280x720';
@@ -448,14 +431,7 @@ export async function uploadVideoClientSide(
     masterContent += `#EXT-X-STREAM-INF:BANDWIDTH=${bitrate},RESOLUTION=${resolution}\n${playlistUrl}\n`;
   }
 
-  // Step 6: Upload master playlist using wallet SDK
-  onProgress?.({
-    stage: 'uploading',
-    percent: 92,
-    message: 'Uploading master playlist...',
-  });
-
-  console.log('[Upload] Uploading master playlist...');
+  console.log('[Upload] Step 2: Uploading master playlist using PTB...');
 
   const masterResults = await uploadMultipleBlobsWithWallet(
     [{ contents: new TextEncoder().encode(masterContent), identifier: 'master_playlist' }],
@@ -464,7 +440,7 @@ export async function uploadVideoClientSide(
     { network, epochs, deletable: true }
   );
 
-  console.log(`[Upload] ✓ Uploaded master playlist!`);
+  console.log(`[Upload] ✓ Master playlist uploaded (2 signatures)!`);
 
   onProgress?.({
     stage: 'uploading',

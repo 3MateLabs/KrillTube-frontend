@@ -13,7 +13,6 @@ import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from
 import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { UploadNetworkSwitcher } from '@/components/UploadNetworkSwitcher';
-import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
 import { PlatformFeeComparisonDialog } from '@/components/PlatformFeeComparisonDialog';
 import { Step2Monetization } from '@/components/upload/Step2Monetization';
@@ -100,7 +99,6 @@ function UploadContent() {
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
   const { walrusNetwork } = useNetwork();
-  const { buildFundingTransaction, estimateGasNeeded, autoReclaimGas, executeWithDelegator, delegatorAddress } = usePersonalDelegator();
 
   // Helper: Get default token type based on connected network and fee config index
   const getDefaultTokenType = (index: number = 0) => {
@@ -877,112 +875,15 @@ function UploadContent() {
         }
       }
 
-      // STEP 2: Fund delegator wallet (mainnet only) via PTB
-      if (walrusNetwork === 'mainnet' && !debugMode && account) {
-        console.log('[Upload V2] Funding delegator wallet with PTB...');
-
-        // First, calculate segment count for gas and WAL estimates
-        const fileSizeMB = selectedFile.size / 1024 / 1024;
-        const videoSegments = Math.ceil(fileSizeMB / 2) * selectedQualities.length;
-        const initSegments = selectedQualities.length; // One init segment per quality
-        const estimatedSegments = videoSegments + initSegments;
-        const gasNeeded = estimateGasNeeded(estimatedSegments, encryptionType);
-
-        // Calculate WAL amount in MIST (1 WAL = 1_000_000_000 MIST)
-        // Our cost estimate is now based on real upload measurements (~0.05 WAL/MB)
-        // Apply modest 5x buffer for:
-        // - Poster, playlists, and master playlist uploads (small extra files)
-        // - Network fee variability
-        // - Rounding and overhead
-        const estimatedWalMist = BigInt(Math.ceil(parseFloat(costEstimate.totalWal) * 1_000_000_000));
-        const bufferedWalMist = estimatedWalMist * BigInt(5); // 5x buffer for overhead
-
-        // Ensure minimum funding based on segment count
-        // With accurate estimates, we can use a much lower minimum
-        // Each segment needs ~0.01 WAL, plus poster/playlists
-        const minWalPerSegment = BigInt(10_000_000); // 0.01 WAL per segment
-        let minWalMist = minWalPerSegment * BigInt(estimatedSegments + 5); // +5 for poster/playlists
-
-        // For "both" encryption, we upload everything twice (DEK + SEAL)
-        // Each upload has: segments + poster + playlists, so double the WAL needed
-        if (encryptionType === 'both') {
-          minWalMist = minWalMist * BigInt(2); // 2x for dual upload
-          console.log('[Upload V2] Both encryption detected, doubling WAL funding');
-        }
-
-        // Use the larger of buffered estimate or minimum
-        const walAmountMist = bufferedWalMist > minWalMist ? bufferedWalMist : minWalMist;
-
-        console.log('[Upload V2] PTB Funding:', {
-          estimatedWal: `${parseFloat(costEstimate.totalWal).toFixed(6)} WAL`,
-          bufferedWal: `${Number(bufferedWalMist) / 1_000_000_000} WAL (5x buffer)`,
-          minimumWal: `${Number(minWalMist) / 1_000_000_000} WAL (${estimatedSegments} segments${encryptionType === 'both' ? ' × 2 uploads' : ''})`,
-          finalWalAmount: `${Number(walAmountMist) / 1_000_000_000} WAL`,
-          gasAmount: `${Number(gasNeeded) / 1_000_000_000} SUI`,
-          segments: `${estimatedSegments} total (${videoSegments} video + ${initSegments} init)`,
-          encryptionType,
-        });
-
-        try {
-          // Build PTB that funds BOTH SUI and WAL in one transaction
-          const fundingTx = await buildFundingTransaction(
-            account.address,
-            gasNeeded,
-            walAmountMist
-          );
-
-          if (!fundingTx) {
-            throw new Error('Failed to build funding transaction');
-          }
-
-          // User signs ONCE to fund both SUI gas + WAL storage
-          setProgress({ stage: 'funding', percent: 8, message: 'Approve funding transaction...' });
-          console.log('[Upload V2] ⏳ Waiting for user to approve PTB...');
-
-          const fundingResult = await signAndExecuteTransaction({ transaction: fundingTx });
-
-          console.log('[Upload V2] ✓ Delegator funded:', fundingResult.digest);
-          setProgress({ stage: 'funding', percent: 12, message: 'Delegator wallet funded!' });
-        } catch (fundingError) {
-          console.error('[Upload V2] Funding failed:', fundingError);
-          throw new Error(`Failed to fund delegator: ${fundingError instanceof Error ? fundingError.message : 'Unknown error'}`);
-        }
-      }
-
-      // STEP 3: Dynamically import the upload orchestrator to avoid loading WASM during build
+      // STEP 2: Dynamically import the upload orchestrator to avoid loading WASM during build
       // Use unified upload orchestrator to support all encryption types
       const { uploadVideoUnified } = await import('@/lib/upload/unifiedUploadOrchestrator');
 
-      // Determine signer and address based on network
-      let effectiveSignAndExecute;
-      let effectiveUploadAddress;
-
-      if (debugMode) {
-        // Debug mode: mock transaction
-        effectiveSignAndExecute = async () => ({ digest: 'debug-transaction-digest' });
-        effectiveUploadAddress = effectiveAccount.address;
-      } else if (walrusNetwork === 'mainnet') {
-        // Mainnet: use delegator wallet (already funded via PTB)
-        if (!delegatorAddress || !executeWithDelegator) {
-          throw new Error('Delegator wallet not initialized');
-        }
-        // Wrap executeWithDelegator to match expected signature
-        effectiveSignAndExecute = async (args: { transaction: any }) => {
-          const result = await executeWithDelegator(args.transaction);
-          if (!result) {
-            throw new Error('Delegator transaction failed');
-          }
-          return {
-            digest: result.digest,
-            effects: result.success ? { status: { status: 'success' } } : { status: { status: 'failure' } },
-          };
-        };
-        effectiveUploadAddress = delegatorAddress;
-      } else {
-        // Testnet: use user's wallet (free HTTP uploads)
-        effectiveSignAndExecute = signAndExecuteTransaction;
-        effectiveUploadAddress = effectiveAccount.address;
-      }
+      // Use user's wallet to sign all transactions
+      const effectiveSignAndExecute = debugMode
+        ? async () => ({ digest: 'debug-transaction-digest' })
+        : signAndExecuteTransaction;
+      const effectiveUploadAddress = effectiveAccount.address;
 
       // Complete upload flow: transcode → encrypt (DEK/SEAL/both) → upload
       const result = await uploadVideoUnified(
@@ -1056,12 +957,6 @@ function UploadContent() {
       setProgress({ stage: 'complete', percent: 100, message: 'Upload complete!' });
       console.log(`[Upload V2] ✓ Video registered: ${video.id}`);
 
-      // Auto-reclaim unused gas if on mainnet
-      if (walrusNetwork === 'mainnet' && account) {
-        console.log('[Upload V2] Auto-reclaiming unused gas...');
-        await autoReclaimGas(account.address);
-      }
-
       setTimeout(() => {
         router.push(`/watch/${video.id}`);
       }, 1000);
@@ -1069,12 +964,6 @@ function UploadContent() {
       console.error('[Upload V2] Error:', err);
       setError(err instanceof Error ? err.message : 'Upload failed');
       setIsUploading(false);
-
-      // Auto-reclaim on error too if on mainnet
-      if (walrusNetwork === 'mainnet' && account) {
-        console.log('[Upload V2] Auto-reclaiming after error...');
-        await autoReclaimGas(account.address).catch(console.error);
-      }
     }
   };
 
