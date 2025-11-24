@@ -84,9 +84,7 @@ export function VideoCard({
             <img
               src={thumbnail}
               alt={title}
-              fill
-              className="object-cover"
-              unoptimized
+              className="w-full h-full object-cover"
               onError={() => setImageError(true)}
             />
           </div>
@@ -184,9 +182,7 @@ export function VideoCard({
             <img
               src={thumbnail}
               alt={title}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform"
-              unoptimized
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
               onError={() => setImageError(true)}
             />
           ) : (
@@ -268,9 +264,7 @@ export function VideoCard({
           <img
             src={thumbnail}
             alt={title}
-            fill
-            className="object-cover"
-            unoptimized
+            className="w-full h-full object-cover"
             onError={() => setImageError(true)}
           />
         ) : (

@@ -47,9 +47,7 @@ const VideoCard = ({ video }: { video: Video }) => {
             <img
               src={video.posterWalrusUri}
               alt={video.title}
-              fill
-              className="object-cover"
-              unoptimized
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

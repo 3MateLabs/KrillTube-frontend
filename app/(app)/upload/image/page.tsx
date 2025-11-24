@@ -771,7 +771,7 @@ export default function ImagesUploadPage() {
         <div className="text-foreground">Loading...</div>
       </div>
     }>
-      <imgsUploadContent />
+      <ImagesUploadContent />
     </Suspense>
   );
 }

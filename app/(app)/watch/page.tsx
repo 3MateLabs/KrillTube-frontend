@@ -109,10 +109,9 @@ const VideoCard = ({ video }: { video: Video }) => {
               ) : (
                 <div className="absolute inset-0 w-full h-56 z-0">
                   <img
-                    className="rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
+                    className="w-full h-full rounded-xl shadow-[2.0129659175872803px_2.0129659175872803px_0px_0px_rgba(0,0,0,1.00)] border-[1.34px] border-black object-cover"
                     src={thumbnailUrl}
                     alt={video.title}
-                    fill
                     onError={() => setImgError(true)}
                   />
                 </div>
