@@ -436,9 +436,9 @@ export default function WatchPage() {
         const tx = new Transaction();
         tx.setSender(account.address);
 
-        // Split coins and transfer to creator
-        const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(donationAmountMist)]);
-        tx.transferObjects([coin], tx.pure.address(video.creatorId));
+        // Split coins and transfer to creator (fixed SDK syntax)
+        const [coin] = tx.splitCoins(tx.gas, [parseInt(donationAmountMist)]);
+        tx.transferObjects([coin], video.creatorId);
 
         const result = await signAndExecute({
           transaction: tx,
