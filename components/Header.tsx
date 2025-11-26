@@ -18,7 +18,7 @@ export function Header({ onMenuClick, isSidebarOpen = true, onToggleCollapse, is
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const pathname = usePathname();
 
-  const isTransparent = pathname === '/scrolls';
+  const isTransparent = pathname === '/scrolls' || pathname.startsWith('/scrolls/');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
