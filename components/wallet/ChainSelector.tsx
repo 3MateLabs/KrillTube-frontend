@@ -199,7 +199,8 @@ export function ChainSelector({ isTransparent = false }: ChainSelectorProps) {
   const { mutate: disconnectSui } = useSuiDisconnect();
   // IOTA disabled - using Sui/Walrus only
   // const { mutate: disconnectIota } = useIotaDisconnect();
-  const disconnectIota = null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const disconnectIota = null as (() => void) | null;
 
   // Handle custom button clicks to trigger actual connect buttons
   useEffect(() => {
@@ -272,12 +273,18 @@ export function ChainSelector({ isTransparent = false }: ChainSelectorProps) {
       walletName,
     });
 
-    if (chain === 'sui' || network === 'sui') {
+    // Cast to allow IOTA branch to compile (IOTA is currently disabled but code kept for future)
+    const currentChain = chain as typeof chain | 'iota';
+    const currentNetwork = network as typeof network | 'iota';
+
+    if (currentChain === 'sui' || currentNetwork === 'sui') {
       console.log('[ChainSelector] Disconnecting Sui wallet');
       disconnectSui();
-    } else if (chain === 'iota' || network === 'iota') {
+    } else if (currentChain === 'iota' || currentNetwork === 'iota') {
       console.log('[ChainSelector] Disconnecting IOTA wallet');
-      disconnectIota();
+      if (disconnectIota) {
+        disconnectIota();
+      }
     }
     setIsOpen(false);
   };
@@ -494,9 +501,11 @@ export function ChainSelector({ isTransparent = false }: ChainSelectorProps) {
                       <div className="text-black/60 text-xs font-medium font-['Outfit']">Connect IOTA wallets</div>
                     </div>
                   </button>
+                  {/* IOTA disabled - using Sui/Walrus only
                   <div className="hidden">
                     <IotaConnectButton />
                   </div>
+                  */}
                 </div>
 
                 {/* Solana - Coming Soon */}

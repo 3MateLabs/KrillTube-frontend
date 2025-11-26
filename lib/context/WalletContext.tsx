@@ -33,7 +33,7 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
   const suiAccount = useSuiAccount();
   // IOTA disabled - using Sui/Walrus only
   // const iotaAccount = useIotaAccount();
-  const iotaAccount = null;
+  const iotaAccount = null as { address: string } | null;
 
   // Determine current wallet state based on active chain
   const getWalletState = useCallback((): WalletState => {

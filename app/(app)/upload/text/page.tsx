@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from '@iota/dapp-kit';
 import { Step2Monetization } from '@/components/upload/Step2Monetization';
@@ -42,6 +42,7 @@ type CoinPrice = {
 
 function TextUploadContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const account = useCurrentAccount();
   const { network } = useCurrentWalletMultiChain();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();

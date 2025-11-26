@@ -12,10 +12,16 @@ import { useWalletContext } from '@/lib/context/WalletContext';
 
 export type WalletNetwork = 'sui' | 'iota' | null;
 
+// Placeholder type for IOTA wallet (disabled but kept for future re-enablement)
+type IotaWalletType = {
+  name?: string;
+  accounts?: Array<{ address: string }>;
+} | null;
+
 export interface MultiChainWalletState {
   network: WalletNetwork;
   suiWallet: ReturnType<typeof useSuiCurrentWallet>['currentWallet'] | null;
-  iotaWallet: null; // IOTA disabled
+  iotaWallet: IotaWalletType; // IOTA disabled - always null at runtime
 }
 
 /**

@@ -256,7 +256,7 @@ function UploadContent() {
   const effectiveAccount = debugMode
     ? { address: '0x0000000000000000000000000000000000000000000000000000000000000000' }
     : network === 'iota' && iotaWallet
-    ? { address: iotaWallet.accounts[0]?.address || '' }
+    ? { address: iotaWallet.accounts?.[0]?.address || '' }
     : account;
 
   // Fetch creator profile to get sealObjectId
