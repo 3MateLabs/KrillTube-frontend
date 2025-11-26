@@ -8,7 +8,8 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from '@iota/dapp-kit';
+// IOTA disabled - using Sui/Walrus only
+// import { useSignAndExecuteTransaction as useIotaSignAndExecuteTransaction } from '@iota/dapp-kit';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { usePersonalDelegator } from '@/lib/hooks/usePersonalDelegator';
 import { useCurrentWalletMultiChain } from '@/lib/hooks/useCurrentWalletMultiChain';
@@ -50,7 +51,9 @@ function ImagesUploadContent() {
   const account = useCurrentAccount();
   const { network, suiWallet, iotaWallet } = useCurrentWalletMultiChain();
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
-  const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
+  // IOTA disabled - using Sui/Walrus only
+  // const { mutateAsync: iotaSignAndExecuteTransaction } = useIotaSignAndExecuteTransaction();
+  const iotaSignAndExecuteTransaction: any = null;
   const { walrusNetwork } = useNetwork();
   const { buildFundingTransaction, estimateGasNeeded, executeWithDelegator, delegatorAddress, autoReclaimGas } = usePersonalDelegator();
 
