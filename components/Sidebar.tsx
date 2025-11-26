@@ -122,9 +122,9 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
             </div>
           </button>
           {showText && (
-            <div className="flex-1 px-4 py-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-0">
-              <img src="/logos/krillll.png" alt="Krill" width={48} height={48} className="w-12 h-12" />
-              <div className="justify-start text-white text-base font-bold font-['Outfit']">KrillTube</div>
+            <div className="flex-1 px-4 py-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-1.5">
+              <img src="/logos/kril_tube_icon.png" alt="Krill Tube" width={32} height={32} className="w-8 h-8 rounded-full" />
+              <div className="justify-start text-white text-base font-bold font-['Outfit']">Krill Tube</div>
             </div>
           )}
         </div>

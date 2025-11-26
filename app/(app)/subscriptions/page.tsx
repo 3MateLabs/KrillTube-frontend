@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 
 interface Subscription {
   id: string;
@@ -14,59 +13,53 @@ interface Subscription {
 
 // Subscription Card Component
 const SubscriptionCard = ({ subscription }: { subscription: Subscription }) => {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
-    <div
-      className="w-full bg-white rounded-[90px] shadow-[3px_3px_0_0_black] outline outline-[4px] outline-offset-0 outline-black flex items-center gap-5 hover:shadow-[5px_5px_0_0_black] hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Avatar */}
-      <div className="w-40 h-40 flex-shrink-0">
+    <div className="w-full h-[160px] bg-white rounded-[80px] border-[3px] border-black shadow-[3px_3px_0px_#000000] flex flex-row items-center gap-5 hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+      {/* Avatar - 160x160 */}
+      <div className="w-[160px] h-[160px] rounded-full flex-shrink-0 overflow-hidden -ml-[1px]">
         <img
           src={subscription.avatarUrl || '/d3h3d.svg'}
           alt={subscription.displayName}
           width={160}
           height={160}
-          className="w-40 h-40 rounded-full border-[3px] border-black object-cover"
+          className="w-full h-full object-cover"
         />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 py-3 pr-16 flex flex-col justify-between gap-2">
-        {/* Display Name */}
-        <div className="text-black text-xl font-semibold font-['Outfit']">
+      {/* Text Content */}
+      <div className="flex-1 h-[160px] py-3 pr-16 flex flex-col justify-between items-end gap-2.5">
+        {/* Display Name - 20px semibold */}
+        <div className="w-full text-black text-[20px] font-semibold font-['Outfit'] leading-[25px]">
           {subscription.displayName}
         </div>
 
-        {/* Handle and Subscribers */}
-        <div className="flex items-center gap-1">
-          <span className="text-black text-base font-medium font-['Outfit']">
+        {/* Handle and Subscribers - 16px medium */}
+        <div className="w-full flex items-start gap-1">
+          <span className="text-black text-[16px] font-medium font-['Outfit'] leading-[20px]">
             @{subscription.handle}
           </span>
-          <span className="text-black text-base font-medium font-['Outfit']">
+          <span className="text-black text-[16px] font-medium font-['Outfit'] leading-[20px] tracking-[0.02em]">
             •{subscription.subscriberCount} Subscribers
           </span>
         </div>
 
-        {/* Bio */}
-        <div className="text-black text-base font-normal font-['Outfit'] line-clamp-2">
+        {/* Bio - 16px normal, 2 lines */}
+        <div className="w-full text-black text-[16px] font-normal font-['Outfit'] leading-[20px] line-clamp-2">
           {subscription.bio}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-2.5 mt-2">
-          {/* Bell Button */}
-          <button className="w-10 h-10 px-2 py-2.5 bg-white rounded-[20px] shadow-[3px_3px_0_0_black] outline outline-[2px] outline-offset-[-2px] outline-black flex items-center justify-center hover:shadow-[2px_2px_0_0_black] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
+        {/* Actions Container */}
+        <div className="flex items-start gap-2.5">
+          {/* Bell Button - 40x40 */}
+          <button className="w-[40px] h-[40px] px-2 py-2.5 bg-white border-[2px] border-black shadow-[3px_3px_0px_#000000] rounded-[20px] flex items-center justify-center hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all">
             <svg className="w-6 h-6 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </button>
 
-          {/* Unsubscribe Button */}
-          <button className="h-10 px-3 py-2.5 bg-black rounded-[20px] outline outline-[3px] outline-offset-[-3px] outline-black flex items-center justify-center hover:bg-[#333] transition-colors">
-            <span className="text-white text-base font-bold font-['Outfit']">
+          {/* Unsubscribe Button - 115x40 */}
+          <button className="h-[40px] px-3 py-2.5 bg-black border-[3px] border-black rounded-[20px] flex items-center justify-center hover:bg-[#333] transition-colors">
+            <span className="text-white text-[16px] font-bold font-['Outfit'] leading-[20px]">
               Unsubscribe
             </span>
           </button>
