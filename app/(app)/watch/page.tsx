@@ -234,7 +234,7 @@ export default function Home() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-[#0668A6] via-[#0668A6] to-[#1AAACE]">
       {/* Category Tabs */}
-      <div className="pl-20 pr-12 pt-[51px] pb-4 flex items-center gap-4 overflow-x-auto flex-wrap">
+      <div className="pl-8 pr-8 pt-[51px] pb-4 flex items-center gap-4 overflow-x-auto flex-wrap">
         {['All', 'Live', 'Memes', 'DeFi', 'Gaming', 'RWAs', 'Move'].map((cat, i) => (
           <button
             key={cat}
@@ -248,7 +248,7 @@ export default function Home() {
       </div>
 
       {/* Video Grid */}
-      <div className="pl-20 pr-12 py-6">
+      <div className="pl-8 pr-8 py-6">
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="text-center">

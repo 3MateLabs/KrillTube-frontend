@@ -6,7 +6,8 @@
 'use client';
 
 import { useCurrentWallet as useSuiCurrentWallet } from '@mysten/dapp-kit';
-import { useCurrentWallet as useIotaCurrentWallet } from '@iota/dapp-kit';
+// IOTA disabled - using Sui/Walrus only
+// import { useCurrentWallet as useIotaCurrentWallet } from '@iota/dapp-kit';
 import { useWalletContext } from '@/lib/context/WalletContext';
 
 export type WalletNetwork = 'sui' | 'iota' | null;
@@ -14,7 +15,7 @@ export type WalletNetwork = 'sui' | 'iota' | null;
 export interface MultiChainWalletState {
   network: WalletNetwork;
   suiWallet: ReturnType<typeof useSuiCurrentWallet>['currentWallet'] | null;
-  iotaWallet: ReturnType<typeof useIotaCurrentWallet>['currentWallet'] | null;
+  iotaWallet: null; // IOTA disabled
 }
 
 /**
@@ -41,26 +42,23 @@ export interface MultiChainWalletState {
 export function useCurrentWalletMultiChain(): MultiChainWalletState {
   const { chain } = useWalletContext();
   const { currentWallet: suiWallet } = useSuiCurrentWallet();
-  const { currentWallet: iotaWallet } = useIotaCurrentWallet();
 
   // Determine network based on context and wallet connections
   let network: WalletNetwork = chain;
 
-  // Auto-detect if no active chain is set - default to IOTA
+  // Auto-detect if no active chain is set - default to Sui
   if (!network) {
-    if (iotaWallet) {
-      network = 'iota';
-    } else if (suiWallet) {
+    if (suiWallet) {
       network = 'sui';
     } else {
-      // Default to IOTA even if no wallet is connected
-      network = 'iota';
+      // Default to Sui even if no wallet is connected
+      network = 'sui';
     }
   }
 
   return {
     network,
     suiWallet: network === 'sui' ? suiWallet : null,
-    iotaWallet: network === 'iota' ? iotaWallet : null,
+    iotaWallet: null, // IOTA disabled
   };
 }

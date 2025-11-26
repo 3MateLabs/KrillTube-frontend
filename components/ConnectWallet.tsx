@@ -7,10 +7,14 @@
 
 import { ChainSelector } from './wallet/ChainSelector';
 
-export function ConnectWallet() {
+interface ConnectWalletProps {
+  isTransparent?: boolean;
+}
+
+export function ConnectWallet({ isTransparent = false }: ConnectWalletProps) {
   return (
     <div className="flex items-center gap-3">
-      <ChainSelector />
+      <ChainSelector isTransparent={isTransparent} />
     </div>
   );
 }

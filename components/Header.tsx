@@ -4,15 +4,21 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ConnectWallet } from './ConnectWallet';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface HeaderProps {
   onMenuClick?: () => void;
   isSidebarOpen?: boolean;
+  onToggleCollapse?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
-export function Header({ onMenuClick, isSidebarOpen = true }: HeaderProps) {
+export function Header({ onMenuClick, isSidebarOpen = true, onToggleCollapse, isSidebarCollapsed = false }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const pathname = usePathname();
+
+  const isTransparent = pathname === '/scrolls';
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,24 +29,8 @@ export function Header({ onMenuClick, isSidebarOpen = true }: HeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[60] w-full bg-[#0668A6]">
-      {/* Logo Section - Positioned absolutely over sidebar */}
-      <div className="absolute left-[29px] top-[18px] flex items-center gap-3 z-10 w-56">
-        <button
-          onClick={onMenuClick}
-          className="p-2 bg-black rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
-        >
-          <div className="p-2 bg-black rounded-[32px] inline-flex justify-center items-center">
-            <img src="/logos/hambuger.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
-          </div>
-        </button>
-        <div className="flex-1 px-4 py-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-0">
-          <img src="/logos/krillll.png" alt="Krill" width={48} height={48} className="w-12 h-12" />
-          <div className="justify-start text-white text-base font-bold font-['Outfit']">KrillTube</div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-12 px-12 py-5 ml-72">
+    <header className={`fixed top-0 left-0 right-0 z-[60] w-full ${isTransparent ? '' : 'bg-[#0668A6]'}`}>
+      <div className={`flex items-center gap-12 px-8 py-5 transition-all duration-300 ${isSidebarCollapsed ? 'ml-[160px]' : 'ml-[320px]'}`}>
         {/* Search Bar - Takes up most space */}
         <div className="flex-1 min-w-0">
           <form onSubmit={handleSearch} className="w-full">
@@ -78,13 +68,17 @@ export function Header({ onMenuClick, isSidebarOpen = true }: HeaderProps) {
           {/* Upload Button */}
           <Link
             href="/upload"
-            className="bg-white text-black font-bold h-14 px-6 rounded-[32px] outline outline-[3px] outline-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-base w-[86px] whitespace-nowrap flex items-center justify-center"
+            className={`font-bold h-14 px-6 rounded-[32px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] hover:shadow-[3px_3px_0_1px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] transition-all text-base w-[86px] whitespace-nowrap flex items-center justify-center ${
+              isTransparent
+                ? 'bg-white/20 text-white border-[3px] border-black'
+                : 'bg-white text-black outline outline-[3px] outline-black'
+            }`}
           >
             Upload
           </Link>
 
           {/* Connect Wallet Button */}
-          <ConnectWallet />
+          <ConnectWallet isTransparent={isTransparent} />
         </div>
       </div>
     </header>

@@ -8,7 +8,8 @@
 
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useCurrentAccount as useSuiAccount } from '@mysten/dapp-kit';
-import { useCurrentAccount as useIotaAccount } from '@iota/dapp-kit';
+// IOTA disabled - using Sui/Walrus only
+// import { useCurrentAccount as useIotaAccount } from '@iota/dapp-kit';
 
 export type SupportedChain = 'sui' | 'iota';
 
@@ -30,7 +31,9 @@ export function WalletContextProvider({ children }: { children: ReactNode }) {
 
   // Get connected accounts from both chains
   const suiAccount = useSuiAccount();
-  const iotaAccount = useIotaAccount();
+  // IOTA disabled - using Sui/Walrus only
+  // const iotaAccount = useIotaAccount();
+  const iotaAccount = null;
 
   // Determine current wallet state based on active chain
   const getWalletState = useCallback((): WalletState => {
