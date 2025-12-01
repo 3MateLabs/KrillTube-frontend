@@ -416,7 +416,7 @@ export default function KrillTubeLanding() {
                   <summary className="w-full flex justify-between items-center gap-3 md:gap-6 cursor-pointer list-none">
                     <div className="flex-1 text-black text-base md:text-xl lg:text-2xl font-semibold font-['Outfit']">{faq.q}</div>
                     <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-[#4A9FD8] rounded-[24px] md:rounded-[30px] shadow-[3px_3px_0px_0px_rgba(0,0,0,1.00)] outline outline-2 outline-offset-[-2px] outline-black flex justify-center items-center flex-shrink-0">
-                      <img src="/Vector 2.svg" alt="Expand" className="w-[20px] h-[14px] md:w-[30px] md:h-[20px] transition-transform group-open:rotate-180" />
+                      <img src="/logos/Vector 2.svg" alt="Expand" className="w-[20px] h-[14px] md:w-[30px] md:h-[20px] transition-transform group-open:rotate-180" />
                     </div>
                   </summary>
                   <p className="text-black text-sm md:text-base font-medium font-['Outfit'] leading-relaxed">{faq.a}</p>
@@ -442,10 +442,10 @@ export default function KrillTubeLanding() {
               <div className="justify-start text-white text-xl font-medium font-['Outfit']">2025. All rights reserved.</div>
               <div className="flex justify-start items-center gap-2.5">
                 {[
-                  { label: 'LinkedIn', href: '#', icon: '/simple-icons_linkedin.svg' },
-                  { label: 'Instagram', href: '#', icon: '/ant-design_instagram-outlined.svg' },
-                  { label: 'Facebook', href: '#', icon: '/bi_facebook.svg' },
-                  { label: 'Twitter', href: '#', icon: '/devicon_twitter.svg' }
+                  { label: 'LinkedIn', href: '#', icon: '/logos/simple-icons_linkedin.svg' },
+                  { label: 'Instagram', href: '#', icon: '/logos/ant-design_instagram-outlined.svg' },
+                  { label: 'Facebook', href: '#', icon: '/logos/bi_facebook.svg' },
+                  { label: 'Twitter', href: '#', icon: '/logos/devicon_twitter.svg' }
                 ].map(({ label, href, icon }) => (
                   <a
                     key={label}

@@ -27,7 +27,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Fredericka+the+Great&family=Nunito+Sans:wght@400;600;700&family=Outfit:wght@100..900&family=Aclonica&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Fredericka+the+Great&family=Nunito+Sans:wght@400;600;700&family=Outfit:wght@100..900&family=Aclonica&family=Satisfy&family=Montserrat:wght@400;500;600;700&family=Russo+One&family=Pacifico&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className={`${outfit.variable} antialiased`}>
         <Providers>{children}</Providers>
