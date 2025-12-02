@@ -249,12 +249,25 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
               )}
 
               <Link
-                href="#"
+                href="/photos"
                 onClick={onClose}
-                className={`px-4 py-2 inline-flex ${showText ? 'justify-start items-center gap-2.5 self-stretch' : 'flex-col justify-center items-center gap-1'} hover:bg-white/50 transition-colors rounded-lg`}
+                className={`inline-flex transition-colors ${
+                  showText
+                    ? `px-4 py-2 rounded-[32px] justify-start items-center gap-2.5 self-stretch ${pathname === '/photos' ? 'bg-[#CF2C2F] outline outline-[3px] outline-offset-[-3px] outline-black' : 'hover:bg-white/50'}`
+                    : 'flex-col justify-center items-center gap-1 hover:bg-white/50 rounded-lg px-2 py-2'
+                }`}
               >
-                <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
-                <div className={`text-black font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'}`}>Photos</div>
+                {!showText && pathname === '/photos' ? (
+                  <div className="px-5 py-3 bg-[#CF2C2F] rounded-[16px] outline outline-[2px] outline-offset-[-2px] outline-black flex flex-col items-center gap-1">
+                    <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+                    <div className="text-white font-semibold font-['Outfit'] text-xs">Photos</div>
+                  </div>
+                ) : (
+                  <>
+                    <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/photos' && showText ? 'brightness-0 invert' : ''}`} />
+                    <div className={`font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'} ${pathname === '/photos' && showText ? 'text-white' : 'text-black'}`}>Photos</div>
+                  </>
+                )}
               </Link>
 
               <Link
