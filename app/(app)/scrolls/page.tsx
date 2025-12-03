@@ -222,7 +222,7 @@ export default function ScrollsPage() {
           <div className="absolute left-8 bottom-6 flex flex-row items-end gap-10">
             {/* Text container */}
             <div className="flex flex-col items-start">
-              <h1 className="text-white text-[48px] font-semibold leading-[58px]" style={{ fontFamily: "'Fredoka One', cursive" }}>Scrolls</h1>
+              <h1 className="text-white text-[48px] font-semibold leading-[58px]" style={{ fontFamily: "'Fredoka'" }}>Scrolls</h1>
               <p className="text-white text-[20px] font-medium font-['Outfit'] leading-[25px]">34k Subscribers</p>
             </div>
             {/* Subscribe button */}
