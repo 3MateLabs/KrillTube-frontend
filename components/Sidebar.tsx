@@ -18,6 +18,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
   const pathname = usePathname();
   const { address, isConnected } = useWalletContext();
   const [userProfile, setUserProfile] = useState<{ name: string; avatar: string | null } | null>(null);
+  const [isExploreOpen, setIsExploreOpen] = useState(true);
 
   const showText = !isCollapsed;
 
@@ -233,82 +234,96 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           <div className={`px-4 py-6 bg-[#FFEEE5] rounded-3xl outline outline-[3px] outline-offset-[-3px] outline-black backdrop-blur-[9.45px] flex flex-col justify-center items-center gap-2.5 ${showText ? 'self-stretch' : 'w-full'}`}>
             <div className={`flex flex-col justify-center gap-3 ${showText ? 'items-start self-stretch' : 'items-center w-full'}`}>
               {showText ? (
-                <div className="self-stretch px-4 pb-4 border-b-2 border-black inline-flex justify-center items-center gap-2.5">
-                  <div className="flex-1 justify-start text-black text-xl font-semibold font-['Outfit']">Explore</div>
-                  <div className="w-10 h-10 bg-black rounded-full flex justify-center items-center">
-                    <img src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
+                <button
+                  onClick={() => setIsExploreOpen(!isExploreOpen)}
+                  className="self-stretch px-4 pb-4 border-b-2 border-black inline-flex justify-center items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <div className="flex-1 justify-start text-black text-xl font-semibold font-['Outfit'] text-left">Explore</div>
+                  <div className={`w-10 h-10 bg-black rounded-full flex justify-center items-center transition-transform duration-300 ${isExploreOpen ? '' : 'rotate-180'}`}>
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
-                </div>
+                </button>
               ) : (
-                <div className="pb-3 border-b-2 border-black inline-flex flex-col justify-center items-center gap-1 w-full">
-                  <div className="w-10 h-10 bg-black rounded-full flex justify-center items-center">
-                    <img src="/logos/explore.svg" alt="Explore" width={24} height={24} className="w-6 h-6" />
+                <button
+                  onClick={() => setIsExploreOpen(!isExploreOpen)}
+                  className="pb-3 border-b-2 border-black inline-flex flex-col justify-center items-center gap-1 w-full cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                  <div className={`w-10 h-10 bg-black rounded-full flex justify-center items-center transition-transform duration-300 ${isExploreOpen ? '' : 'rotate-180'}`}>
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
                   <div className="text-black text-xs font-semibold font-['Outfit']">Explore</div>
-                </div>
+                </button>
               )}
 
-              <Link
-                href="/photos"
-                onClick={onClose}
-                className={`inline-flex transition-colors ${
-                  showText
-                    ? `px-4 py-2 rounded-[32px] justify-start items-center gap-2.5 self-stretch ${pathname === '/photos' ? 'bg-[#CF2C2F] outline outline-[3px] outline-offset-[-3px] outline-black' : 'hover:bg-white/50'}`
-                    : 'flex-col justify-center items-center gap-1 hover:bg-white/50 rounded-lg px-2 py-2'
-                }`}
-              >
-                {!showText && pathname === '/photos' ? (
-                  <div className="px-5 py-3 bg-[#CF2C2F] rounded-[16px] outline outline-[2px] outline-offset-[-2px] outline-black flex flex-col items-center gap-1">
-                    <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
-                    <div className="text-white font-semibold font-['Outfit'] text-xs">Photos</div>
-                  </div>
-                ) : (
-                  <>
-                    <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/photos' && showText ? 'brightness-0 invert' : ''}`} />
-                    <div className={`font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'} ${pathname === '/photos' && showText ? 'text-white' : 'text-black'}`}>Photos</div>
-                  </>
-                )}
-              </Link>
+              {isExploreOpen && (
+                <>
+                  <Link
+                    href="/photos"
+                    onClick={onClose}
+                    className={`inline-flex transition-colors ${
+                      showText
+                        ? `px-4 py-2 rounded-[32px] justify-start items-center gap-2.5 self-stretch ${pathname === '/photos' ? 'bg-[#CF2C2F] outline outline-[3px] outline-offset-[-3px] outline-black' : 'hover:bg-white/50'}`
+                        : 'flex-col justify-center items-center gap-1 hover:bg-white/50 rounded-lg px-2 py-2'
+                    }`}
+                  >
+                    {!showText && pathname === '/photos' ? (
+                      <div className="px-5 py-3 bg-[#CF2C2F] rounded-[16px] outline outline-[2px] outline-offset-[-2px] outline-black flex flex-col items-center gap-1">
+                        <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+                        <div className="text-white font-semibold font-['Outfit'] text-xs">Photos</div>
+                      </div>
+                    ) : (
+                      <>
+                        <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/photos' && showText ? 'brightness-0 invert' : ''}`} />
+                        <div className={`font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'} ${pathname === '/photos' && showText ? 'text-white' : 'text-black'}`}>Photos</div>
+                      </>
+                    )}
+                  </Link>
 
-              <Link
-                href="/scrolls"
-                onClick={onClose}
-                className={`inline-flex transition-colors ${
-                  showText
-                    ? `px-4 py-2 rounded-[32px] justify-start items-center gap-2.5 self-stretch ${pathname === '/scrolls' ? 'bg-[#EF4330] outline outline-[3px] outline-offset-[-3px] outline-black' : 'hover:bg-white/50'}`
-                    : 'flex-col justify-center items-center gap-1 hover:bg-white/50 rounded-lg px-2 py-2'
-                }`}
-              >
-                {!showText && pathname === '/scrolls' ? (
-                  <div className="px-5 py-3 bg-[#EF4330] rounded-[16px] outline outline-[2px] outline-offset-[-2px] outline-black flex flex-col items-center gap-1">
-                    <img src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
-                    <div className="text-white font-semibold font-['Outfit'] text-xs">Scrolls</div>
-                  </div>
-                ) : (
-                  <>
-                    <img src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/scrolls' && showText ? 'brightness-0 invert' : ''}`} />
-                    <div className={`font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'} ${pathname === '/scrolls' && showText ? 'text-white' : 'text-black'}`}>Scrolls</div>
-                  </>
-                )}
-              </Link>
+                  <Link
+                    href="/scrolls"
+                    onClick={onClose}
+                    className={`inline-flex transition-colors ${
+                      showText
+                        ? `px-4 py-2 rounded-[32px] justify-start items-center gap-2.5 self-stretch ${pathname === '/scrolls' ? 'bg-[#EF4330] outline outline-[3px] outline-offset-[-3px] outline-black' : 'hover:bg-white/50'}`
+                        : 'flex-col justify-center items-center gap-1 hover:bg-white/50 rounded-lg px-2 py-2'
+                    }`}
+                  >
+                    {!showText && pathname === '/scrolls' ? (
+                      <div className="px-5 py-3 bg-[#EF4330] rounded-[16px] outline outline-[2px] outline-offset-[-2px] outline-black flex flex-col items-center gap-1">
+                        <img src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+                        <div className="text-white font-semibold font-['Outfit'] text-xs">Scrolls</div>
+                      </div>
+                    ) : (
+                      <>
+                        <img src="/logos/scrolls.svg" alt="Scrolls" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/scrolls' && showText ? 'brightness-0 invert' : ''}`} />
+                        <div className={`font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'} ${pathname === '/scrolls' && showText ? 'text-white' : 'text-black'}`}>Scrolls</div>
+                      </>
+                    )}
+                  </Link>
 
-              <Link
-                href="#"
-                onClick={onClose}
-                className={`px-4 py-2 inline-flex ${showText ? 'justify-start items-center gap-2.5 self-stretch' : 'flex-col justify-center items-center gap-1'} hover:bg-white/50 transition-colors rounded-lg`}
-              >
-                <img src="/logos/meme.svg" alt="Meme" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
-                <div className={`text-black font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'}`}>Meme</div>
-              </Link>
+                  <Link
+                    href="#"
+                    onClick={onClose}
+                    className={`px-4 py-2 inline-flex ${showText ? 'justify-start items-center gap-2.5 self-stretch' : 'flex-col justify-center items-center gap-1'} hover:bg-white/50 transition-colors rounded-lg`}
+                  >
+                    <img src="/logos/meme.svg" alt="Meme" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                    <div className={`text-black font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'}`}>Meme</div>
+                  </Link>
 
-              <Link
-                href="#"
-                onClick={onClose}
-                className={`px-4 py-2 inline-flex ${showText ? 'justify-start items-center gap-2.5 self-stretch' : 'flex-col justify-center items-center gap-1'} hover:bg-white/50 transition-colors rounded-lg`}
-              >
-                <img src="/logos/earn.svg" alt="Earn" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
-                <div className={`text-black font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'}`}>Earn</div>
-              </Link>
+                  <Link
+                    href="#"
+                    onClick={onClose}
+                    className={`px-4 py-2 inline-flex ${showText ? 'justify-start items-center gap-2.5 self-stretch' : 'flex-col justify-center items-center gap-1'} hover:bg-white/50 transition-colors rounded-lg`}
+                  >
+                    <img src="/logos/earn.svg" alt="Earn" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
+                    <div className={`text-black font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'}`}>Earn</div>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 

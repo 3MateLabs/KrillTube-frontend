@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { PaymentModal } from '@/components/modals/PaymentModal';
 
@@ -46,6 +46,67 @@ const sampleAvatars = [
   'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop', // Man avatar
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop', // Woman avatar 1
   'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop', // Man avatar 2
+];
+
+// Comment interface
+interface PhotoComment {
+  id: string;
+  author: string;
+  handle: string;
+  avatar: string;
+  content: string;
+  timestamp: string;
+  likes: number;
+  replies: number;
+  isLiked: boolean;
+}
+
+// Mock comments data (X/Twitter style)
+const mockPhotoComments: PhotoComment[] = [
+  {
+    id: '1',
+    author: 'Sarah Chen',
+    handle: '@sarahchen',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop',
+    content: 'This is absolutely stunning! The composition and lighting are perfect. Where was this taken?',
+    timestamp: '2h',
+    likes: 24,
+    replies: 3,
+    isLiked: false,
+  },
+  {
+    id: '2',
+    author: 'Alex Rivera',
+    handle: '@alexrivera',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop',
+    content: 'The colors in this shot are incredible. Really captures the mood perfectly.',
+    timestamp: '4h',
+    likes: 18,
+    replies: 1,
+    isLiked: true,
+  },
+  {
+    id: '3',
+    author: 'Maya Johnson',
+    handle: '@mayaj',
+    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop',
+    content: 'Been following your work for a while now. This might be your best yet!',
+    timestamp: '6h',
+    likes: 42,
+    replies: 5,
+    isLiked: false,
+  },
+  {
+    id: '4',
+    author: 'David Kim',
+    handle: '@davidkim',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop',
+    content: 'What camera/lens combo did you use for this? The depth of field is gorgeous.',
+    timestamp: '8h',
+    likes: 15,
+    replies: 2,
+    isLiked: false,
+  },
 ];
 
 // Mock data for photos (will be replaced with API data)
@@ -130,7 +191,43 @@ const PhotoCard = ({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isTextTruncated, setIsTextTruncated] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState(mockPhotoComments);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(57);
+  const [visibleComments, setVisibleComments] = useState(2);
   const descriptionRef = useRef<HTMLParagraphElement>(null);
+
+  const handleLikeComment = (commentId: string) => {
+    setComments(prev => prev.map(c => {
+      if (c.id === commentId) {
+        return {
+          ...c,
+          isLiked: !c.isLiked,
+          likes: c.isLiked ? c.likes - 1 : c.likes + 1
+        };
+      }
+      return c;
+    }));
+  };
+
+  const handlePostComment = () => {
+    if (!commentText.trim()) return;
+    const newComment: PhotoComment = {
+      id: Date.now().toString(),
+      author: 'You',
+      handle: '@you',
+      avatar: sampleAvatars[0],
+      content: commentText,
+      timestamp: 'now',
+      likes: 0,
+      replies: 0,
+      isLiked: false,
+    };
+    setComments(prev => [newComment, ...prev]);
+    setCommentText('');
+  };
 
   // Check if description text is actually truncated (overflows 3 lines)
   useEffect(() => {
@@ -386,7 +483,7 @@ const PhotoCard = ({
         <div className="flex items-center gap-1 text-black text-[14px] font-medium font-['Outfit'] leading-[18px]">
           <span>533 views</span>
           <span>•</span>
-          <span>57 likes</span>
+          <span>{likeCount} likes</span>
           <span>•</span>
           <span>{formatTimeAgo(photo.createdAt)}</span>
         </div>
@@ -395,20 +492,31 @@ const PhotoCard = ({
         <div className="flex items-center gap-2">
           {/* Like Button */}
           <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            className="w-10 h-10 bg-white rounded-full border-[2px] border-black shadow-[3px_3px_0px_#000000] flex items-center justify-center hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsLiked(!isLiked);
+              setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+            }}
+            className={`w-10 h-10 rounded-full border-[2px] border-black shadow-[3px_3px_0px_#000000] flex items-center justify-center hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${isLiked ? 'bg-[#EF4330]' : 'bg-white'}`}
           >
-            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill={isLiked ? 'white' : 'none'} stroke={isLiked ? 'white' : 'black'} strokeWidth="2">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
           </button>
 
           {/* Comment Button */}
           <button
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            className="w-10 h-10 bg-white rounded-full border-[2px] border-black shadow-[3px_3px_0px_#000000] flex items-center justify-center hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsCommentsOpen(!isCommentsOpen);
+            }}
+            className={`w-10 h-10 rounded-full border-[2px] border-black shadow-[3px_3px_0px_#000000] flex items-center justify-center hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px] transition-all ${isCommentsOpen ? 'bg-[#0668A6]' : 'bg-white'}`}
           >
-            <img src="/logos/comment.svg" alt="Comment" width={24} height={24} />
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke={isCommentsOpen ? 'white' : 'black'} strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
           </button>
 
           {/* Share Button */}
@@ -433,6 +541,127 @@ const PhotoCard = ({
           </button>
         </div>
       </div>
+
+      {/* X/Twitter Style Comment Section - Collapsible */}
+      {isCommentsOpen && (
+        <div className="border-t-[2px] border-black pt-4 mt-2">
+          {/* Comment Input - X style */}
+          <div className="flex gap-3 pb-4 border-b-[2px] border-black/20">
+            <img
+              src={sampleAvatars[0]}
+              alt="Your avatar"
+              className="w-10 h-10 rounded-full border-[2px] border-black flex-shrink-0"
+            />
+            <div className="flex-1">
+              <textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Post your reply"
+                className="w-full bg-transparent text-black placeholder-black/40 text-[15px] font-['Outfit'] outline-none resize-none min-h-[60px]"
+                rows={2}
+              />
+              <div className="flex justify-between items-center mt-2">
+                {/* Action icons */}
+                <div className="flex items-center gap-2">
+                  <button className="w-8 h-8 rounded-full hover:bg-[#0668A6]/10 flex items-center justify-center transition-colors">
+                    <svg className="w-5 h-5 text-[#0668A6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <button className="w-8 h-8 rounded-full hover:bg-[#0668A6]/10 flex items-center justify-center transition-colors">
+                    <svg className="w-5 h-5 text-[#0668A6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
+                {/* Reply button */}
+                <button
+                  onClick={handlePostComment}
+                  disabled={!commentText.trim()}
+                  className={`px-4 py-1.5 rounded-full text-[14px] font-bold font-['Outfit'] border-[2px] border-black shadow-[2px_2px_0px_#000000] transition-all ${
+                    commentText.trim()
+                      ? 'bg-[#0668A6] text-white hover:shadow-[1px_1px_0px_#000000] hover:translate-x-[1px] hover:translate-y-[1px]'
+                      : 'bg-[#0668A6]/50 text-white/70 cursor-not-allowed'
+                  }`}
+                >
+                  Reply
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Comments List - X style */}
+          <div className="mt-4 space-y-0">
+            {comments.slice(0, visibleComments).map((comment, index) => (
+              <div
+                key={comment.id}
+                className={`flex gap-3 py-3 ${index !== Math.min(visibleComments, comments.length) - 1 ? 'border-b border-black/10' : ''}`}
+              >
+                <img
+                  src={comment.avatar}
+                  alt={comment.author}
+                  className="w-10 h-10 rounded-full border-[2px] border-black flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  {/* Author info */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[15px] font-bold font-['Outfit'] text-black">{comment.author}</span>
+                    <span className="text-[14px] font-['Outfit'] text-black/50">{comment.handle}</span>
+                    <span className="text-[14px] font-['Outfit'] text-black/50">·</span>
+                    <span className="text-[14px] font-['Outfit'] text-black/50">{comment.timestamp}</span>
+                  </div>
+                  {/* Comment content */}
+                  <p className="text-[15px] font-['Outfit'] text-black mt-0.5 leading-[20px]">
+                    {comment.content}
+                  </p>
+                  {/* Action buttons - X style */}
+                  <div className="flex items-center gap-6 mt-2">
+                    {/* Reply */}
+                    <button className="flex items-center gap-1.5 text-black/50 hover:text-[#0668A6] transition-colors group">
+                      <div className="w-8 h-8 rounded-full group-hover:bg-[#0668A6]/10 flex items-center justify-center transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                      </div>
+                      <span className="text-[13px] font-['Outfit']">{comment.replies}</span>
+                    </button>
+                    {/* Like */}
+                    <button
+                      onClick={() => handleLikeComment(comment.id)}
+                      className={`flex items-center gap-1.5 transition-colors group ${comment.isLiked ? 'text-[#EF4330]' : 'text-black/50 hover:text-[#EF4330]'}`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${comment.isLiked ? 'bg-[#EF4330]/10' : 'group-hover:bg-[#EF4330]/10'}`}>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill={comment.isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                        </svg>
+                      </div>
+                      <span className="text-[13px] font-['Outfit']">{comment.likes}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Show more comments */}
+          {visibleComments < comments.length && (
+            <button
+              onClick={() => setVisibleComments(prev => Math.min(prev + 3, comments.length))}
+              className="w-full py-3 text-[#0668A6] text-[15px] font-semibold font-['Outfit'] hover:bg-[#0668A6]/5 transition-colors rounded-lg mt-2 border-[2px] border-[#0668A6]/20 hover:border-[#0668A6]/40"
+            >
+              Show more replies ({comments.length - visibleComments} remaining)
+            </button>
+          )}
+          {visibleComments >= comments.length && comments.length > 2 && (
+            <button
+              onClick={() => setVisibleComments(2)}
+              className="w-full py-3 text-black/50 text-[15px] font-semibold font-['Outfit'] hover:bg-black/5 transition-colors rounded-lg mt-2"
+            >
+              Show less
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -449,13 +678,13 @@ const ImageViewer = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  const goToPrevious = () => {
+  const goToPrevious = useCallback(() => {
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-  };
+  }, [images.length]);
 
-  const goToNext = () => {
+  const goToNext = useCallback(() => {
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-  };
+  }, [images.length]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -466,7 +695,7 @@ const ImageViewer = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [onClose, goToPrevious, goToNext]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center">
