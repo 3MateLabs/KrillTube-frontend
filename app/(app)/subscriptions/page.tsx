@@ -18,7 +18,7 @@ const SubscriptionCard = ({ subscription }: { subscription: Subscription }) => {
       {/* Avatar - 160x160 */}
       <div className="w-[160px] h-[160px] rounded-full flex-shrink-0 overflow-hidden -ml-[1px]">
         <img
-          src={subscription.avatarUrl || '/d3h3d.svg'}
+          src={subscription.avatarUrl || '/logos/d3h3d.svg'}
           alt={subscription.displayName}
           width={160}
           height={160}
@@ -78,7 +78,7 @@ export default function SubscriptionsPage() {
       displayName: 'Matteo.sui',
       subscriberCount: 356,
       bio: '@Eason_C13 @GiveRep We are grateful for the overwhelming support from the Sui Overflow community! @GiveRep @GiveRep',
-      avatarUrl: '/d3h3d.svg',
+      avatarUrl: '/logos/d3h3d.svg',
     },
     {
       id: '2',
@@ -86,7 +86,7 @@ export default function SubscriptionsPage() {
       displayName: 'Matteo.sui',
       subscriberCount: 356,
       bio: '@Eason_C13 @GiveRep We are grateful for the overwhelming support from the Sui Overflow community! @GiveRep @GiveRep',
-      avatarUrl: '/d3h3d.svg',
+      avatarUrl: '/logos/d3h3d.svg',
     },
     {
       id: '3',
@@ -94,7 +94,7 @@ export default function SubscriptionsPage() {
       displayName: 'Matteo.sui',
       subscriberCount: 356,
       bio: '@Eason_C13 @GiveRep We are grateful for the overwhelming support from the Sui Overflow community! @GiveRep @GiveRep',
-      avatarUrl: '/d3h3d.svg',
+      avatarUrl: '/logos/d3h3d.svg',
     },
     {
       id: '4',
@@ -102,7 +102,7 @@ export default function SubscriptionsPage() {
       displayName: 'Matteo.sui',
       subscriberCount: 356,
       bio: '@Eason_C13 @GiveRep We are grateful for the overwhelming support from the Sui Overflow community! @GiveRep @GiveRep',
-      avatarUrl: '/d3h3d.svg',
+      avatarUrl: '/logos/d3h3d.svg',
     },
     {
       id: '5',
@@ -110,7 +110,7 @@ export default function SubscriptionsPage() {
       displayName: 'Matteo.sui',
       subscriberCount: 356,
       bio: '@Eason_C13 @GiveRep We are grateful for the overwhelming support from the Sui Overflow community! @GiveRep @GiveRep',
-      avatarUrl: '/d3h3d.svg',
+      avatarUrl: '/logos/d3h3d.svg',
     },
   ]);
 

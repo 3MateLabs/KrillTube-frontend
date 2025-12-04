@@ -11,9 +11,10 @@ interface HeaderProps {
   isSidebarOpen?: boolean;
   onToggleCollapse?: () => void;
   isSidebarCollapsed?: boolean;
+  showHamburgerOnly?: boolean;
 }
 
-export function Header({ onMenuClick, isSidebarOpen = true, onToggleCollapse, isSidebarCollapsed = false }: HeaderProps) {
+export function Header({ onMenuClick, isSidebarOpen = true, onToggleCollapse, isSidebarCollapsed = false, showHamburgerOnly = false }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const pathname = usePathname();
@@ -28,9 +29,33 @@ export function Header({ onMenuClick, isSidebarOpen = true, onToggleCollapse, is
     }
   };
 
+  // Determine margin based on sidebar state
+  const getMarginClass = () => {
+    if (showHamburgerOnly) return 'ml-0';
+    if (isSidebarCollapsed) return 'ml-[160px]';
+    return 'ml-[320px]';
+  };
+
   return (
-    <header className={`fixed top-0 left-0 right-0 z-[60] w-full ${isTransparent ? '' : 'bg-[#0668A6]'}`}>
-      <div className={`flex items-center gap-12 px-8 py-5 transition-all duration-300 ${isSidebarCollapsed ? 'ml-[160px]' : 'ml-[320px]'}`}>
+    <header className="fixed top-0 left-0 right-0 z-[60] w-full">
+      <div className={`flex items-center gap-12 px-8 pt-5 transition-all duration-300 ${getMarginClass()}`}>
+        {/* Hamburger menu - only shown when sidebar is fully hidden */}
+        {showHamburgerOnly && (
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <button
+              onClick={onToggleCollapse}
+              className="p-2 bg-black rounded-[32px] shadow-[3px_3px_0_0_black] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center hover:opacity-80 transition-opacity cursor-pointer"
+            >
+              <div className="p-2 bg-black rounded-[32px] inline-flex justify-center items-center pointer-events-none">
+                <img src="/logos/hambuger.svg" alt="Menu" width={24} height={24} className="w-6 h-6" />
+              </div>
+            </button>
+            <div className="px-4 py-2 bg-black rounded-[32px] inline-flex justify-center items-center gap-1.5">
+              <img src="/logos/kril_tube_icon.png" alt="Krill Tube" width={32} height={32} className="w-8 h-8 rounded-full" />
+              <div className="justify-start text-white text-base font-bold font-['Outfit']">Krill Tube</div>
+            </div>
+          </div>
+        )}
         {/* Search Bar - Takes up most space */}
         <div className="flex-1 min-w-0">
           <form onSubmit={handleSearch} className="w-full">

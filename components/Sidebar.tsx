@@ -11,14 +11,18 @@ interface SidebarProps {
   onClose?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  hideWhenCollapsed?: boolean;
 }
 
-export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleCollapse = () => {} }: SidebarProps) {
+export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleCollapse = () => {}, hideWhenCollapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const { address, isConnected } = useWalletContext();
   const [userProfile, setUserProfile] = useState<{ name: string; avatar: string | null } | null>(null);
 
   const showText = !isCollapsed;
+
+  // If hideWhenCollapsed is true and sidebar is collapsed, hide the entire sidebar
+  const shouldHide = hideWhenCollapsed && isCollapsed;
 
   // Fetch user profile
   const fetchProfile = async () => {
@@ -88,6 +92,11 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
     if (address) return `${address.slice(0, 6)}...${address.slice(-4)}`;
     return '@EasonC13';
   };
+
+  // Don't render sidebar at all when it should be hidden
+  if (shouldHide) {
+    return null;
+  }
 
   return (
     <>
@@ -240,12 +249,25 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
               )}
 
               <Link
-                href="#"
+                href="/photos"
                 onClick={onClose}
-                className={`px-4 py-2 inline-flex ${showText ? 'justify-start items-center gap-2.5 self-stretch' : 'flex-col justify-center items-center gap-1'} hover:bg-white/50 transition-colors rounded-lg`}
+                className={`inline-flex transition-colors ${
+                  showText
+                    ? `px-4 py-2 rounded-[32px] justify-start items-center gap-2.5 self-stretch ${pathname === '/photos' ? 'bg-[#CF2C2F] outline outline-[3px] outline-offset-[-3px] outline-black' : 'hover:bg-white/50'}`
+                    : 'flex-col justify-center items-center gap-1 hover:bg-white/50 rounded-lg px-2 py-2'
+                }`}
               >
-                <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0" />
-                <div className={`text-black font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'}`}>Photos</div>
+                {!showText && pathname === '/photos' ? (
+                  <div className="px-5 py-3 bg-[#CF2C2F] rounded-[16px] outline outline-[2px] outline-offset-[-2px] outline-black flex flex-col items-center gap-1">
+                    <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className="w-6 h-6 flex-shrink-0 brightness-0 invert" />
+                    <div className="text-white font-semibold font-['Outfit'] text-xs">Photos</div>
+                  </div>
+                ) : (
+                  <>
+                    <img src="/logos/photos.svg" alt="Photos" width={24} height={24} className={`w-6 h-6 flex-shrink-0 ${pathname === '/photos' && showText ? 'brightness-0 invert' : ''}`} />
+                    <div className={`font-semibold font-['Outfit'] ${showText ? 'text-base' : 'text-xs'} ${pathname === '/photos' && showText ? 'text-white' : 'text-black'}`}>Photos</div>
+                  </>
+                )}
               </Link>
 
               <Link
@@ -396,7 +418,7 @@ export function Sidebar({ isOpen = true, onClose, isCollapsed = false, onToggleC
           ) : (
             <div className={`inline-flex items-center gap-3 transition-all duration-300 ${showText ? 'self-stretch justify-center' : 'w-full justify-center'}`}>
               <div className="w-[50px] h-[50px] flex-shrink-0">
-                <img className="w-[50px] h-[50px] rounded-full object-cover" src="/eason.svg" alt="User" width={50} height={50} />
+                <img className="w-[50px] h-[50px] rounded-full object-cover" src="/logos/eason.svg" alt="User" width={50} height={50} />
               </div>
               {showText && (
                 <div className="flex-1 h-[52px] p-2 bg-black rounded-[32px] outline outline-1 outline-offset-[-1px] outline-white inline-flex justify-center items-center">
